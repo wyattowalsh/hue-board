@@ -1,0 +1,24 @@
+export interface Settings {
+  showA:string;showB:string;paletteA:number;paletteB:number;morph:number;brightness:number;speed:number;depth:number;spread:number;energy:number;tension:number;focus:number;reverse:boolean;gradient:boolean;seed:number;topology:'ring'|'path';transitionMs:number;ownership:'yield_off'|'hold';nativeKind:'palette'|'effect';effect:string;effectSpeed:number;effectTint:boolean;
+  saturation:number;ambientFloor:number;accentMix:number;density:number;phaseOffset:number;brightnessCurve:number;directorSeconds:number;customColors:string[];sequenceIds:string[];sequenceHold:number;sequenceOrder:'forward'|'shuffle';
+}
+export interface UiPrefs {theme:'system'|'light'|'dark';motion:'system'|'reduce';favorites:string[]}
+export interface Point{x:number;y:number}
+export interface Placement {q:number;x:number;y:number;role:'wash'|'accent'|'task'|'anchor';trim:number;ceiling:number;extent:number;angle:number;stripReverse:boolean;hue?:{areaName:string;position:{x:number;y:number;z:number};positions:{x:number;y:number;z:number}[];channels:{position:{x:number;y:number;z:number}}[];projection:'xy'|'xz'|'yz';mirror:boolean;source:string;applied?:{x:number;y:number;q:number}}}
+export interface Layout{order:string[];selected:string[];placements:Record<string,Placement>;hue?:{areaId:string;areaName:string;projection:string;phaseMode:string;mirror:boolean}}
+export interface Capability{power?:boolean;minBrightness?:number|null;temperatureRange?:{min:number;max:number}|null;color:boolean;temperature:boolean;dimming:boolean;dynamic:boolean;gradient:number;effects:string[];effectsV2:boolean;streaming:boolean}
+export interface Meta{scopeId?:string;type?:string;name:string;lights:{id:string;name:string;device:string;capabilities:Capability}[]}
+export interface Frame{rgb:number[];b:number}
+export interface Reported {id:string;owner:string;on:boolean|null;brightness:number|null;xy:Point|null;kelvin:number|null;gradient:Point[];fetchedAt:number|null;missing:boolean;effect:string|null;dynamics:string|null;mode:string|null}
+export interface Target {acceptedAt:number;kind:string;action:{on?:{on:boolean};dimming?:{brightness:number};color?:{xy:Point};gradient?:{points:{color:{xy:Point}}[]}}}
+export interface Preset{id:string;name:string;category:string;description:string;settings:Partial<Settings>}
+export interface HueArea{id:string;name:string;matched:number;total:number;active:boolean;outside:number;warnings:string[];unmatched:{name:string}[]}
+export interface State {
+ meta?:Meta;navigation?:{current:string;switching:boolean;error:string;areas:{id:string;name:string;type:string;count:number}[]};capabilities?:Record<string,Capability>;manualResult?:{at:number;total:number;accepted:string[];skipped:{id:string;reason:string}[];failed:{id:string;reason:string}[]}|null;savedScenes?:{items:{id:string;name:string;count:number}[];pending:boolean;error:string;readAt:number|null};version:string;mode:string;running:boolean;native:boolean;busy:boolean;inFlight:boolean;quarantined:boolean;sent:number;t:number;note:string;error:string;settings:Settings;layout:Layout;ui:UiPrefs;systemDark:boolean|null;design:Record<string,Frame>;surge:number;
+ telemetry:{revision:number;lastRead:number|null;latencyMs:number|null;error:string;connectivityError:string;data:Record<string,Reported>;links:Record<string,{status:string;fetchedAt:number}>;targets:Record<string,Target>};
+ touched:number;session:{id:string;createdAt:number|null;legacy:boolean;recoveryRequired:boolean;archives:{id:string;createdAt:number|null;archivedAt:number}[]};ownership:Record<string,string>;failures:Record<string,{count:number;error:string}>;restoreFailures:{id:string;error:string}[];
+ hueLayouts:{pending:boolean;error:string;fetchedAt:number|null;revision:number;canUndo:boolean;areas:HueArea[]};effects:{name:string;supported:number;total:number}[];effectParams:Record<string,{effect:string;speed:boolean;color:boolean}>;stats:{latencyMs:number;horizonMs:number;writes:number;failures:number;missedDeadlines:number};logs:{at:number;kind:string;message:string;lamp:number|null}[];presets:{name:string;settings:Settings}[];rooms:{name:string;layout:Layout}[];sequence:{enabled:boolean;index:number;remaining:number;cycle:number};clock:number;
+}
+export interface Engine{shows:[string,string][];palettes:{name:string;colors:string[]}[];defaults:Settings;clean(s:Partial<Settings>):Settings;sample(t:number,q:number,s:Settings,surge?:number):Frame;css(c:number[]):string}
+export type CommandName='manual'|'switchArea'|'refreshScenes'|'applyScene'|'playPreset'|'live'|'pause'|'bridge'|'restore'|'surge'|'stopBridge'|'resumeSession'|'newSession'|'restoreArchive'|'savePreset'|'loadPreset'|'saveRoom'|'loadRoom'|'exportDiagnostics'|'exportMix'|'importMix'|'refreshHueLayout'|'importHueLayout'|'undoHueLayout'|'applyPreset'|'startSequence'|'stopSequence'|'clearYield';
+export interface Command{name:CommandName;payload?:unknown}

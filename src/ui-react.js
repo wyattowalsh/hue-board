@@ -1,0 +1,12 @@
+/** Fully bundled React WebView. No credentials, fetches, external styles, or runtime package loader. */
+function buildPage(meta,initial) {
+  const safeScript=source=>source.replace(/<\/script/gi,'<\\/script');
+  const globals='window.BOYZ_ENGINE='+makeEngine.toString()+';window.BOYZ_TELEMETRY='+makeTelemetryTools.toString()+';window.BOYZ_LAYOUT={project:'+hueProjection.toString()+',text:'+huePlacementText.toString()+'};window.BOYZ_PRESETS='+safeJSON(PRESET_LIBRARY)+';window.BOYZ_META='+safeJSON(meta)+';window.BOYZ_INITIAL='+safeJSON(initial)+';';
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'"><title>BOYZ.EXE Cyberdeck 5</title><style>${FRONTEND_CSS}</style></head><body><div id="boot" class="boot" role="status"><strong>Opening Cyberdeck</strong><p id="bootDetail">Preparing the interface. No lighting commands have been sent.</p></div><div id="root"></div><script>
+window.DECK_BOOT={ready:false,error:''};window.deckBootError=function(message){window.DECK_BOOT.error=String(message);var box=document.getElementById('boot');box.hidden=false;box.classList.add('error');document.getElementById('bootDetail').textContent=String(message)+' Close with Done and use Compatibility controls. Your pairing is unchanged.';};window.addEventListener('error',function(e){window.deckBootError(e.message||'Interface error');});window.addEventListener('unhandledrejection',function(e){window.deckBootError(String(e.reason||'Interface promise error'));});setTimeout(function(){if(!window.DECK_BOOT.ready)window.deckBootError('Interface startup did not complete.');},6500);
+${safeScript(globals)}
+(function(){var mode=window.BOYZ_INITIAL.ui&&window.BOYZ_INITIAL.ui.theme||'system';var dark=typeof window.BOYZ_INITIAL.systemDark==='boolean'?window.BOYZ_INITIAL.systemDark:matchMedia('(prefers-color-scheme: dark)').matches;var theme=mode==='system'?(dark?'dark':'light'):mode;document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;})();
+${safeScript(REACT_RUNTIME)}
+${safeScript(FRONTEND_JS)}
+</script></body></html>`;
+}
