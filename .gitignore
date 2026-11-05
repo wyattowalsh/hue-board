@@ -1,0 +1,26 @@
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*secret*.json
+*credentials*.json
+*.pem
+*.key
+
+# Dependencies and local cache
+node_modules/
+.pnpm-store/
+__pycache__/
+.pytest_cache/
+*.pyc
+.DS_Store
+
+# Browser and test artifacts
+qa/
+dist/testable.cjs
+playwright-report/
+test-results/
+coverage/
+
+# Local notes
+*.local
