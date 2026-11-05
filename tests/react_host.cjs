@@ -1,0 +1,3 @@
+const readline=require('node:readline');const {env}=require('./helpers.cjs');const e=env({count:6});
+const rl=readline.createInterface({input:process.stdin});let work=Promise.resolve();
+rl.on('line',line=>{work=work.then(async()=>{try{const m=JSON.parse(line);if(m.edit)e.ctl.update(m.edit);if(m.command)e.ctl.dispatch(m.command.name,m.command.payload);if(m.run)await e.run(m.run);else await e.step(120);await e.ctl.settled();if(m.close)await e.ctl.close();console.log(JSON.stringify({state:e.ctl.state(),writes:e.writes().length,bulbs:[...e.database.values()]}));}catch(e){console.log(JSON.stringify({error:String(e.stack)}));}})});
