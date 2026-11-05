@@ -2,7 +2,7 @@
   "name": "hue-board",
   "version": "0.1.0",
   "private": true,
-  "description": "MIT-licensed Philips Hue lighting controller and Scriptable application",
+  "description": "Intuitive Philips Hue control, immersive scenes, and spatial lighting.",
   "scripts": {
     "build:frontend": "node frontend/build.cjs",
     "build": "node frontend/build.cjs && node build.cjs",

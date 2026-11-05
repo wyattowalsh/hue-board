@@ -1,52 +1,27 @@
-# Hue Board
+<p align="center">
+  <img src="assets/readme/hero.svg" alt="Hue Board — beautiful, intuitive lighting control for Philips Hue" width="100%" />
+</p>
 
-**An unofficial, open-source Philips Hue lighting dashboard and creative scene controller.**
+<p align="center">
+  <a href="#get-started">Get started</a> · <a href="docs/v6-plan.md">What's next</a> · <a href="LICENSE">MIT license</a>
+</p>
 
-Hue Board combines everyday lighting management with a procedural scene studio. The current stable baseline is the iPhone [Scriptable](https://scriptable.app/) controller formerly named BOYZ.EXE Cyberdeck v5. The future browser, audio-reactive, and native integrations in [the v6 plan](docs/v6-plan.md) are **planned**, not represented as implemented.
+**Hue Board** is an independent, open-source control surface for **Philips Hue**. Set the mood in seconds, fine-tune individual lights, or choreograph a room-wide show.
 
-## Current capabilities
+### Get started
 
-- Per-room, per-zone and Bridge-wide power, brightness (up to 100% within fixture limits), color and color temperature.
-- Saved Hue scene browsing, static copies, and explicit Bridge-native playback where supported.
-- Procedural lighting effects and palettes, A/B blending, scene presets and cue sequences.
-- Readback from the Hue Bridge separated from requested targets and simulated design previews.
-- Read-only import of saved Hue Entertainment positions and per-fixture roles/brightness ceilings.
-- Foreground Scriptable controller with native compatibility controls, recovery, and light/dark UI preferences.
+1. Install [Scriptable](https://scriptable.app/) on your iPhone and connect to the same trusted Wi-Fi as your Hue Bridge.
+2. Open the [iPhone controller](dist/BOYZ_EXE_CYBERDECK_v5.js), copy it into a new Scriptable script, and run it.
+3. Connect your Bridge, then open **Lights** to take control.
 
-## Install on iPhone
+### Develop
 
-1. Install Scriptable and join your trusted local network with the Hue Bridge.
-2. Copy [the generated standalone script](dist/BOYZ_EXE_CYBERDECK_v5.js) into a new Scriptable script.
-3. Run it, choose the Bridge, pair with its center button if you haven't paired before, then choose **Open control deck** or **Compatibility controls**.
-4. Keep earlier versions as backups. Existing `boyzexe.hue.*` Keychain names are intentionally retained for migration.
-
-**Warning:** The current Scriptable transport relaxes certificate validation for local Hue endpoints. Use trusted Wi-Fi only. Keys remain in Scriptable's Keychain and never enter the React interface. Custom real-time shows require Scriptable in the foreground. Philips Hue and Signify are trademarks of their respective owners. Hue Board is not affiliated with or endorsed by Philips/Signify.
-
-## Source and development
-
-- `src/`: lighting engine, Hue transport, controller, telemetry, layouts, sessions, and native UI.
-- `frontend/`: React + Tailwind interface and source-owned shadcn-derived primitives.
-- `build.cjs` and `frontend/build.cjs`: produce the offline single-file Scriptable build.
-- `tests/`: deterministic unit/integration and browser-test harnesses; no access to real Hue hardware.
-- `vendor/`: MIT-licensed React runtime for offline Scriptable execution.
-- `licenses/` and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md): mandatory third-party attributions.
-
-```bash
+```sh
 corepack enable
 pnpm install --frozen-lockfile
-pnpm build
-pnpm test
-pnpm test:timing
+pnpm build && pnpm test
 ```
 
-Browser QA requires Playwright and a compatible installed browser; see [the historical validation record](docs/validation-v5.md) for coverage and known gaps. Full semantic TypeScript checking, a reproducible clean-machine `pnpm install`, physical Hue performance, and native iOS WebView remain acceptance items, not implied guarantees.
+The iPhone controller works on the local network. Custom live animations require Scriptable to remain open; browser control and sound-reactive features are [planned](docs/v6-plan.md). The current Scriptable transport relaxes local TLS validation, so use **trusted Wi-Fi only**. [Technical details](docs/validation-v5.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
 
-## Roadmap
-
-See [v6 plan](docs/v6-plan.md) for responsive browser control, isolated animated previews, progressive status, configurable sound capture, Hue Entertainment output, and optional Apple intelligence/native adapters. Those features are intentionally not yet part of this baseline.
-
-## License
-
-**MIT** for Hue Board's application code. The bundled React, shadcn-derived primitives and Tailwind assets retain their MIT notices. The prior React Bits Commons-Clause visual component was replaced with an original MIT scene surface before public publication; it is not included.
-
-See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+<sub>Unofficial project. Not affiliated with or endorsed by Signify or Philips Hue.</sub>

@@ -1,0 +1,12 @@
+{
+  "name": "hue-board-readme-art",
+  "private": true,
+  "type": "module",
+  "description": "Reproducible README banner generator",
+  "dependencies": {
+    "takumi-js": "2.19.0"
+  },
+  "scripts": {
+    "build": "node generate.mjs"
+  }
+}

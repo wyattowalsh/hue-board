@@ -1,0 +1,31 @@
+name: Render README art
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/readme-art/**
+      - .github/workflows/readme-art.yml
+permissions:
+  contents: write
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Takumi
+        working-directory: scripts/readme-art
+        run: npm install --no-audit --no-fund --package-lock=false
+      - name: Render artwork
+        working-directory: scripts/readme-art
+        run: npm run build
+      - name: Commit artwork if changed
+        run: |
+          git add assets/readme/hero.svg
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'docs: refresh Takumi README artwork [skip ci]'
+            git push
+          fi
