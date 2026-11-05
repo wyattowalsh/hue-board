@@ -1,0 +1,25 @@
+{
+  "typescript": "5.8.3",
+  "tailwind": "4.1.10",
+  "modules": [
+    "App",
+    "components/LabPanel",
+    "components/LibraryPanel",
+    "components/LightsPanel",
+    "components/MapPreview",
+    "components/PerformPanel",
+    "components/RoomPanel",
+    "components/SpotlightCard",
+    "components/ui",
+    "lib/bridge",
+    "lib/utils",
+    "main",
+    "types"
+  ],
+  "candidateCount": 818,
+  "bytes": {
+    "js": 109698,
+    "css": 32602
+  },
+  "checks": "TypeScript syntax/transpile diagnostics. Full semantic checking is separate."
+}
