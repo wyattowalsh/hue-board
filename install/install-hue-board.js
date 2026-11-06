@@ -1,10 +1,10 @@
 // Hue Board installer for Scriptable (iPhone/iPad).
-// One-time download of the pinned Hue Board 5.0.0 release.
+// One-time download of the pinned Hue Board 5.1.0 release.
 // Hue Bridge keys and saved room settings are never touched.
 
 const APP = "Hue Board";
-const VERSION = "5.0.0";
-const COMMIT = "23c0b55421b970d900b849b2b3baead2b31929b4";
+const VERSION = "5.1.0";
+const COMMIT = "fc7c59d8d64cffac40d62a2450c5bb134ca02bfe";
 const SOURCE =
   `https://raw.githubusercontent.com/wyattowalsh/hue-board/${COMMIT}/dist/hue-board.js`;
 
@@ -22,7 +22,7 @@ async function install() {
   const code = await request.loadString();
   if (
     request.response?.statusCode !== 200 ||
-    !code.startsWith("// Hue Board 5.0.0 | Standalone Scriptable controller") ||
+    !code.startsWith("// Hue Board 5.1.0 | Standalone Scriptable controller") ||
     code.length < 300000
   ) {
     throw new Error("Download did not match the expected release.");

@@ -9,7 +9,7 @@ test('installer is valid Scriptable JavaScript', () => {
   assert.doesNotThrow(() => new AsyncFunction('Request','Alert','FileManager','Script', script));
 });
 test('installer pins the published Hue Board build', () => {
-  assert.match(script, /23c0b55421b970d900b849b2b3baead2b31929b4/);
+  assert.match(script, /fc7c59d8d64cffac40d62a2450c5bb134ca02bfe/);
   assert.match(script, /dist\\/hue-board\\.js/);
   assert.match(full.slice(0, 150), /^\\/\\/ Hue Board 5\\.0\\.0/);
 });
