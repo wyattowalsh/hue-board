@@ -12,7 +12,7 @@ async def main():
   browser=await p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox'])
   page=await browser.new_page(viewport={'width':390,'height':844},color_scheme='light');page.on('pageerror',lambda e:errors.append(str(e)));page.on('request',lambda r:requests.append(r.url))
   async def load(theme='light',width=390):
-   await page.set_viewport_size({'width':width,'height':844});await page.emulate_media(color_scheme=theme,reduced_motion='no-preference');await page.set_content((OUT/'everyday-demo.html').read_text());await page.wait_for_function('()=>window.DECK_BOOT.ready');await page.evaluate('''()=>{window.__qaState=structuredClone(window.BOYZ_INITIAL);const s=window.__qaState;s.telemetry.lastRead=Date.now();Object.values(s.telemetry.data).forEach(r=>r.fetchedAt=Date.now());window.DECK.report(s);}''')
+   await page.set_viewport_size({'width':width,'height':844});await page.emulate_media(color_scheme=theme,reduced_motion='no-preference');await page.set_content((OUT/'everyday-demo.html').read_text());await page.wait_for_function('()=>window.DECK_BOOT.ready');await page.evaluate('''()=>{window.__qaState=structuredClone(window.HUE_BOARD_INITIAL);const s=window.__qaState;s.telemetry.lastRead=Date.now();Object.values(s.telemetry.data).forEach(r=>r.fetchedAt=Date.now());window.DECK.report(s);}''')
   async def packet():
    return await page.evaluate('''()=>{const p=JSON.parse(window.DECK.exchange(window.__qaState));if(p.edit)Object.assign(window.__qaState,p.edit);window.DECK.report(window.__qaState);return p;}''')
   async def report(patch):
@@ -21,7 +21,7 @@ async def main():
    await slider.fill(str(value));before=await packet();check('slider does not send while dragging '+str(value),before['command'] is None);await slider.dispatch_event('pointerup');return await packet()
   await load()
   check('default opens Lights, not animation studio',await page.get_by_role('tab',name='Lights',exact=True).get_attribute('aria-selected')=='true')
-  check('page title and rendered everyday surface',await page.title()=='BOYZ.EXE Cyberdeck 5' and await page.get_by_role('region',name='Everyday lighting').is_visible())
+  check('page title and rendered everyday surface',await page.title()=='Hue Board' and await page.get_by_role('region',name='Everyday lighting').is_visible())
   check('no light command on opening',(await packet())['command'] is None)
   check('room and zone picker includes All lights',await page.get_by_label('Room or zone',exact=True).locator('option').count()==4)
   check('mixed light inventory includes switch',await page.get_by_role('article').count()==5 and await page.get_by_role('article',name='Accent plug').is_visible())

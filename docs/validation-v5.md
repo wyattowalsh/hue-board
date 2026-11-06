@@ -1,8 +1,8 @@
-# Cyberdeck 5 validation, November 5, 2026
+# Hue Board v5 baseline validation, November 5, 2026
 
 ## Scope and evidence
 
-Built from the delivered Cyberdeck 4 source archive. The prior v4 artifact is preserved unchanged. No user's home network, Hue Bridge, actual lamp inventory or credentials were accessed. All fixture screenshots and execution tests use synthetic resources.
+Derived from the previous standalone v4 controller archive. The prior v4 artifact is preserved unchanged. No user's home network, Hue Bridge, actual lamp inventory or credentials were accessed. All fixture screenshots and execution tests use synthetic resources.
 
 The target flow is: open Lights -> choose an area -> perform an explicit light change -> read independent reported state -> switch scopes without overlapping writers -> restore the captured baseline.
 

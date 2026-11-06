@@ -2,7 +2,7 @@
 function makeWorkspaceController(cfg, groups, initialGroup, options={}) {
   const read=options.read||readObject,save=options.save||writeObject;
   const factory=options.factory||((g)=>makeController(cfg,g,options));
-  const limitKey='boyzexe.hue.fixtureLimits.v5',bridge=cfg.bridgeId||cfg.ip;
+  const limitKey=FIXTURE_LIMITS_STORE,bridge=cfg.bridgeId||cfg.ip;
   const limits=read(limitKey,{});limits[bridge]=limits[bridge]||{};
   // Conservative one-time migration. Never silently lifts an old ceiling or resets a trim.
   for(const [key,value]of Object.entries(read(V3_STORE,{}))){if(!key.startsWith(bridge+'/'))continue;

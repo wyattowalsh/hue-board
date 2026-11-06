@@ -14,9 +14,9 @@ async function http(ip,method,path,payload,key) {
   if(code>=400||details.length){const desc=details.map(v=>v.description||'Hue error').join('; ');throw new HueError(code===404?'missing':code>=500?'server':'api',desc||'Bridge request failed (HTTP '+code+').',code,details);}
   return data;
 }
-function authName(cfg){return cfg.bridgeId?'boyzexe.hue.bridgekey.'+cfg.bridgeId:AUTH_PREFIX+cfg.ip;}
+function authName(cfg){return cfg.bridgeId?'hue-board.bridgekey.'+cfg.bridgeId:AUTH_PREFIX+cfg.ip;}
 function endpoint(cfg,method,path,payload){const name=authName(cfg);if(!Keychain.contains(name))throw new HueError('auth','No saved Bridge key. Run pairing from the main menu.');return http(cfg.ip,method,'/clip/v2/resource/'+path,payload,Keychain.get(name));}
-function readConfig(){return Object.assign({orders:{}},readObject(STORAGE,{}));}
+function readConfig(){migrateLegacyState();return Object.assign({orders:{}},readObject(STORAGE,{}));}
 function saveConfig(cfg){writeObject(STORAGE,cfg);}
 async function bridgeSetup(cfg,force=false) {
   if(validIp(cfg.ip)&&!force)return true;
@@ -34,8 +34,8 @@ async function ensurePairing(cfg) {
   const publicId=typeof probe.bridgeid==='string'?probe.bridgeid.toLowerCase():null;
   if(publicId&&previous&&publicId!==previous){delete cfg.group;}
   if(publicId)cfg.bridgeId=publicId;else if(previous&&cfg.knownIp!==cfg.ip)delete cfg.bridgeId;
-  const legacy=AUTH_PREFIX+cfg.ip,canonical=authName(cfg);
-  if(!Keychain.contains(canonical)&&Keychain.contains(legacy))Keychain.set(canonical,Keychain.get(legacy));
+  const canonical=authName(cfg);
+  migrateLegacyBridgeKey(cfg);
   for(;;){if(Keychain.contains(canonical)){
       try {const result=await endpoint(cfg,'GET','bridge');const bridge=result.data?.[0];if(!bridge)throw new HueError('protocol','Bridge validation returned no bridge resource.');
         const id=typeof bridge.bridge_id==='string'?bridge.bridge_id.toLowerCase():publicId||bridge.id;
@@ -46,8 +46,8 @@ async function ensurePairing(cfg) {
         const action=await choose('Pairing required',shortError(e),['Pair using Bridge button'],'Cancel');if(action<0)return false;}
     }
     const action=await choose('Pair with the Bridge','Press its physical center button, then tap Pair now. No lights or scenes will be removed.', ['Pair now'],'Cancel');if(action<0)return false;
-    const reply=await http(cfg.ip,'POST','/api',{devicetype:'boyz_exe#iphone'});const key=reply?.[0]?.success?.username;
-    if(typeof key==='string'&&key.length>=8){Keychain.set(canonical,key);Keychain.set(legacy,key);continue;}
+    const reply=await http(cfg.ip,'POST','/api',{devicetype:'hue_board#iphone'});const key=reply?.[0]?.success?.username;
+    if(typeof key==='string'&&key.length>=8){Keychain.set(canonical,key);continue;}
     await inform('Pairing not granted',String(reply?.[0]?.error?.description||'No key returned. Press the button and try again.'));
   }
 }

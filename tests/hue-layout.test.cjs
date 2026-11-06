@@ -118,7 +118,7 @@ test('Hue layout controller: import, preservation, undo and persisted source wor
  const e=layoutEnv();await e.step();await e.ctl.layoutSettled();const before=e.ctl.state().layout;
  e.ctl.dispatch('importHueLayout',{areaId:'area1',projection:'xz',phaseMode:'z'});await e.step();await e.ctl.settled();
  let state=e.ctl.state();assert.equal(state.layout.hue.areaId,'area1');assert.equal(state.settings.topology,'path');assert.equal(state.hueLayouts.canUndo,true);assert.equal(state.mode,'paused');
- assert.equal(e.store['boyzexe.hue.cyberdeck.v3'][e.ctl.area].layout.placements.l1.hue.serviceId,'e-l1');assert.equal(e.writes().length,0);
+ assert.equal(e.store['hue-board.workspace.v3'][e.ctl.area].layout.placements.l1.hue.serviceId,'e-l1');assert.equal(e.writes().length,0);
  e.ctl.dispatch('undoHueLayout');await e.step();await e.ctl.settled();assert.deepEqual(e.ctl.state().layout,before);assert.equal(e.ctl.state().settings.topology,'ring');assert.equal(e.writes().length,0);await e.ctl.close();
 });
 test('Hue layout controller: importing during live cancels future work without rewriting restore point',async()=>{

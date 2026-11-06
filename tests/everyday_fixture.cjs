@@ -16,7 +16,7 @@ function everyday(){
  {id:'office',type:'room',name:'Office',lights:fixtures.slice(5)},
  {id:'reading',type:'zone',name:'Reading corner',lights:[fixtures[1],fixtures[3]]}];
  const group=groups[1],layout=A.cleanLayout({},group.lights);layout.placements.l1.ceiling=85;layout.placements.l2.trim=.75;layout.selected=['l1','l2','l3','l5'];
- e.store['boyzexe.hue.cyberdeck.v3']={'bridge-test/room/room1':{settings:A.ENGINE.clean({brightness:70}),layout,ui:{theme:'system',motion:'system',favorites:[]}}};
+ e.store['hue-board.workspace.v3']={'bridge-test/room/room1':{settings:A.ENGINE.clean({brightness:70}),layout,ui:{theme:'system',motion:'system',favorites:[]}}};
  const savedScenes=[{id:'saved-cozy',metadata:{name:'Evening unwind'},group:{rid:'room1',rtype:'room'},actions:[{target:{rid:'l1',rtype:'light'},action:{on:{on:true},dimming:{brightness:40},color_temperature:{mirek:400}}},{target:{rid:'l3',rtype:'light'},action:{on:{on:false}}}]},
  {id:'saved-office',metadata:{name:'Office focus'},group:{rid:'office',rtype:'room'},actions:[{target:{rid:'l6',rtype:'light'},action:{on:{on:true},dimming:{brightness:80}}}]}];
  const api=async(c,m,p,v)=>{

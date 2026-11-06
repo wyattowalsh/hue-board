@@ -1,4 +1,4 @@
-# BOYZ.EXE Cyberdeck v6: implementation plan
+# Hue Board v6: implementation plan
 
 Prepared November 5, 2026. Status: proposed implementation plan, not a new application release.
 
@@ -71,9 +71,9 @@ Pair clients using a short-lived code and revocable sessions. Never put the Hue 
 
 ### Ownership and handoff
 
-One active lighting writer per coordinated Bridge/scope within Cyberdeck. Views can be many; the authoritative controller is one. Handoff transfers the scene intent, seed, active time, caps, exclusions, journal reference, and audio-source status only after the previous writer stops launching commands. Already-sent commands may finish. Coordinate through a versioned lease/epoch and display interruption truthfully; do not promise an atomic transaction the Hue API does not supply.
+One active lighting writer per coordinated Bridge/scope within Hue Board. Views can be many; the authoritative controller is one. Handoff transfers the scene intent, seed, active time, caps, exclusions, journal reference, and audio-source status only after the previous writer stops launching commands. Already-sent commands may finish. Coordinate through a versioned lease/epoch and display interruption truthfully; do not promise an atomic transaction the Hue API does not supply.
 
-Respect independently owned Entertainment streams and external off policies. Cyberdeck's lease does not prevent another unrelated Hue application from writing.
+Respect independently owned Entertainment streams and external off policies. Hue Board's lease does not prevent another unrelated Hue application from writing.
 
 ## 3. A preview system, not animated decoration
 
@@ -216,7 +216,7 @@ Versioned releases, a readable changelog, verified artifacts, settings export/im
 
 ## 8. Repository and build plan
 
-Proposed repository name: `hue-cyberdeck`. This is a proposed name, not an existing repository claim.
+Canonical repository: `wyattowalsh/hue-board`.
 
 Use a modest pnpm workspace. Extract only actual shared boundaries:
 

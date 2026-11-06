@@ -70,8 +70,8 @@ function App() {
             React.createElement("header", { className: "app-header" },
                 React.createElement("div", null,
                     React.createElement("h1", { className: "wordmark" },
-                        "BOYZ",
-                        React.createElement("span", null, ".EXE")),
+                        "Hue",
+                        React.createElement("span", null, " Board")),
                     React.createElement("p", { className: "app-subtitle" }, "Everyday light. Extraordinary nights.")),
                 React.createElement("div", { className: "topbar-status" },
                     React.createElement("div", null, summary),
@@ -1106,13 +1106,13 @@ exports.useDeck = useDeck;
 exports.useNow = useNow;
 exports.useAppearance = useAppearance;
 const React = __importStar(require("react"));
-exports.E = window.BOYZ_ENGINE();
-exports.T = window.BOYZ_TELEMETRY();
-exports.H = window.BOYZ_LAYOUT;
-exports.PRESETS = window.BOYZ_PRESETS;
-exports.META = window.BOYZ_META;
+exports.E = window.HUE_BOARD_ENGINE();
+exports.T = window.HUE_BOARD_TELEMETRY();
+exports.H = window.HUE_BOARD_LAYOUT;
+exports.PRESETS = window.HUE_BOARD_PRESETS;
+exports.META = window.HUE_BOARD_META;
 const copy = (v) => JSON.parse(JSON.stringify(v));
-let state = window.BOYZ_INITIAL;
+let state = window.HUE_BOARD_INITIAL;
 let snapshot = { status: state, settings: copy(state.settings), layout: copy(state.layout), ui: state.ui || { theme: 'system', motion: 'system', favorites: [] }, heartbeat: Date.now() };
 let dirty = false, pending = null;
 const listeners = new Set();

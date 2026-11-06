@@ -87,7 +87,7 @@ test('area switching reuses the UI contract and creates no light writes',async()
  const e=env({count:2}),{w}=workspace(e);const before=w.state();assert.equal(before.meta.scopeId,'room/room1');w.dispatch('switchArea','zone/zone2');assert.equal(w.state().navigation.switching,true);await w.settled();assert.equal(w.state().meta.name,'Desk zone');assert.equal(w.state().layout.order.length,1);assert.equal(e.writes().length,0);assert.equal(e.cfg.group.rid,'zone2');await w.close();await e.ctl.close();
 });
 test('ceilings and trims stay shared across overlapping scopes without silent lift',async()=>{
- const e=env({count:2});e.store['boyzexe.hue.cyberdeck.v3']={'bridge-test/room/room1':{layout:{placements:{l1:{ceiling:85,trim:.7}}}}};
+ const e=env({count:2});e.store['hue-board.workspace.v3']={'bridge-test/room/room1':{layout:{placements:{l1:{ceiling:85,trim:.7}}}}};
  const {w}=workspace(e);assert.equal(w.state().layout.placements.l1.ceiling,85);w.dispatch('switchArea','all/all-lights');await w.settled();assert.equal(w.state().layout.placements.l1.ceiling,85);
  const l=w.state().layout;l.placements.l1.ceiling=100;w.update({layout:l});w.dispatch('switchArea','room/room1');await w.settled();assert.equal(w.state().layout.placements.l1.ceiling,100);assert.equal(w.state().layout.placements.l1.trim,.7);await w.close();await e.ctl.close();
 });

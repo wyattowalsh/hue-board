@@ -18,7 +18,7 @@ async def main():
    await page.set_viewport_size({'width':width,'height':844});await page.emulate_media(color_scheme=scheme,reduced_motion='no-preference')
    await page.set_content((ROOT/'qa'/html).read_text(),wait_until='load')
    await page.wait_for_function('()=>window.DECK_BOOT && window.DECK_BOOT.ready')
-   await page.evaluate('window.__host=JSON.parse(JSON.stringify(window.BOYZ_INITIAL));')
+   await page.evaluate('window.__host=JSON.parse(JSON.stringify(window.HUE_BOARD_INITIAL));')
    await sync()
   async def sync(overrides=None):
    return await page.evaluate('''(patch)=>{Object.assign(window.__host,patch||{});const h=window.__host;const now=Date.now();h.telemetry.lastRead=now;for(const r of Object.values(h.telemetry.data))r.fetchedAt=now;for(const r of Object.values(h.telemetry.links))r.fetchedAt=now;const p=JSON.parse(window.DECK.exchange(h));if(p.edit){h.settings=p.edit.settings;h.layout=p.edit.layout;h.ui=p.edit.ui;}window.DECK.report(h);return p;}''',overrides)
@@ -34,8 +34,8 @@ async def main():
   async def slider(name,value):
    await page.get_by_role('slider',name=name,exact=True).fill(str(value))
   await load()
-  check('page identity and actual React runtime',await page.title()=='BOYZ.EXE Cyberdeck 5' and await page.evaluate('React.version')=='18.2.0')
-  check('nonblank and boot-ready',await page.get_by_role('heading',name='BOYZ.EXE',exact=True).is_visible() and await page.locator('#boot').is_hidden())
+  check('page identity and actual React runtime',await page.title()=='Hue Board' and await page.evaluate('React.version')=='18.2.0')
+  check('nonblank and boot-ready',await page.get_by_role('heading',name='Hue Board',exact=True).is_visible() and await page.locator('#boot').is_hidden())
   check('light is the system default',await page.evaluate('document.documentElement.dataset.theme')=='light')
   await page.emulate_media(color_scheme='dark');await page.wait_for_function('()=>document.documentElement.dataset.theme==="dark"')
   check('live system dark change applies without reload',True)

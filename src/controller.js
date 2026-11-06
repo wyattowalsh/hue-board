@@ -5,7 +5,7 @@ function makeController(cfg,group,options={}) {
   const lights=orderedLights(cfg,group).filter(l=>typeof l.on?.on==='boolean'),byId=new Map(lights.map(l=>[l.id,l]));
   if(!lights.length)throw new HueError('validation','This area has no controllable lights.');
   const area=(cfg.bridgeId||cfg.ip)+'/'+group.type+'/'+group.id;
-  const store=read(V3_STORE,{}),legacy=read('boyzexe.hue.cyberdeck.v2',{})[cfg.ip+'/'+group.id]||{};
+  const store=read(V3_STORE,{}),legacy=read(LEGACY_KEYS.olderWorkspace,{})[cfg.ip+'/'+group.id]||{};
   const stored=store[area]||legacy;
   let layoutUndo=stored.layoutUndo?{layout:cleanLayout(stored.layoutUndo.layout,lights),topology:stored.layoutUndo.topology==='path'?'path':'ring'}:null;
   let layoutCatalog=[],layoutJob=null,layoutAttempted=false;
@@ -18,7 +18,7 @@ function makeController(cfg,group,options={}) {
   const journal=read(V3_SESSION,{});journal.current=journal.current||{};journal.history=Array.isArray(journal.history)?journal.history:[];
   let session=journal.current[area];
   if(!session||session.bridgeId!==(cfg.bridgeId||cfg.ip)||session.group!==group.id){
-    const old=read('boyzexe.hue.cyberdeck.restore.v2',{})[cfg.ip+'/'+group.id];
+    const old=read(LEGACY_KEYS.olderRestore,{})[cfg.ip+'/'+group.id];
     session={id:newId(),bridgeId:cfg.bridgeId||cfg.ip,group:group.id,groupType:group.type,createdAt:now(),states:{},delegated:{},legacy:false};
     if(old?.ip===cfg.ip&&old?.group===group.id&&Array.isArray(old.states)){
       for(const e of old.states){const l=byId.get(e.id);if(!l)continue;const action=validatedSnapshot(e.action,l);if(action)session.states[e.id]={action,capturedAt:null,touchedAt:null};}
@@ -166,7 +166,7 @@ function makeController(cfg,group,options={}) {
     // selected trim/ceiling as a conservative cap, and explain that limitation in UI.
     const level=Math.min(...animated.map(l=>Math.min(s.brightness*layoutCopy.placements[l.id].trim,layoutCopy.placements[l.id].ceiling,100)));
     const paletteIndex=s.morph<50?s.paletteA:s.paletteB;
-    const payload={metadata:{name:'BOYZ.EXE | V3 '+ENGINE.palettes[paletteIndex].name},actions,
+    const payload={metadata:{name:'Hue Board | '+ENGINE.palettes[paletteIndex].name},actions,
       palette:{color:ENGINE.getColors(s,paletteIndex).map(c=>({color:{xy:ENGINE.xy(c)},dimming:{brightness:level}})),dimming:[],color_temperature:[],effects:[]},
       speed:+clamp(.15+s.speed*.35,.1,.8).toFixed(2),auto_dynamic:true};
     let id=sceneRegistry[area]?.id;
@@ -380,7 +380,7 @@ function makeController(cfg,group,options={}) {
       effectParams:Object.fromEntries([...byId].map(([id,l])=>[id,{effect:l.effects_v2?.status?.effect,speed:finite(l.effects_v2?.status?.parameters?.speed),color:!!l.effects_v2?.status?.parameters?.color}])),
       stats:{...stats,latencyMs:Math.round(planner.latency),horizonMs:Math.round(planner.horizon),failures:totalFailures},
       logs:clone(logs),presets:clone(presets),rooms:clone(rooms),clock:now(),lastObservedAt};}
-  function diagnostics(){const s=state();return {app:'BOYZ.EXE',version:VERSION,exportedAt:new Date(now()).toISOString(),mode:s.mode,
+  function diagnostics(){const s=state();return {app:'hue-board',version:VERSION,exportedAt:new Date(now()).toISOString(),mode:s.mode,
     stats:s.stats,session:{createdAt:s.session.createdAt,legacy:s.session.legacy,entries:s.session.entries.length},
     lamps:layout.order.map((id,i)=>({number:i+1,capabilities:s.capabilities[id],ownership:s.ownership[id],failure:s.failures[id]?{count:s.failures[id].count,kind:s.failures[id].kind}:null,readAge:TELEMETRY.age(s.telemetry.data[id]?.fetchedAt,now())})),
     // Names, resource IDs, IPs, keys, payloads and raw network errors deliberately excluded.

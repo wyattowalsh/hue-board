@@ -19,7 +19,7 @@ function makeCompatibilityPanel(meta,initial) {
   function promptName(commandName){input('Save '+(commandName==='saveRoom'?'room layout':'mix'),'Choose a short name.').then(name=>{if(name)send(commandName,name);}).catch(()=>{});}
   function render(force=false){const sig=JSON.stringify({s,l,view,picker:picker?.title,mode:state.mode,busy:state.busy,error:state.error,note:state.note,session:state.session,hue:state.hueLayouts,telemetry:state.telemetry?.revision,ages:Math.floor(Date.now()/5000),command});
     if(!force&&sig===lastRender)return;lastRender=sig;table.removeAllRows();
-    text('BOYZ.EXE / 05',meta.name+' · '+(state.mode||'ready'),65);
+    text('Hue Board',meta.name+' · '+(state.mode||'ready'),65);
     if(picker){const current=picker;buttons([['Back',()=>{picker=null;render(true);}]]);text(current.title,'Select an option directly.');for(const [id,name]of current.items){const row=text(name,'',54);row.onSelect=()=>{picker=null;current.handler(id);render(true);};}table.reload();return;}
     if(state.navigation){const row=text('Room or zone',meta.name+' · tap to change');row.onSelect=()=>pick('Choose an area',state.navigation.areas.map(a=>[a.id,a.name+' · '+a.count+' lights']),id=>send('switchArea',id));}
     buttons([['Lights',()=>{view='lights';render(true);}],['Studio',()=>{view='perform';render(true);}],['Room',()=>{view='room';render(true);}],['Lab',()=>{view='lab';render(true);}]]);

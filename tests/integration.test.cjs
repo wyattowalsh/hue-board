@@ -7,9 +7,9 @@ test('headers assigned once, auth survives detached getter, redirects rejected',
 test('non-JSON 403 remains authorization rather than parser failure',async()=>{requestMock(()=>({status:403,body:'<h1>Forbidden</h1>'}));await assert.rejects(A.http('192.168.1.4','GET','/test'),e=>e.kind==='auth'&&e.status===403);});
 test('structured errors classify network, rate, missing, API and malformed replies',async()=>{for(const [status,body,kind]of [[429,'','rate'],[404,{errors:[]},'missing'],[200,{errors:[{description:'bad gradient'}]},'api'],[200,'nope','protocol'],[302,'','redirect']]){requestMock(()=>({status,body}));await assert.rejects(A.http('192.168.1.4','GET','/test'),e=>e.kind===kind);}requestMock(()=>{throw Error('timeout');});await assert.rejects(A.http('192.168.1.4','GET','/test'),e=>e.kind==='network');});
 test('private address validation prevents credential-bearing request construction',async()=>{const req=requestMock(()=>({body:{}}));for(const ip of ['8.8.8.8','127.0.0.1','192.168.1.1/evil','192.168.1.999','169.254.1.1'])await assert.rejects(A.http(ip,'GET','/x',undefined,'secret'),e=>e.kind==='validation');assert.equal(req.length,0);});
-test('legacy key reused and migrated by authenticated Bridge identity without pairing',async()=>{const store=keychain([['boyzexe.hue.key.192.168.1.4','synthetic-pairing-key']]);const shown=alerts();const req=requestMock(r=>r.url.endsWith('/api/config')?{body:{bridgeid:'AABBCC',modelid:'BSB002'}}:{body:{data:[{id:'resource-id',bridge_id:'aabbcc'}]}});const cfg={ip:'192.168.1.4'};assert.equal(await A.ensurePairing(cfg),true);assert.equal(cfg.bridgeId,'aabbcc');assert.equal(store.get('boyzexe.hue.bridgekey.aabbcc'),'synthetic-pairing-key');assert.equal(shown.length,0);assert.equal(req.filter(r=>r.method==='POST').length,0);});
-test('saved-key transport error does not invite re-pairing or erase key',async()=>{const store=keychain([['boyzexe.hue.bridgekey.aabbcc','preserve-this-key']]);const shown=alerts([-1]);const req=requestMock(r=>{if(r.url.endsWith('/api/config'))return {body:{bridgeid:'aabbcc'}};throw Error('offline');});assert.equal(await A.ensurePairing({ip:'192.168.1.4',bridgeId:'aabbcc'}),false);assert.equal(store.get('boyzexe.hue.bridgekey.aabbcc'),'preserve-this-key');assert.match(shown[0].message,/not evidence that pairing was lost/);assert.ok(!shown[0].actions.some(s=>/pair/i.test(s)));assert.equal(req.length,2);});
-test('Bridge address changes reuse canonical key but not another Bridge key',async()=>{keychain([['boyzexe.hue.bridgekey.aabbcc','correct-key']]);alerts();const req=requestMock(r=>r.url.endsWith('/api/config')?{body:{bridgeid:'aabbcc'}}:{body:{data:[{id:'id',bridge_id:'aabbcc'}]}});assert.equal(await A.ensurePairing({ip:'192.168.1.99',bridgeId:'aabbcc',knownIp:'192.168.1.4'}),true);assert.equal(req[1]._headers['hue-application-key'],'correct-key');keychain([['boyzexe.hue.bridgekey.aabbcc','wrong-key']]);alerts([-1]);const next=requestMock(()=>({body:{bridgeid:'different-bridge'}}));assert.equal(await A.ensurePairing({ip:'192.168.1.99',bridgeId:'aabbcc'}),false);assert.equal(next.length,1);});
+test('legacy key reused and migrated by authenticated Bridge identity without pairing',async()=>{const store=keychain([['boyzexe.hue.key.192.168.1.4','synthetic-pairing-key']]);const shown=alerts();const req=requestMock(r=>r.url.endsWith('/api/config')?{body:{bridgeid:'AABBCC',modelid:'BSB002'}}:{body:{data:[{id:'resource-id',bridge_id:'aabbcc'}]}});const cfg={ip:'192.168.1.4'};assert.equal(await A.ensurePairing(cfg),true);assert.equal(cfg.bridgeId,'aabbcc');assert.equal(store.get('hue-board.bridgekey.aabbcc'),'synthetic-pairing-key');assert.equal(shown.length,0);assert.equal(req.filter(r=>r.method==='POST').length,0);});
+test('saved-key transport error does not invite re-pairing or erase key',async()=>{const store=keychain([['hue-board.bridgekey.aabbcc','preserve-this-key']]);const shown=alerts([-1]);const req=requestMock(r=>{if(r.url.endsWith('/api/config'))return {body:{bridgeid:'aabbcc'}};throw Error('offline');});assert.equal(await A.ensurePairing({ip:'192.168.1.4',bridgeId:'aabbcc'}),false);assert.equal(store.get('hue-board.bridgekey.aabbcc'),'preserve-this-key');assert.match(shown[0].message,/not evidence that pairing was lost/);assert.ok(!shown[0].actions.some(s=>/pair/i.test(s)));assert.equal(req.length,2);});
+test('Bridge address changes reuse canonical key but not another Bridge key',async()=>{keychain([['hue-board.bridgekey.aabbcc','correct-key']]);alerts();const req=requestMock(r=>r.url.endsWith('/api/config')?{body:{bridgeid:'aabbcc'}}:{body:{data:[{id:'id',bridge_id:'aabbcc'}]}});assert.equal(await A.ensurePairing({ip:'192.168.1.99',bridgeId:'aabbcc',knownIp:'192.168.1.4'}),true);assert.equal(req[1]._headers['hue-application-key'],'correct-key');keychain([['hue-board.bridgekey.aabbcc','wrong-key']]);alerts([-1]);const next=requestMock(()=>({body:{bridgeid:'different-bridge'}}));assert.equal(await A.ensurePairing({ip:'192.168.1.99',bridgeId:'aabbcc'}),false);assert.equal(next.length,1);});
 test('telemetry allows one outstanding read and no late publication after close',async()=>{let resolve,count=0;const monitor=A.makeTelemetryMonitor({},[light()],()=>{count++;return new Promise(r=>resolve=r);},()=>10000);monitor.tick();await flush();for(let i=0;i<10;i++)monitor.tick();assert.equal(count,1);monitor.stop();resolve({data:[light()]});await flush();assert.equal(monitor.snapshot().lastRead,null);assert.equal(monitor.isPending(),false);});
 test('missing telemetry retains timestamp; accepted target does not become readback',async()=>{let time=1000,phase=0;const monitor=A.makeTelemetryMonitor({},[light()],async(_c,_m,p)=>({data:p==='light'?(phase++===0?[light()]:[]):[]}),()=>time);monitor.tick();await flush();const initial=monitor.snapshot().data.l1.fetchedAt;monitor.noteReply('l1',{dimming:{brightness:79}},'live',{data:[{rid:'l1'}]});assert.equal(monitor.snapshot().data.l1.brightness,45);time+=3000;monitor.tick();await flush();assert.equal(monitor.snapshot().data.l1.missing,true);assert.equal(monitor.snapshot().data.l1.fetchedAt,initial);monitor.stop();});
 class Cell{constructor(title,subtitle=''){this.title=title;this.subtitle=subtitle;}}
@@ -51,7 +51,7 @@ test('native cancelled Hue import queues no command or light write',async()=>{
 });
 
 test('inventory includes white lamps, switch-only resources, unassigned lamps and deduplicated All lights',async()=>{
- keychain([['boyzexe.hue.key.192.168.1.4','synthetic-key']]);
+ keychain([['hue-board.key.192.168.1.4','synthetic-key']]);
  const bulbs=[light('l1'),light('l2',{color:undefined}),{id:'plug',type:'light',on:{on:false},owner:{rid:'devp',rtype:'device'},metadata:{name:'Plug'}},light('loose')];
  const req=requestMock(r=>{const kind=r.url.split('/').pop();return {body:{data:{light:bulbs,device:[],room:[{id:'r',type:'room',metadata:{name:'Living'},children:[{rid:'device-l1',rtype:'device'},{rid:'devp',rtype:'device'}]}],zone:[{id:'z',type:'zone',metadata:{name:'White'},children:[{rid:'l2',rtype:'light'}]}]}[kind],errors:[]}};});
  const groups=await A.inventory({ip:'192.168.1.4'});assert.equal(groups[0].type,'all');assert.equal(groups[0].lights.length,4);assert.equal(new Set(groups[0].lights.map(l=>l.id)).size,4);assert.ok(groups.some(g=>g.id==='r'&&g.lights.some(l=>l.id==='plug')));assert.equal(groups.find(g=>g.id==='z').lights[0].capabilities.color,false);assert.equal(req.length,4);assert.ok(req.every(r=>r.method==='GET'));
@@ -61,4 +61,39 @@ test('native everyday controls issue 100 percent manual intent and retain WebVie
 });
 test('native area picker emits workspace switch and renders changed metadata',async()=>{
  const table=nativeMocks(),e=env({count:2});let state=e.ctl.state();state.meta={...e.ctl.meta,scopeId:'room/r1'};state.navigation={current:'room/r1',areas:[{id:'room/r1',name:'Living',count:2,type:'room'},{id:'room/r2',name:'Office',count:1,type:'room'}],switching:false,error:''};const panel=A.makeCompatibilityPanel(state.meta,state);findRow(table(),'Room or zone').onSelect();findRow(table(),'Office · 1 lights').onSelect();let packet=await panel.exchange(state);assert.deepEqual(packet.command,{name:'switchArea',payload:'room/r2'});state={...state,meta:{...state.meta,scopeId:'room/r2',name:'Office',lights:[state.meta.lights[0]]},layout:A.cleanLayout({},[e.group.lights[0]])};await panel.report(state);assert.ok(table().rows[0].cells[0].subtitle.includes('Office'));await e.ctl.close();
+});
+
+test('Hue Board migrates old config and persisted state without deleting or overwriting keys',()=>{
+ const map=keychain([
+   [A.LEGACY_KEYS.config,JSON.stringify({ip:'192.168.1.4',orders:{}})],
+   [A.LEGACY_KEYS.workspace,JSON.stringify({'bridge-test/room/room1':{schema:3,settings:{brightness:73}}})],
+   [A.LEGACY_KEYS.sessions,JSON.stringify({current:{}})],
+   [A.LEGACY_KEYS.scenes,JSON.stringify({owned:'scene-123'})],
+   [A.LEGACY_KEYS.fixtureLimits,JSON.stringify({test:{l1:{ceiling:85,trim:.8}}})]
+ ]);
+ const original=new Map(map);
+ const cfg=A.readConfig();
+ assert.equal(cfg.ip,'192.168.1.4');
+ for(const [target,oldKey]of [
+   ['hue-board.config.v1',A.LEGACY_KEYS.config],
+   ['hue-board.workspace.v3',A.LEGACY_KEYS.workspace],
+   ['hue-board.sessions.v3',A.LEGACY_KEYS.sessions],
+   ['hue-board.scenes.v3',A.LEGACY_KEYS.scenes],
+   ['hue-board.fixtureLimits.v5',A.LEGACY_KEYS.fixtureLimits]
+ ]){
+   assert.equal(map.get(target),original.get(oldKey));
+   assert.equal(map.get(oldKey),original.get(oldKey));
+ }
+ const newer=JSON.stringify({'bridge-test/room/room1':{schema:3,settings:{brightness:99}}});
+ map.set('hue-board.workspace.v3',newer);
+ A.migrateLegacyState();
+ assert.equal(map.get('hue-board.workspace.v3'),newer,'newer settings must not be overwritten');
+});
+
+test('Hue Board supports imported legacy mix schema while exporting modern identity',()=>{
+ const legacy=A.validatePreset({app:A.LEGACY_KEYS? 'BOYZ.EXE':'invalid',schema:3,settings:{brightness:82}});
+ assert.equal(legacy.brightness,82);
+ const modern=A.validatePreset({app:'hue-board',schema:3,settings:{brightness:100}});
+ assert.equal(modern.brightness,100);
+ assert.throws(()=>A.validatePreset({app:'unknown',schema:3,settings:{}}));
 });

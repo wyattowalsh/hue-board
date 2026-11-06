@@ -1,13 +1,14 @@
-// BOYZ.EXE / CYBERDECK 4.0.0
+// Hue Board 5.0.0
 // Bundled offline Scriptable application. Source modules and tests are in the source ZIP.
 // Local certificate checking is disabled ONLY for private IPv4 Hue endpoints.
 // Bridge readback is resource state, not a measurement of emitted light.
 const VERSION = '5.0.0';
-const STORAGE = 'boyzexe.hue.config.v1';
-const AUTH_PREFIX = 'boyzexe.hue.key.';
-const V3_STORE = 'boyzexe.hue.cyberdeck.v3';
-const V3_SESSION = 'boyzexe.hue.cyberdeck.sessions.v3';
-const V3_SCENES = 'boyzexe.hue.cyberdeck.scenes.v3';
+const STORAGE = 'hue-board.config.v1';
+const AUTH_PREFIX = 'hue-board.key.';
+const V3_STORE = 'hue-board.workspace.v3';
+const V3_SESSION = 'hue-board.sessions.v3';
+const V3_SCENES = 'hue-board.scenes.v3';
+const FIXTURE_LIMITS_STORE = 'hue-board.fixtureLimits.v5';
 const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
 const finite = v => typeof v === 'number' && Number.isFinite(v);
 const clone = v => JSON.parse(JSON.stringify(v));

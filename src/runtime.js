@@ -10,7 +10,7 @@ async function makeWebPanel(meta,initial){
     async report(next){await uiTimeout(view.evaluateJavaScript('window.DECK.report('+safeJSON(next)+');true;',false),'Updating interface');},
     async fail(message){try{await uiTimeout(view.evaluateJavaScript('window.deckBootError('+safeJSON(message)+');true;',false),'Showing error',1500);}catch(_){}}};
 }
-function validatePreset(value){if(!value||value.app!=='BOYZ.EXE'||value.schema!==3||!value.settings||typeof value.settings!=='object')throw new Error('Expected a BOYZ.EXE schema 3 mix. Nothing was imported.');return ENGINE.clean(value.settings);}
+function validatePreset(value){if(!value||!['hue-board',LEGACY_MIX_APP].includes(value.app)||value.schema!==3||!value.settings||typeof value.settings!=='object')throw new Error('Expected a Hue Board schema 3 mix. Nothing was imported.');return ENGINE.clean(value.settings);}
 async function exportDocument(name,value){const fm=FileManager.local(),path=fm.joinPath(fm.documentsDirectory(),name);fm.writeString(path,JSON.stringify(value,null,2));await ShareSheet.present([path]);}
 async function runDeck(cfg,group,kind='web',groups=[group]){
   const ctl=makeWorkspaceController(cfg,groups,group);let panel,closed=false,uiError='';
@@ -26,9 +26,9 @@ async function runDeck(cfg,group,kind='web',groups=[group]){
         // Pause before presenting a native share sheet or clipboard prompt. Never overlap auxiliary dialogs.
         ctl.dispatch('pause','Opening export/import');
         if(!auxiliary){const before=ctl.state();auxiliary=(async()=>{
-          if(command.name==='exportDiagnostics')await exportDocument('BOYZ_EXE_diagnostics.json',ctl.diagnostics());
-          else if(command.name==='exportMix')await exportDocument('BOYZ_EXE_mix.json',{app:'BOYZ.EXE',schema:3,settings:before.settings});
-          else {const value=await input('Import mix','Paste a BOYZ.EXE schema 3 JSON mix. Importing does not start lights.','');if(value!==null){const s=validatePreset(JSON.parse(value));ctl.update({settings:s,layout:ctl.state().layout});}}
+          if(command.name==='exportDiagnostics')await exportDocument('hue-board-diagnostics.json',ctl.diagnostics());
+          else if(command.name==='exportMix')await exportDocument('hue-board-mix.json',{app:'hue-board',schema:3,settings:before.settings});
+          else {const value=await input('Import mix','Paste a Hue Board schema 3 JSON mix. Importing does not start lights.','');if(value!==null){const s=validatePreset(JSON.parse(value));ctl.update({settings:s,layout:ctl.state().layout});}}
         })().catch(e=>inform('Export / import',shortError(e))).finally(()=>{auxiliary=null;});}
       }else if(command)ctl.dispatch(command.name,command.payload);
       ctl.tick(packet.hidden||!!auxiliary);
@@ -42,7 +42,7 @@ async function main(){const cfg=readConfig();if(!await bridgeSetup(cfg)||!await 
   let groups=await inventory(cfg);if(!groups.length)throw new Error('No controllable Hue lights found.');
   if(!getGroup(cfg,groups)&&!await selectGroup(cfg,groups))return;
   for(;;){const g=getGroup(cfg,groups);if(!g){if(!await selectGroup(cfg,groups))return;continue;}
-    const action=await choose('BOYZ.EXE / CYBERDECK 5',g.name+'\nYour existing pairing is reused. Do not run another BOYZ.EXE controller at the same time.',
+    const action=await choose('Hue Board',g.name+'\nYour existing pairing is reused. Do not run another Hue Board controller at the same time.',
       ['Open control deck','Compatibility controls (no WebView)','Choose room / zone','Change Bridge address','Refresh inventory'],'Exit');if(action<0)return;
     if(action<=1){try{await runDeck(cfg,g,action===1?'compatibility':'web',groups);}catch(e){await inform('Control deck',shortError(e)+'\nThe native compatibility controls remain available.');}}
     else if(action===2)await selectGroup(cfg,groups);
