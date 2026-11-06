@@ -183,7 +183,7 @@ function makeController(cfg,group,options={}) {
     persist();await paced(token);check(token);const recall=await api(cfg,'PUT','scene/'+id,{recall:{action:'dynamic_palette'}});assertAck(recall,id);sent++;
     for(const l of animated){session.delegated[l.id].acceptedAt=now();session.delegated[l.id].state='accepted';telemetry.noteReply(l.id,null,'native',recall,id);}persist();
     for(const l of chosen.filter(l=>!animated.includes(l))){check(token);const p=layoutCopy.placements[l.id],f=fixtureSample(elapsed,{...p,role:p.role==='task'?'task':'anchor'},s);await write(l.id,{...actionFromFrame(l,f,p,s,2500,true),...stopEffect(l)},'static',token);}
-    check(token);mode='delegated';note='Palette recall accepted for '+animated.length+' lamps. Lowest selected trim caps the shared palette; spatial choreography is not included.';
+    check(token);mode='delegated';note='Bridge palette accepted for '+animated.length+' lights. You may lock your phone; the Bridge continues independently. This is palette animation, not the exact Studio choreography.';
   }
   async function nativeEffect(token){
     if(recoveryRequired)throw new HueError('recovery','Resolve the saved restore point in Lab.');
@@ -270,11 +270,17 @@ function makeController(cfg,group,options={}) {
     recoveryRequired=false;activated={};held={};fromFrames={};fromGradient={};persist();note='New session. Fresh states will be captured on the next Start or Bridge handoff.';
   }
   function dispatch(command,payload=null){if(closed)return;
+    if(command==='background'||command==='backgroundPreset'){
+      if(command==='backgroundPreset'&&!PRESET_LIBRARY.some(p=>p.id===payload)){controlError='Choose a valid scene from the library.';return;}
+      const eligible=layout.order.filter(id=>layout.selected.includes(id)&&byId.get(id)?.mode!=='streaming'&&capabilities(byId.get(id)).color&&capabilities(byId.get(id)).dynamic&&!['task','anchor'].includes(layout.placements[id].role));
+      if(!['room','zone'].includes(group.type)){controlError='Choose a Hue room or zone. All lights is a local view and cannot host a Bridge scene.';return;}
+      if(!eligible.length){controlError='No selected color lights support a Bridge dynamic palette. Choose another area or try an advertised Bridge effect in Studio.';return;}
+    }
     if(command==='refreshScenes'){refreshScenes();return;}
     if(command==='manual'){let intent;try{intent=validateManualIntent(payload,byId);}catch(e){controlError=shortError(e);return;}
       pause('Applying everyday lighting. Live animation is paused.');pending={command,token:epoch,payload:intent};controlError='';mode='adjusting';return;}
     if(command==='applyScene'){pause('Applying a static copy of the saved Hue scene.');pending={command,token:epoch,payload};controlError='';mode='adjusting';return;}
-    if(command==='playPreset'){try{update({settings:applyLibraryPreset(settings,payload)});command='live';}catch(e){controlError=shortError(e);return;}}
+    if(command==='playPreset'||command==='backgroundPreset'){try{update({settings:applyLibraryPreset(settings,payload)});command=command==='backgroundPreset'?'background':'live';}catch(e){controlError=shortError(e);return;}}
     if(command==='applyPreset'){try{update({settings:applyLibraryPreset(settings,payload)});note='Preset applied without starting playback. Master brightness and room limits retained.';}catch(e){controlError=shortError(e);}return;}
     if(command==='stopSequence'){sequence.enabled=false;sequence.armed=false;note='Cue sequence stopped; the current live look continues.';return;}
     if(command==='startSequence'){
@@ -282,7 +288,7 @@ function makeController(cfg,group,options={}) {
       if(!ids.length){controlError='Add at least one valid preset to the cue sequence.';return;}
       update({settings:applyLibraryPreset({...settings,sequenceIds:ids},ids[0])},true);
       sequence={enabled:false,armed:true,index:0,cycle:0,nextAt:0};command='live';
-    } else if(['live','bridge','restore','stopBridge'].includes(command)){sequence.enabled=false;sequence.armed=false;}
+    } else if(['live','bridge','background','restore','stopBridge'].includes(command)){sequence.enabled=false;sequence.armed=false;}
 
     if(command==='refreshHueLayout'){scanHueLayouts();return;}
     if(command==='importHueLayout'){
@@ -310,7 +316,7 @@ function makeController(cfg,group,options={}) {
       const entry=journal.history.filter(v=>v.area===area).find(v=>v.session.id===payload);if(!entry)return;
       pause();const current=clone(session);session=clone(entry.session);session.delegated=session.delegated||{};for(const id of Object.keys(session.states||{})){const light=byId.get(id),action=light&&validatedSnapshot(session.states[id]?.action,light);if(action)session.states[id].action=action;else delete session.states[id];}for(const id of Object.keys(session.delegated))if(!byId.has(id))delete session.delegated[id];journal.history.push({area,archivedAt:now(),session:current});journal.history=journal.history.slice(-6);recoveryRequired=true;persist();note='Archived restore point selected. Review its timestamp before Restore.';return;
     }
-    if(!['live','bridge','restore','stopBridge'].includes(command))return;
+    if(!['live','bridge','background','restore','stopBridge'].includes(command))return;
     epoch++;pending={command,token:epoch};controlError='';mode=command==='restore'?'restoring':command==='stopBridge'?'stopping':'preparing';
     note=job?'Waiting for the already-started request; no further old work will be launched.':'Preparing '+command+'.';
   }
@@ -318,7 +324,7 @@ function makeController(cfg,group,options={}) {
       try {check(task.token);if(task.command==='importHueLayout'){importSavedHueLayout(task.payload,task.token);}
       else if(task.command==='undoHueLayout'){const previous=layoutUndo;layoutUndo=null;update({settings:{...settings,topology:previous.topology},layout:previous.layout});persistPrefs(true);note='Previous local layout restored. No light or Hue layout writes sent.';}
       else if(task.command==='manual')await manual(task.token,task.payload);else if(task.command==='applyScene')await applySavedScene(task.token,task.payload);
-      else if(task.command==='live')await startLive(task.token);else if(task.command==='bridge')await (settings.nativeKind==='effect'?nativeEffect(task.token):nativePalette(task.token));else if(task.command==='restore')await restore(task.token);else{await stopDelegated(task.token);check(task.token);mode='paused';}}
+      else if(task.command==='live')await startLive(task.token);else if(task.command==='background')await nativePalette(task.token);else if(task.command==='bridge')await (settings.nativeKind==='effect'?nativeEffect(task.token):nativePalette(task.token));else if(task.command==='restore')await restore(task.token);else{await stopDelegated(task.token);check(task.token);mode='paused';}}
       catch(e){if(errorKind(e)==='cancelled')return;if(isCurrent(task.token)){mode=Object.keys(session.delegated).length?'detached':'error';note='Action stopped. Restore points and partial handoffs are retained.';}throw e;}
     });}
   function launchFrame(){
@@ -368,7 +374,8 @@ function makeController(cfg,group,options={}) {
   }
   function state(){const telem=telemetry.snapshot(),design={};for(const l of lights)design[l.id]=desired(l.id);
     const effective={};for(const id of layout.order)effective[id]=held[id]||session.delegated[id]?.state||(mode==='live'&&layout.selected.includes(id)?'live':'uncontrolled');
-    return {version:VERSION,ui:clone(ui),sequence:{...sequence,remaining:Math.max(0,sequence.nextAt-activeSeconds)},systemDark:typeof Device!=='undefined'&&typeof Device.isUsingDarkAppearance==='function'?Device.isUsingDarkAppearance():null,mode,running:mode==='live',native:Object.keys(session.delegated).length>0,busy:!!job||!!pending,inFlight:!!job,quarantined,
+    const backgroundEligible=['room','zone'].includes(group.type)?layout.selected.filter(id=>{const l=byId.get(id);return l&&l.mode!=='streaming'&&capabilities(l).color&&capabilities(l).dynamic&&!['task','anchor'].includes(layout.placements[id].role);}).length:0;
+    return {version:VERSION,background:{available:backgroundEligible>0,count:backgroundEligible,groupType:group.type},ui:clone(ui),sequence:{...sequence,remaining:Math.max(0,sequence.nextAt-activeSeconds)},systemDark:typeof Device!=='undefined'&&typeof Device.isUsingDarkAppearance==='function'?Device.isUsingDarkAppearance():null,mode,running:mode==='live',native:Object.keys(session.delegated).length>0,busy:!!job||!!pending,inFlight:!!job,quarantined,
       sent,t:elapsed,note,error:controlError,settings:clone(settings),layout:clone(layout),design,surge:surge(),telemetry:clone(telem),
       touched:Object.values(session.states).filter(v=>v.touchedAt||session.legacy).length,
       session:{id:session.id,createdAt:session.createdAt,legacy:session.legacy,recoveryRequired,entries:Object.entries(session.states).map(([id,v])=>({id,capturedAt:v.capturedAt,touchedAt:v.touchedAt})),archives:journal.history.filter(v=>v.area===area).map(v=>({id:v.session.id,createdAt:v.session.createdAt,archivedAt:v.archivedAt}))},

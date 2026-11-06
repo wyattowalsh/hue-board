@@ -16,12 +16,12 @@ async def main():
    result=await host(packet);state=result['state'];await page.evaluate('(s)=>window.DECK.report(s)',state);return result
   assert out['writes']==0
   await page.get_by_role('tab',name='Studio',exact=True).click()
-  await page.get_by_role('button',name='Play animation',exact=True).click();r=await cycle();r=await cycle(5000);assert r['writes']>=6 and state['mode']=='live'
+  await page.get_by_role('button',name='Live · phone open',exact=True).click();r=await cycle();r=await cycle(5000);assert r['writes']>=6 and state['mode']=='live'
   await page.get_by_role('button',name='Pause / cancel',exact=True).click();r=await cycle();before=r['writes'];assert state['mode']=='paused'
   await page.get_by_role('tab',name='Settings',exact=True).click();await page.get_by_role('button',name='App & recovery',exact=True).click();await page.get_by_label('Interface theme',exact=True).select_option('light');r=await cycle();assert r['writes']==before and state['ui']['theme']=='light'
-  await page.get_by_role('tab',name='Looks',exact=True).click();await page.get_by_role('button',name='Preview Pacific Swell',exact=True).click();await cycle();assert state['settings']['showA']=='tide' and state['mode']=='paused'
+  await page.get_by_role('tab',name='Scenes',exact=True).click();await page.get_by_role('button',name='Preview Pacific Swell',exact=True).click();await cycle();assert state['settings']['showA']=='tide' and state['mode']=='paused'
   await page.get_by_text('Build a cue sequence',exact=True).click();await page.get_by_role('slider',name='Hold each cue',exact=True).fill('30');await cycle();await page.get_by_role('button',name='Start sequence and lights',exact=True).click();await cycle();await cycle(31000);assert state['sequence']['enabled'] and state['sequence']['index']==1
-  await page.get_by_role('button',name='Restore session',exact=True).click();r=await cycle();assert state['mode']=='paused' and state['touched']==0
+  await page.get_by_role('button',name='Restore',exact=True).click();r=await cycle();assert state['mode']=='paused' and state['touched']==0
   assert all(l['dimming']['brightness']==45 and l['on']['on'] for l in r['bulbs'])
   result={'passed':7,'checks':['no writes opening React view','React Start reaches real controller mock writes','React Pause reaches state machine','theme persists without writes when paused','library preset applies without starting','cue sequence advances through real controller','React Restore restores all six mock baselines'],'physicalHardware':False}
   (ROOT/'qa/v5/animation-e2e.json').write_text(json.dumps(result,indent=2));print(json.dumps(result,indent=2));await browser.close()

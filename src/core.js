@@ -1,8 +1,8 @@
-// Hue Board 5.0.0
+// Hue Board 5.1.0
 // Bundled offline Scriptable application. Source modules and tests are in the source ZIP.
 // Local certificate checking is disabled ONLY for private IPv4 Hue endpoints.
 // Bridge readback is resource state, not a measurement of emitted light.
-const VERSION = '5.0.0';
+const VERSION = '5.1.0';
 const STORAGE = 'hue-board.config.v1';
 const AUTH_PREFIX = 'hue-board.key.';
 const V3_STORE = 'hue-board.workspace.v3';

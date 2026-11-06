@@ -38,15 +38,31 @@ async function runDeck(cfg,group,kind='web',groups=[group]){
   finally{await ctl.close();}
   await presentation;if(auxiliary)await auxiliary;if(uiError)console.warn(uiError);
 }
+async function shortcutBackground(cfg,group,groups,command,presetId=null){
+  const ctl=makeWorkspaceController(cfg,groups,group,{autoDiscover:false});
+  try{
+    if(presetId&&!PRESET_LIBRARY.some(p=>p.id===presetId))throw new HueError('validation','Unknown scene preset. No lights changed.');
+    ctl.dispatch(command,presetId);ctl.tick(false);await ctl.settled();
+    const result=ctl.state();
+    if(result.error)throw new HueError('control',result.error);
+    if(command==='stopBridge'&&result.native)throw new HueError('control','Some delegated playback remains. Open the control deck to inspect.');
+    if(command!=='stopBridge'&&!result.native)throw new HueError('control',result.note||'Bridge playback could not be started.');
+    if(typeof Script.setShortcutOutput==='function')Script.setShortcutOutput(command==='stopBridge'?'Bridge stop requested':'Bridge playback accepted');
+  }finally{await ctl.close();}
+}
 async function main(){const cfg=readConfig();if(!await bridgeSetup(cfg)||!await ensurePairing(cfg))return;
   let groups=await inventory(cfg);if(!groups.length)throw new Error('No controllable Hue lights found.');
   if(!getGroup(cfg,groups)&&!await selectGroup(cfg,groups))return;
+  const shortcut=typeof args!=='undefined'&&typeof args.shortcutParameter==='string'?args.shortcutParameter.trim():'';
+  const action=shortcut==='background'?'background':shortcut==='stop-background'?'stopBridge':shortcut.startsWith('background:')?'backgroundPreset':null;
+  if(action){await shortcutBackground(cfg,getGroup(cfg,groups),groups,action,action==='backgroundPreset'?shortcut.slice('background:'.length):null);return;}
   for(;;){const g=getGroup(cfg,groups);if(!g){if(!await selectGroup(cfg,groups))return;continue;}
     const action=await choose('Hue Board',g.name+'\nYour existing pairing is reused. Do not run another Hue Board controller at the same time.',
-      ['Open control deck','Compatibility controls (no WebView)','Choose room / zone','Change Bridge address','Refresh inventory'],'Exit');if(action<0)return;
+      ['Open control deck','Compatibility controls (no WebView)','Play in background','Stop background','Choose room / zone','Change Bridge address','Refresh inventory'],'Exit');if(action<0)return;
+    if(action===2||action===3){try{await shortcutBackground(cfg,g,groups,action===2?'background':'stopBridge');await inform('Hue Board',action===2?'Bridge playback accepted. Lock your phone if you wish.':'Bridge stop accepted.');}catch(e){await inform('Playback',shortError(e));}continue;}
     if(action<=1){try{await runDeck(cfg,g,action===1?'compatibility':'web',groups);}catch(e){await inform('Control deck',shortError(e)+'\nThe native compatibility controls remain available.');}}
-    else if(action===2)await selectGroup(cfg,groups);
-    else if(action===3){if(await bridgeSetup(cfg,true)&&await ensurePairing(cfg)){groups=await inventory(cfg);if(!getGroup(cfg,groups)&&!await selectGroup(cfg,groups))return;}}
+    else if(action===4)await selectGroup(cfg,groups);
+    else if(action===5){if(await bridgeSetup(cfg,true)&&await ensurePairing(cfg)){groups=await inventory(cfg);if(!getGroup(cfg,groups)&&!await selectGroup(cfg,groups))return;}}
     else groups=await inventory(cfg);
   }
 }

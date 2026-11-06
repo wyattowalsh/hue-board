@@ -25,7 +25,7 @@ function makeCompatibilityPanel(meta,initial) {
     buttons([['Lights',()=>{view='lights';render(true);}],['Studio',()=>{view='perform';render(true);}],['Room',()=>{view='room';render(true);}],['Lab',()=>{view='lab';render(true);}]]);
     const stop=['live','preparing','adjusting','restoring','stopping'].includes(state.mode)||state.busy;
     buttons([[stop?'Pause / cancel':'Start live',()=>send(stop?'pause':'live'),stop||l.selected.length>0],
-      [state.native?'Stop Bridge':'Run on Bridge',()=>send(state.native?'stopBridge':'bridge'),state.native||l.selected.length>0],
+      [state.native?'Stop background':'Play in background',()=>send(state.native?'stopBridge':'background'),state.native||state.background?.available],
       ['Restore',()=>send('restore'),state.touched>0]],72);
     text(state.note||'Ready',state.error||'Light changes require a power, brightness, color, playback or restore action.',90);
     text('Bridge-reported state',TELEMETRY.summary(state.telemetry,Date.now())+'\nResource readback is not optical telemetry.',85);

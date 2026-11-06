@@ -22,7 +22,7 @@ test('active application, repository docs, and iPhone distribution use Hue Board
 
 test('legacy storage constants remain isolated for backward compatibility', () => {
   const { LEGACY_KEYS, migrateLegacyState, VERSION } = require('../dist/testable.cjs');
-  assert.equal(VERSION, '5.0.0');
+  assert.equal(VERSION, '5.1.0');
   assert.equal(typeof migrateLegacyState, 'function');
   assert.equal(LEGACY_KEYS.config, 'boyzexe.hue.config.v1');
 });

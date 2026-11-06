@@ -24,7 +24,7 @@ async def main():
    return await page.evaluate('''(patch)=>{Object.assign(window.__host,patch||{});const h=window.__host;const now=Date.now();h.telemetry.lastRead=now;for(const r of Object.values(h.telemetry.data))r.fetchedAt=now;for(const r of Object.values(h.telemetry.links))r.fetchedAt=now;const p=JSON.parse(window.DECK.exchange(h));if(p.edit){h.settings=p.edit.settings;h.layout=p.edit.layout;h.ui=p.edit.ui;}window.DECK.report(h);return p;}''',overrides)
   async def tab(name):
    await sync()
-   target={'Perform':'Studio','Library':'Looks','Room':'Settings','Lab':'Settings'}.get(name,name)
+   target={'Perform':'Studio','Library':'Scenes','Room':'Settings','Lab':'Settings'}.get(name,name)
    await page.get_by_role('tab',name=target,exact=True).click()
    if name in ['Room','Lab']:
     await page.get_by_role('button',name='Room setup' if name=='Room' else 'App & recovery',exact=True).click()
@@ -80,11 +80,12 @@ async def main():
   marker=page.locator('svg.room-map [role="button"]').first;await marker.focus();await page.keyboard.press('ArrowRight');packet=await sync();check('map keyboard editing sends stable position',packet['edit'] is not None)
   await tab('Lab');await page.get_by_label('Deterministic seed',exact=True).fill('222');await page.get_by_label('Edit crossfade (seconds)',exact=True).fill('7');packet=await sync();check('seed and edit crossfade wired',packet['edit']['settings']['seed']==222 and packet['edit']['settings']['transitionMs']==7000)
   await page.get_by_text('Controller events',exact=True).click();await page.get_by_role('button',name='Export redacted diagnostics',exact=True).click();packet=await sync();check('diagnostic export routes to native handler',packet['command']['name']=='exportDiagnostics')
-  await page.get_by_role('button',name='Play animation',exact=True).click();packet=await sync();check('Start dispatch',packet['command']['name']=='live')
+  await page.get_by_role('button',name='Play in background',exact=True).click();packet=await sync();check('Background button dispatches native playback',packet['command']['name']=='background')
+  await page.get_by_role('button',name='Live · phone open',exact=True).click();packet=await sync();check('Start dispatch',packet['command']['name']=='live')
   await sync({'mode':'live','running':True});await page.get_by_role('button',name='Pause / cancel',exact=True).click();packet=await sync();check('Pause dispatch while live',packet['command']['name']=='pause')
   await sync({'mode':'preparing','running':False,'busy':True,'inFlight':True});await page.get_by_role('button',name='Pause / cancel',exact=True).click();packet=await sync();check('Pause remains available during pending request',packet['command']['name']=='pause')
-  await sync({'mode':'paused','busy':False,'inFlight':False,'touched':2});await page.get_by_role('button',name='Restore session',exact=True).click();packet=await sync();check('Restore dispatch',packet['command']['name']=='restore')
-  await sync({'native':True});await page.get_by_role('button',name='Stop Bridge',exact=True).click();packet=await sync();check('delegated playback stop is explicit',packet['command']['name']=='stopBridge')
+  await sync({'mode':'paused','busy':False,'inFlight':False,'touched':2});await page.get_by_role('button',name='Restore',exact=True).click();packet=await sync();check('Restore dispatch',packet['command']['name']=='restore')
+  await sync({'native':True});await page.get_by_role('button',name='Stop background',exact=True).click();packet=await sync();check('delegated playback stop is explicit',packet['command']['name']=='stopBridge')
   await sync({'error':'Synthetic connection timeout','native':False});check('action error shown visibly',await page.get_by_role('alert').filter(has_text='Synthetic connection timeout').is_visible())
   await sync({'error':''});await tab('Perform')
   await page.evaluate('''()=>{const h=window.__host;h.telemetry.targets[h.layout.order[0]]={kind:'live',acceptedAt:Date.now(),action:{dimming:{brightness:50},color:{xy:{x:.2,y:.3}}}};window.DECK.report(h);}''')
@@ -94,7 +95,7 @@ async def main():
   await page.get_by_role('button',name='Reported',exact=True).click()
   await page.evaluate('''()=>{let s=structuredClone(window.__host);s.telemetry.lastRead=Date.now()-20000;for(const r of Object.values(s.telemetry.data))r.fetchedAt=Date.now()-20000;window.DECK.report(s);}''');check('stale readback remains explicit',await page.get_by_text('Readback is stale',exact=True).is_visible())
   await load('dark');await page.emulate_media(reduced_motion='reduce');await page.wait_for_function('()=>document.documentElement.dataset.motion==="reduce"');check('system Reduce Motion is respected',True)
-  await page.get_by_role('tab',name='Lights',exact=True).focus();await page.keyboard.press('ArrowRight');check('tab keyboard navigation',await page.get_by_role('tab',name='Looks',exact=True).get_attribute('aria-selected')=='true')
+  await page.get_by_role('tab',name='Lights',exact=True).focus();await page.keyboard.press('ArrowRight');check('tab keyboard navigation',await page.get_by_role('tab',name='Scenes',exact=True).get_attribute('aria-selected')=='true')
   await page.get_by_label('Search presets',exact=True).fill('NEVER');await page.keyboard.press('Tab');check('keyboard focus remains visible',await page.evaluate('document.activeElement!==document.body'))
   # Responsive and theme screenshot matrix. Uses production bundle and synthetic fixtures.
   for theme in ['light','dark']:
@@ -103,7 +104,7 @@ async def main():
     for section in ['Perform','Library','Room','Lab']:
      await tab(section);await page.evaluate('scrollTo(0,0)');await page.wait_for_timeout(80)
      check(f'{theme} {width} {section} has no horizontal overflow',await page.evaluate('document.documentElement.scrollWidth<=innerWidth'))
-     check(f'{theme} {width} {section} primary transport visible',await page.get_by_role('button',name='Play animation',exact=True).is_visible())
+     check(f'{theme} {width} {section} primary transport visible',await page.get_by_role('button',name='Live · phone open',exact=True).is_visible())
      if width==390 or (width==1024 and section=='Perform'):
       await page.screenshot(path=str(ROOT/f'qa/{section.lower()}-{theme}-{width}.png'),full_page=False)
   # Long content and failing startup state.

@@ -1,6 +1,6 @@
 {
   "name": "hue-board",
-  "version": "0.1.0",
+  "version": "5.1.0",
   "private": true,
   "description": "Intuitive Philips Hue control, immersive scenes, and spatial lighting.",
   "scripts": {
