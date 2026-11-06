@@ -11,8 +11,8 @@
 ### Get started
 
 1. Install [Scriptable](https://scriptable.app/) on your iPhone and connect to the same trusted Wi-Fi as your Hue Bridge.
-2. Open the [iPhone controller](dist/hue-board.js), copy it into a new Scriptable script, and run it.
-3. Connect your Bridge, then open **Lights** to take control.
+2. Create a Scriptable script, paste the [one-time installer](install/install-hue-board.js), and run it.
+3. Open **Hue Board** and connect your Bridge. Alternatively, [copy the complete controller](dist/hue-board.js) directly.
 
 ### Develop
 
