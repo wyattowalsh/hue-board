@@ -47,6 +47,68 @@ public struct HueEventBatch: Equatable, Sendable {
     }
 }
 
+public enum HueEventStreamMessage: Equatable, Sendable {
+    case connected
+    case batch(HueEventBatch)
+}
+
+public struct HueEventStreamParser: Sendable {
+    public static let maximumEventBytes = 256 * 1_024
+
+    private var dataLines: [String] = []
+    private var eventBytes = 0
+
+    public init() {}
+
+    public mutating func ingest(_ rawLine: String) throws -> HueEventBatch? {
+        let line = rawLine.last == "\r" ? String(rawLine.dropLast()) : rawLine
+        if line.isEmpty {
+            defer { reset() }
+            return try decode()
+        }
+        guard line.hasPrefix("data:") else { return nil }
+
+        let raw = line.dropFirst(5)
+        let value = String(raw.first == " " ? raw.dropFirst() : raw)
+        eventBytes += value.utf8.count + 1
+        guard eventBytes <= Self.maximumEventBytes else {
+            reset()
+            throw HueBoardError.invalidResponse(
+                "Hue event payload exceeded the 256 KiB safety limit."
+            )
+        }
+        dataLines.append(value)
+        return nil
+    }
+
+    public mutating func finish() throws -> HueEventBatch? {
+        defer { reset() }
+        return try decode()
+    }
+
+    private func decode() throws -> HueEventBatch? {
+        guard !dataLines.isEmpty else { return nil }
+        let payload = dataLines.joined(separator: "\n")
+        do {
+            let containers = try JSONDecoder().decode(
+                [HueEventContainer].self,
+                from: Data(payload.utf8)
+            )
+            return containers.isEmpty ? nil : HueEventBatch(containers: containers)
+        } catch {
+            let preview = payload.prefix(160)
+            throw HueBoardError.invalidResponse(
+                "Malformed Hue event payload: \(preview)"
+            )
+        }
+    }
+
+    private mutating func reset() {
+        dataLines.removeAll(keepingCapacity: true)
+        eventBytes = 0
+    }
+}
+
 public extension HueLight {
     func applying(_ event: HueEventResource) -> HueLight {
         guard event.type == "light", event.id == id else { return self }
