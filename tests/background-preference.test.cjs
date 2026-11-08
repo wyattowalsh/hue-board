@@ -73,3 +73,18 @@ test('loss of Bridge recall acknowledgment never claims automatic playback succe
   assert.ok(Object.values(s.delegated).every(d=>d.state==='request pending'));
   await e.ctl.close();
 });
+
+
+test('a prior dynamic Bridge status cannot confirm a recall whose receipt was lost',async()=>{
+  const e=env({count:1,apiOverride:async(c,m,p,v,basic)=>{
+    if(m==='PUT'&&p.startsWith('scene/')&&v?.recall)throw new Error('response lost');
+    return basic(c,m,p,v);
+  }});
+  e.database.get('l1').dynamics.status='dynamic_palette';
+  e.ctl.dispatch('background');await e.step();await e.ctl.settled();
+  await e.run(4000);
+  assert.equal(e.ctl.state().native,false);
+  assert.equal(e.ctl.state().background.uncertain,true);
+  assert.equal(e.ctl.state().delegated.l1.state,'request pending');
+  await e.ctl.close();
+});
