@@ -78,12 +78,22 @@ public actor HueEventStreamClient {
             guard let response = response as? HTTPURLResponse else {
                 throw HueBoardError.invalidResponse("No HTTP response for the Hue event stream.")
             }
-            guard (200..<300).contains(response.statusCode) else {
-                if response.statusCode == 401 || response.statusCode == 403 {
-                    throw HueBoardError.authorization(
-                        "Bridge rejected the event-stream application key (HTTP \(response.statusCode))."
-                    )
-                }
+            switch response.statusCode {
+            case 200..<300:
+                break
+            case 401, 403:
+                throw HueBoardError.authorization(
+                    "Bridge rejected the event-stream application key (HTTP \(response.statusCode))."
+                )
+            case 429:
+                throw HueBoardError.network(
+                    "Bridge asked the event stream to slow down (HTTP 429)."
+                )
+            case 500..<600:
+                throw HueBoardError.network(
+                    "Bridge event stream is temporarily unavailable (HTTP \(response.statusCode))."
+                )
+            default:
                 throw HueBoardError.invalidResponse(
                     "Hue event stream failed (HTTP \(response.statusCode))."
                 )
