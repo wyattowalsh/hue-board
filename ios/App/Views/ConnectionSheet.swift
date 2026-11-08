@@ -4,6 +4,7 @@ import HueBoardKit
 struct ConnectionSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @State private var confirmsDestructiveReset = false
 
     var body: some View {
         @Bindable var model = model
@@ -90,6 +91,20 @@ struct ConnectionSheet: View {
                             Label("Forget saved Bridge", systemImage: "trash")
                         }
                         .disabled(!model.canForgetBridge)
+
+                        if model.hasRestorePoint {
+                            Button(role: .destructive) {
+                                confirmsDestructiveReset = true
+                            } label: {
+                                Label("Discard recovery & forget", systemImage: "trash.slash")
+                            }
+                            .disabled(model.isBusy)
+                            Text(
+                                "This last-resort reset deletes the only saved pre-playback state. Use it only when the original Bridge cannot be recovered."
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
                     }
                 }
 
@@ -115,6 +130,20 @@ struct ConnectionSheet: View {
                         .padding(24)
                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
                 }
+            }
+            .confirmationDialog(
+                "Delete the restore baseline?",
+                isPresented: $confirmsDestructiveReset,
+                titleVisibility: .visible
+            ) {
+                Button("Discard recovery & forget Bridge", role: .destructive) {
+                    Task { await model.discardRecoveryAndForgetBridge() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text(
+                    "This permanently deletes the application key, certificate pin, scene registry, and the only saved state needed to restore lights changed by the active playback session."
+                )
             }
         }
     }
