@@ -19,6 +19,7 @@ final class HueLocalDiscovery: @unchecked Sendable {
     private var connections: [String: NWConnection] = [:]
     private var candidates: [String: HueBridgeCandidate] = [:]
     private var seenEndpoints = Set<String>()
+    private var keepAlive: Session?
     private var finished = false
 
     init(
@@ -36,6 +37,7 @@ final class HueLocalDiscovery: @unchecked Sendable {
     }
 
     func start() {
+      keepAlive = self
       browser.stateUpdateHandler = { [weak self] state in
         guard let self else { return }
         switch state {
@@ -127,12 +129,12 @@ final class HueLocalDiscovery: @unchecked Sendable {
         connection.cancel()
       }
       connections.removeAll()
-      continuation.resume(
-        returning: candidates.values.sorted {
-          if $0.host == $1.host { return $0.port < $1.port }
-          return $0.host.localizedStandardCompare($1.host) == .orderedAscending
-        }
-      )
+      let result = candidates.values.sorted {
+        if $0.host == $1.host { return $0.port < $1.port }
+        return $0.host.localizedStandardCompare($1.host) == .orderedAscending
+      }
+      continuation.resume(returning: result)
+      keepAlive = nil
     }
   }
 }
