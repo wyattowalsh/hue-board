@@ -21,11 +21,11 @@
 
 ## iPhone installation
 
-1. Install [Scriptable](https://scriptable.app/) and join the same **trusted Wi-Fi** as your Hue Bridge.
-2. Create a Scriptable script and paste the [pinned installer](install/install-hue-board.js). Run once. The installer downloads the immutable Hue Board 5.3.0 controller, verifies its SHA-256, and saves a dated backup before replacing an existing script.
-3. Run **Hue Board**, pair if requested, and choose a real Hue room or zone. **Opening the app never starts lighting by itself.**
+**Release qualification pending:** This branch implements automatic phone-free Play in source, but the published GitHub installer and checked-in `dist/` still contain **v5.2.0**. Do not use those files expecting v5.3 behavior. A new compiled bundle, immutable release SHA-256, and pinned installer must be published and checked before release.
 
-Alternatively, paste the [complete controller](dist/hue-board.js) into Scriptable. All application UI assets are bundled locally.
+For now, use the verified v5.2.0 installer from `main` or inspect the local v5.3 source candidate. The source branch is **not a new installable release**.
+
+The eventual v5.3 installation will remain Scriptable-based, require trusted Wi-Fi, preserve existing Hue credentials and baselines, and never turn lights on merely by opening the app.
 
 ## Playback and background behavior
 
@@ -42,7 +42,7 @@ Hue Bridge dynamic scenes do not run Hue Board's exact 24-pattern Studio engine.
 
 ## Develop and verify
 
-Node 22 and pnpm 10.17.1:
+For a development checkout of this *unreleased* branch, source build and tests can run, but the installer/release checks must remain blocked until the new bundle is published.\n\nNode 22 and pnpm 10.17.1:
 
 ```sh
 corepack enable
