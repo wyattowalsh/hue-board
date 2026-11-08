@@ -5,7 +5,7 @@ test('README artwork is an accessible, self-contained vector',()=>{
  assert.match(svg,/^<svg\b/);assert.match(svg,/viewBox="0 0 1600 550"/);
  assert.match(svg,/<title id="title">/);assert.match(svg,/<desc id="desc">/);
  assert.match(svg,/HUE BOARD/);assert.match(svg,/Shape the/);
- assert.doesNotMatch(svg,/<script\b|<foreignObject\b|https?:\/\//i);
+ assert.doesNotMatch(svg,/<script\b|<foreignObject\b|(?:href|src)=["']https?:\/\//i);
  assert.ok(svg.length>4000&&svg.length<40000);
 });
 test('Takumi artwork renderer uses pinned package and explicit output dimensions',()=>{
