@@ -2,6 +2,7 @@ import Foundation
 import HueBoardKit
 import Security
 
+@MainActor
 struct KeychainVault {
     private let service = "com.wyattowalsh.HueBoard"
     private let encoder = JSONEncoder()

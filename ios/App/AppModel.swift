@@ -41,8 +41,8 @@ final class AppModel {
   let contract: HueBoardContract
   let engine: JavaScriptHueEngine
 
-  @ObservationIgnored let client = HueBridgeClient()
-  @ObservationIgnored let persistence = AppPersistence.shared
+  @ObservationIgnored nonisolated let client = HueBridgeClient()
+  @ObservationIgnored nonisolated let persistence = AppPersistence.shared
   @ObservationIgnored let keychain = KeychainVault()
   @ObservationIgnored var foregroundLiveTask: Task<Void, Never>?
 

@@ -5,14 +5,18 @@ import HueBoardNativeCore
 @MainActor
 extension AppModel {
   func play(_ preset: HuePreset) async {
-    guard canPlayScene, let profile, let credential, let area = selectedArea else { return }
+    guard canPlayScene else { return }
+    guard let profile = self.profile else { return }
+    guard let credential = self.credential else { return }
+    guard let area = selectedArea else { return }
     isBusy = true
     playback.beginBridge(presetID: preset.id)
     var sceneID: HueResourceID?
     var recallAttempted = false
     defer { isBusy = false }
     do {
-      let freshAreas = try await client.inventory(profile: profile, credential: credential)
+      let freshAreas: [HueArea] = try await client.inventory(
+        profile: profile, credential: credential)
       guard let freshArea = freshAreas.first(where: { $0.id == area.id }) else {
         throw HueBoardError.missingResource("The selected area is no longer available.")
       }
@@ -51,8 +55,6 @@ extension AppModel {
       }
       guard let sceneID else { throw HueBoardError.invalidResponse("Scene identifier is missing.") }
 
-      // Scene creation/update changes only the stored Hue scene. Capture the
-      // physical light baseline at the last safe point before recall.
       try await ensureRestoreJournal(
         profile: profile,
         area: freshArea,
