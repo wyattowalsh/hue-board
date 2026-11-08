@@ -54,7 +54,9 @@ test('native app source preserves no-write-on-open and complete restore gates',(
   const connection=read('ios/App/AppModel+Connection.swift');
   const recovery=read('ios/App/AppModel+Recovery.swift');
   const everyday=read('ios/App/AppModel+Everyday.swift');
+  const bridgePlayback=read('ios/App/AppModel+BridgePlayback.swift');
   const journal=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/RestoreJournal+Capture.swift');
+  const lookup=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/HueBridgeClient+SceneLookup.swift');
   const bootstrap=connection.slice(connection.indexOf('func bootstrap()'),connection.indexOf('func discoverBridges()'));
   assert.doesNotMatch(bootstrap,/updateLight\(|recallScene\(|createScene\(|updateScene\(/);
   assert.match(model,/scene\.group\?\.resourceID == area\.id/);
@@ -64,7 +66,7 @@ test('native app source preserves no-write-on-open and complete restore gates',(
   assert.match(model,/markUncertain/);
   assert.match(model,/requiresRecovery/);
   assert.match(model,/recallAttempted/);
-  assert.match(model,/No scene recall was sent/);
+  assert.match(model,/No scene mutation or recall was sent/);
   assert.match(model,/func turnOffNow\(\)/);
   assert.match(model,/ContinuedLiveCoordinator\.shared\.cancel\(\)/);
   assert.match(model,/saved baseline is retained/);
@@ -72,7 +74,13 @@ test('native app source preserves no-write-on-open and complete restore gates',(
   assert.match(journal,/let existing = capturedLightIDs/);
   assert.match(journal,/!existing\.contains\(\$0\.id\)/);
   assert.match(everyday,/targetIDs = journal\.capturedLightIDs/);
-  assert.match(everyday,/No restorable non-streaming lights/);
+  assert.match(everyday,/No emergency-off command was accepted/);
+  assert.match(lookup,/message\.contains\("HTTP 404"\)/);
+  const captureIndex=bridgePlayback.indexOf('try await ensureRestoreJournal(');
+  const updateIndex=bridgePlayback.indexOf('try await client.updateScene(');
+  const createIndex=bridgePlayback.indexOf('sceneID = try await client.createScene(');
+  const recallIndex=bridgePlayback.indexOf('try await client.recallScene(');
+  assert.ok(captureIndex>=0&&updateIndex>captureIndex&&createIndex>captureIndex&&recallIndex>captureIndex);
 });
 
 test('native app keeps credentials out of source and in Keychain',()=>{
