@@ -173,6 +173,7 @@ extension AppModel {
         ContinuedLiveCoordinator.shared.cancel()
         defer { isBusy = false }
 
+        var credentialRemoved = false
         do {
             if !discardRecovery, try await persistence.loadRestoreJournal() != nil {
                 throw HueBoardError.unsupported(
@@ -180,6 +181,10 @@ extension AppModel {
                 )
             }
             try keychain.removeCredential(bridgeID: profile.bridgeID)
+            credentialRemoved = true
+            credential = nil
+            connectionState = .disconnected
+
             try await persistence.clearBridgeState(bridgeID: profile.bridgeID)
             resetDisconnectedState()
             note = discardRecovery
@@ -188,7 +193,12 @@ extension AppModel {
             isConnectionSheetPresented = true
         } catch {
             errorMessage = error.localizedDescription
-            if isReady { startEventMonitoring() }
+            if credentialRemoved {
+                note = "The Bridge credential was removed, but local metadata cleanup failed. No further Bridge requests will be sent; retry Forget to finish cleanup."
+                isConnectionSheetPresented = true
+            } else if isReady {
+                startEventMonitoring()
+            }
         }
     }
 
