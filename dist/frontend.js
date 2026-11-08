@@ -64,6 +64,7 @@ function App() {
         n = tabs.length - 1;
     else
         return; event.preventDefault(); selectTab(tabs[n][0]); document.getElementById('tab-' + tabs[n][0])?.focus(); }
+    const backgroundOn = ui.continueInBackground === true;
     const summary = state.mode === 'live' ? 'Live · iPhone open' : state.native ? 'Bridge · phone-free' : state.mode === 'adjusting' ? 'Applying lighting' : state.busy ? 'Working' : idle ? 'Controller idle' : 'Ready';
     return React.createElement(React.Fragment, null,
         React.createElement("main", { className: "app", "data-surface": tab },
@@ -109,6 +110,12 @@ function App() {
                 React.createElement(ui_1.Button, { variant: "ghost", size: "sm", onClick: () => bridge_1.deck.send({ name: 'stopSequence' }) }, "Keep this look")) : null,
             React.createElement("section", { role: "tabpanel", id: 'panel-' + tab, "aria-labelledby": 'tab-' + tab, tabIndex: 0, key: scopeId },
                 tab === 'lights' ? React.createElement(LightsPanel_1.LightsPanel, { state: state, layout: layout, ui: ui, onLooks: () => selectTab('library') }) : null,
+                (tab === 'library' || tab === 'perform') ? React.createElement("div", { className: "background-preference" },
+                    React.createElement("label", { className: "flex items-center gap-3 text-sm font-medium" },
+                        React.createElement("input", { type: "checkbox", className: "size-5 accent-primary", checked: backgroundOn, onChange: e => bridge_1.deck.ui({ continueInBackground: e.currentTarget.checked }) }),
+                        "Keep playing when I leave"),
+                    React.createElement("p", { className: "muted-note mt-1" }, backgroundOn ? 'Play uses a Hue Bridge palette that continues after locking. Enabling during Live starts a handoff now; wait for confirmation. Detailed choreography and cue sequences cannot continue.' : 'Play runs the detailed Studio animation while Scriptable stays open.'),
+                    backgroundOn && !state.background?.available ? React.createElement("p", { role: "status", className: "muted-note mt-1" }, "No eligible Hue dynamic-scene lights in this area. Switch to a supported room or turn this off for foreground Live.") : null) : null,
                 tab === 'library' ? React.createElement(LibraryPanel_1.LibraryPanel, { state: state, settings: settings, ui: ui }) : null,
                 tab === 'perform' ? React.createElement("div", { className: "work-area" },
                     React.createElement("aside", { className: "preview-column" },
@@ -136,10 +143,10 @@ function App() {
                     React.createElement(ui_1.Button, { size: "sm", variant: "outline", disabled: !state.touched || switching, onClick: () => bridge_1.deck.send({ name: 'restore' }) }, "Restore session"))) : React.createElement(React.Fragment, null,
                 React.createElement("div", { className: "transport-grid" },
                     React.createElement(ui_1.Button, { disabled: switching || (!state.native && !state.background?.available), onClick: () => bridge_1.deck.send({ name: state.native ? 'stopBridge' : 'background' }) }, state.native ? 'Stop background' : 'Play in background'),
-                    React.createElement(ui_1.Button, { variant: "outline", disabled: switching || (!stopping && !layout.selected.length), onClick: () => bridge_1.deck.send({ name: stopping ? 'pause' : 'live' }) }, stopping ? 'Pause / cancel' : 'Live · phone open'),
+                    React.createElement(ui_1.Button, { variant: "outline", disabled: switching || (!stopping && !layout.selected.length), onClick: () => bridge_1.deck.send({ name: stopping ? 'pause' : 'live' }) }, stopping ? 'Pause / cancel' : backgroundOn ? 'Play · phone-free' : 'Live · phone open'),
                     React.createElement(ui_1.Button, { variant: "outline", disabled: !state.touched || switching, onClick: () => bridge_1.deck.send({ name: 'restore' }) }, "Restore")),
                 React.createElement("p", { className: "mt-2 text-center text-[10px] leading-relaxed text-muted-foreground" },
-                    state.native ? 'The Hue Bridge continues without your phone.' : state.mode === 'live' ? 'Studio choreography needs Scriptable open and awake.' : 'Native playback moves your palette, not the exact spatial Studio pattern.',
+                    state.native ? 'The Hue Bridge continues without your phone.' : state.mode === 'live' ? 'Studio choreography needs Scriptable open and awake.' : backgroundOn ? 'Play starts Bridge animation before you leave.' : 'Native playback moves your palette, not the exact spatial Studio pattern.',
                     " ",
                     state.inFlight ? 'An already-sent request can still finish.' : '')))),
         newBaseline ? React.createElement(ui_1.Confirm, { title: "Start a new restore baseline?", description: "Archive the earlier point and capture fresh light states on your next action. Live playback will pause. Stop Bridge playback first if it is active.", onClose: () => setNewBaseline(false), onAccept: () => bridge_1.deck.send({ name: 'newSession' }) }) : null);
@@ -197,6 +204,10 @@ function LabPanel({ state, settings, ui, theme }) {
             "Currently ",
             theme,
             ". System mode follows iOS appearance while this screen is open. Theme changes never change your lights."),
+        React.createElement("label", { className: "flex items-center gap-3 text-sm font-medium" },
+            React.createElement("input", { type: "checkbox", disabled: !ui.continueInBackground && !state.background?.available, checked: ui.continueInBackground === true, onChange: e => bridge_1.deck.ui({ continueInBackground: e.currentTarget.checked }), className: "size-5 accent-primary" }),
+            "Keep playing when I leave"),
+        React.createElement("p", { className: "muted-note" }, "When on, Play starts Hue Bridge animation so it can continue after locking your phone. Switching this on during a live show starts a Bridge handoff now. It will not keep the exact Studio choreography or a cue sequence running."),
         React.createElement(ui_1.Select, { label: "Interface motion", value: ui.motion, options: [["system", "Respect system Reduce Motion"], ["reduce", "Always reduce interface motion"]], onChange: v => bridge_1.deck.ui({ motion: v }) }),
         React.createElement("div", { className: "two-fields" },
             React.createElement(ui_1.Field, null,
@@ -259,7 +270,7 @@ function LabPanel({ state, settings, ui, theme }) {
             React.createElement("pre", { className: "trace" }, state.logs?.length ? state.logs.slice(-30).map(l => `${new Date(l.at).toLocaleTimeString()} ${l.kind}: ${l.message}`).join('\n') : 'No controller events yet.'),
             React.createElement(ui_1.Button, { variant: "outline", onClick: () => bridge_1.deck.send({ name: 'exportDiagnostics' }) }, "Export redacted diagnostics"),
             React.createElement("p", { className: "muted-note" }, "The export omits keys, IPs, light names, resource IDs, and raw request bodies. Export/import pauses live updates.")),
-        React.createElement("p", { className: "muted-note" }, "React + Tailwind, with shadcn-derived controls and an original MIT-licensed scene surface. All runtime assets are bundled locally. Trusted Wi-Fi only: this Scriptable transport disables local Bridge certificate checking."),
+        React.createElement("p", { className: "muted-note" }, "React + Tailwind, with shadcn-derived controls and React Bits SpotlightCard. All runtime assets are bundled locally. Trusted Wi-Fi only: this Scriptable transport disables local Bridge certificate checking."),
         confirm ? React.createElement(ui_1.Confirm, { ...confirm, onAccept: confirm.accept, onClose: () => setConfirm(null) }) : null);
 }
 
@@ -313,13 +324,13 @@ function LibraryPanel({ settings, ui, state }) {
     return React.createElement("div", { className: "flex flex-col gap-5" },
         React.createElement("div", null,
             React.createElement("h2", { className: "panel-heading" }, "Find your next look."),
-            React.createElement("p", { className: "mt-2 text-sm text-muted-foreground" }, "Select a look without starting it, or let the Bridge animate its palette after your phone locks. Exact patterns need Live Studio.")),
+            React.createElement("p", { className: "mt-2 text-sm text-muted-foreground" }, "Preview a look without starting it, or press Play. Your room and brightness limits stay unchanged.")),
         React.createElement(ui_1.Input, { "aria-label": "Search presets", placeholder: "Search by mood, color, or motion", value: query, onChange: e => setQuery(e.currentTarget.value) }),
         React.createElement(ui_1.ToggleGroup, { label: "Preset category", value: category, options: ['All', 'Chill', 'Energy', 'Space', 'Warm', 'Organic'].map(c => [c, c]), onChange: setCategory, wrap: true }),
         React.createElement("div", { className: "flex flex-wrap gap-2" },
             React.createElement(ui_1.Button, { variant: favoriteOnly ? 'secondary' : 'ghost', size: "sm", "aria-pressed": favoriteOnly, onClick: () => setFavoriteOnly(!favoriteOnly) }, "Favorites")),
         React.createElement(ui_1.Fold, { title: "Build a cue sequence" },
-            React.createElement("p", { className: "muted-note" }, "Runs in the foreground. Holds use active wall time, not the speed dial. Pattern, palette, or room edits stop the sequence; the current look continues. Master brightness and interface theme can change without stopping it."),
+            React.createElement("p", { className: "muted-note" }, "Requires foreground mode (turn off Keep playing when I leave). Holds use active wall time, not the speed dial. Pattern, palette, or room edits stop the sequence; the current look continues. Master brightness and interface theme can change without stopping it."),
             React.createElement("div", { className: "flex flex-col gap-2" }, settings.sequenceIds.map((id, index) => React.createElement("div", { key: `${id}-${index}`, className: "flex items-center gap-2 rounded-xl bg-muted px-3 py-1" },
                 React.createElement("span", { className: "min-w-0 flex-1 text-sm" },
                     index + 1,
@@ -334,7 +345,8 @@ function LibraryPanel({ settings, ui, state }) {
                 "/12)"),
             React.createElement(ui_1.Range, { label: "Hold each cue", value: settings.sequenceHold, min: 30, max: 600, step: 5, unit: "s", onChange: v => bridge_1.deck.settings({ sequenceHold: v }) }),
             React.createElement(ui_1.Select, { label: "Sequence order", value: settings.sequenceOrder, options: [["forward", "In order"], ["shuffle", "Seeded shuffle; no immediate repeats"]], onChange: v => bridge_1.deck.settings({ sequenceOrder: v }) }),
-            React.createElement(ui_1.Button, { disabled: !settings.sequenceIds.length || !state.layout.selected.length, onClick: () => bridge_1.deck.send({ name: state.sequence?.enabled ? 'stopSequence' : 'startSequence' }) }, state.sequence?.enabled ? 'Stop sequence, keep this look' : 'Start sequence and lights'),
+            React.createElement(ui_1.Button, { disabled: ui.continueInBackground || !settings.sequenceIds.length || !state.layout.selected.length, onClick: () => bridge_1.deck.send({ name: state.sequence?.enabled ? 'stopSequence' : 'startSequence' }) }, state.sequence?.enabled ? 'Stop sequence, keep this look' : 'Start sequence and lights'),
+            ui.continueInBackground ? React.createElement("p", { className: "muted-note" }, "Cue sequences only run while Scriptable remains active. Turn off Keep playing when I leave to use them.") : null,
             state.sequence?.enabled ? React.createElement("p", { className: "text-sm text-primary" },
                 "Cue ",
                 state.sequence.index + 1,
@@ -358,7 +370,10 @@ function LibraryPanel({ settings, ui, state }) {
                 React.createElement(ui_1.Button, { variant: "outline", size: "sm", onClick: () => bridge_1.deck.send({ name: 'applyPreset', payload: p.id }) },
                     "Preview ",
                     p.name),
-                React.createElement(ui_1.Button, { size: "sm", disabled: !state.background?.available, onClick: () => bridge_1.deck.send({ name: 'backgroundPreset', payload: p.id }) }, "Play in background"))))),
+                React.createElement(ui_1.Button, { size: "sm", disabled: !state.layout.selected.length, onClick: () => bridge_1.deck.send({ name: 'playPreset', payload: p.id }) },
+                    ui.continueInBackground ? 'Play on Bridge' : 'Play',
+                    " ",
+                    p.name))))),
         !matches.length ? React.createElement(ui_1.Empty, null, "No matching looks. Try another search or category.") : null);
 }
 
@@ -488,6 +503,13 @@ function LightsPanel({ state, layout, ui, onLooks }) {
                         unknown ? ` · ${unknown} not read yet` : '',
                         !fresh ? ' · Waiting for current state' : '')),
                 React.createElement(ui_1.Badge, { variant: "outline" }, state.mode === 'live' ? 'Animating' : 'Everyday')),
+            React.createElement("label", { className: "mb-4 flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-muted/40 p-3 text-sm" },
+                React.createElement("input", { type: "checkbox", className: "mt-0.5 size-5 shrink-0 accent-primary", checked: ui.continueInBackground === true, disabled: !ui.continueInBackground && !state.background?.available, onChange: e => bridge_1.deck.ui({ continueInBackground: e.currentTarget.checked }) }),
+                React.createElement("span", null,
+                    React.createElement("strong", { className: "block" }, "Keep playing when I leave"),
+                    React.createElement("span", { className: "mt-1 block text-xs text-muted-foreground" }, state.background?.available
+                        ? 'Play sends compatible color animation to the Hue Bridge now, so it keeps moving after you lock your phone. Exact Studio patterns and cue sequences require an active controller.'
+                        : 'Requires a Hue room or zone with compatible dynamic color lights.'))),
             React.createElement(ui_1.ToggleGroup, { label: "Control scope", value: scope, options: [["area", `This area · ${layout.order.length}`], ["selected", `Selected · ${layout.selected.length}`]], onChange: setScope }),
             React.createElement("div", { className: "power-pair" },
                 React.createElement(ui_1.Button, { disabled: locked || !ids.length, onClick: () => send({ on: true }) },
@@ -497,12 +519,6 @@ function LightsPanel({ state, layout, ui, onLooks }) {
                     React.createElement(PowerIcon, null),
                     "Turn off")),
             dimmers.length ? React.createElement(CommitRange, { label: `Set brightness · ${dimmers.length} dimmable lights`, value: average, disabled: locked, onCommit: v => send({ on: true, brightness: v }, dimmers.map(l => l.id)) }) : null,
-            React.createElement("section", { className: "background-quick", "aria-label": "Phone-free ambient lighting" },
-                React.createElement("div", null,
-                    React.createElement("h3", { className: "text-base font-semibold" }, "Ambient light, phone-free"),
-                    React.createElement("p", { className: "muted-note mt-1" }, "Bridge-native colors keep moving after lock. Exact spatial effects need Live Studio.")),
-                React.createElement(ui_1.Button, { disabled: locked || (!state.native && !state.background?.available), onClick: () => bridge_1.deck.send({ name: state.native ? 'stopBridge' : 'background' }) }, state.native ? 'Stop ambience' : 'Play in background'),
-                !state.native && !state.background?.available ? React.createElement("p", { className: "muted-note" }, "Select a Hue room or zone with compatible color lights. The All lights view cannot host a Bridge scene.") : null),
             React.createElement("div", { className: "quick-looks", "aria-label": "Everyday presets" },
                 React.createElement(ui_1.Button, { variant: "secondary", disabled: locked || !whites.length, onClick: () => send({ on: true, kelvin: 2700, brightness: 45 }, whites.map(l => l.id)) },
                     React.createElement("span", null,
@@ -557,9 +573,9 @@ function LightsPanel({ state, layout, ui, onLooks }) {
             React.createElement("div", { className: "section-heading" },
                 React.createElement("h2", null, "Put on a light show"),
                 React.createElement(ui_1.Button, { variant: "ghost", size: "sm", onClick: onLooks }, "Browse looks")),
-            React.createElement("p", { className: "muted-note" }, "These presets use a Hue Bridge palette, not exact spatial choreography. Master brightness and fixture limits remain in place."),
-            React.createElement("div", { className: "saved-scenes" }, (favorites.length ? favorites : bridge_1.PRESETS.filter(p => ['ion-eclipse', 'deep-orbit'].includes(p.id))).map(p => React.createElement(ui_1.Button, { key: p.id, variant: "outline", disabled: locked || !state.background?.available, onClick: () => bridge_1.deck.send({ name: 'backgroundPreset', payload: p.id }) },
-                "Ambient ",
+            React.createElement("p", { className: "muted-note" }, "Play starts the current animation selection. Master brightness and lamp limits stay as you set them."),
+            React.createElement("div", { className: "saved-scenes" }, (favorites.length ? favorites : bridge_1.PRESETS.filter(p => ['ion-eclipse', 'deep-orbit'].includes(p.id))).map(p => React.createElement(ui_1.Button, { key: p.id, variant: "outline", disabled: locked || !layout.selected.length, onClick: () => bridge_1.deck.send({ name: 'playPreset', payload: p.id }) },
+                "Play ",
                 p.name)))),
         state.manualResult && (state.manualResult.skipped.length || state.manualResult.failed.length) ? React.createElement(ui_1.Alert, { title: "Some lights were not changed" }, [...state.manualResult.skipped, ...state.manualResult.failed].map(x => React.createElement("p", { key: x.id },
             lights.find(l => l.id === x.id)?.name || 'Light',
@@ -742,7 +758,7 @@ function SavedMixes({ state }) { const [name, setName] = React.useState(''), [se
     React.createElement("div", { className: "flex gap-2" },
         React.createElement(ui_1.Button, { variant: "ghost", onClick: () => bridge_1.deck.send({ name: 'exportMix' }) }, "Export JSON"),
         React.createElement(ui_1.Button, { variant: "ghost", onClick: () => bridge_1.deck.send({ name: 'importMix' }) }, "Import JSON"))); }
-function BridgePlayback({ state, settings }) { const match = Object.values(state.effectParams || {}).filter(p => p.effect === settings.effect); return React.createElement(ui_1.Fold, { title: "Advanced Bridge playback options" },
+function BridgePlayback({ state, settings }) { const match = Object.values(state.effectParams || {}).filter(p => p.effect === settings.effect); return React.createElement(ui_1.Fold, { title: "Let the Bridge take over" },
     React.createElement(ui_1.Select, { label: "Playback type", value: settings.nativeKind, options: [["palette", "Dynamic palette"], ["effect", "Advertised fixture effect"]], onChange: v => bridge_1.deck.settings({ nativeKind: v }) }),
     settings.nativeKind === 'effect' ? React.createElement(React.Fragment, null,
         React.createElement(ui_1.Select, { label: "Available effect", value: settings.effect, options: [["", "Select an advertised effect"], ...state.effects.map(e => [e.name, `${e.name} · ${e.supported}/${e.total} eligible`])], onChange: v => bridge_1.deck.settings({ effect: v }) }),
@@ -943,21 +959,21 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = SpotlightCard;
-/** MIT-licensed original scene surface for Hue Board.
- * Decorative gradients visualize a design theme, never Bridge telemetry.
- */
 const React = __importStar(require("react"));
-/** A quiet visual highlight without continuous animation or pointer tracking. */
-function SpotlightCard({ children, className = '', style, spotlightColor = 'var(--primary)', intensity = 0.12, spotlightSize = 240, theme = 'dark', disabled = false, 
-// Retain the old caller's optional props without forwarding them to the DOM.
-softness: _softness, borderGlow: _borderGlow, smoothing: _smoothing, ...rest }) {
-    const opacity = disabled ? 0 : Math.min(0.13, Math.max(0, intensity)) * (theme === 'light' ? 0.6 : 1);
-    return (React.createElement("div", { "data-hue-board-surface": "scene", className: 'relative isolate overflow-hidden rounded-2xl border bg-card text-card-foreground ' + className, style: style, ...rest },
-        !disabled && React.createElement("div", { "aria-hidden": "true", className: "pointer-events-none absolute inset-0 -z-10 rounded-[inherit]", style: {
-                background: `radial-gradient(circle ${Math.max(40, spotlightSize)}px at 25% 5%, ${spotlightColor}, transparent 95%)`,
-                opacity,
-            } }),
-        children));
+function SpotlightCard({ children, className = '', style, spotlightColor = 'var(--primary)', intensity = 0.12, spotlightSize = 240, theme = 'dark', disabled = false, softness: _softness, borderGlow: _borderGlow, smoothing: _smoothing, onPointerMove, onPointerLeave, ...props }) {
+    const ref = React.useRef(null);
+    const [point, setPoint] = React.useState(null);
+    const move = (event) => {
+        onPointerMove?.(event);
+        if (disabled || window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+            return;
+        const rect = ref.current?.getBoundingClientRect();
+        if (rect)
+            setPoint({ x: event.clientX - rect.left, y: event.clientY - rect.top });
+    };
+    return React.createElement("div", { "data-hue-board": "focus-surface", ref: ref, className: 'relative isolate overflow-hidden rounded-2xl border bg-card text-card-foreground ' + className, style: style, onPointerMove: move, onPointerLeave: event => { setPoint(null); onPointerLeave?.(event); }, ...props },
+        point && !disabled ? React.createElement("span", { "aria-hidden": "true", className: "pointer-events-none absolute inset-0 rounded-[inherit]", style: { background: `radial-gradient(circle ${Math.max(40, spotlightSize)}px at ${point.x}px ${point.y}px, color-mix(in srgb, ${spotlightColor} ${(100 * Math.min(.35, Math.max(0, intensity)) * (theme === 'light' ? .6 : 1)).toFixed(1)}%, transparent), transparent 75%)` } }) : null,
+        React.createElement("div", { className: "relative" }, children));
 }
 
 },

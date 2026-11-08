@@ -55,7 +55,19 @@ function makeController(cfg,group,options={}) {
   }
   function freezeForEdit(){const f={},g={};for(const l of lights){f[l.id]=desired(l.id);g[l.id]=gradients(l.id);}fromFrames=f;fromGradient=g;transitionAt=now();}
   function update(packet,fromSequence=false) {
-    if(packet.ui){ui=cleanUiPrefs(packet.ui);persistPrefs();}
+    if(packet.ui){
+      const previous=ui.continueInBackground;
+      ui=cleanUiPrefs(packet.ui);
+      // Handoff while still in the foreground. Waiting for document.hidden is unreliable on iOS.
+      if(!previous&&ui.continueInBackground&&mode==='live'){
+        dispatch('background');
+        if(!pending?.command||pending.command!=='background'){
+          ui.continueInBackground=false;
+          note='Bridge handoff unavailable in this area; foreground Live remains active.';
+        } else note='Handing the current look to the Hue Bridge. Keep Scriptable open until it confirms playback.';
+      }
+      persistPrefs(true);
+    }
     const nextS=ENGINE.clean(packet.settings||settings),nextL=cleanLayout(packet.layout||layout,lights);
     if(JSON.stringify(nextS)!==JSON.stringify(settings)||JSON.stringify(nextL)!==JSON.stringify(layout)){
       if(sequence.enabled&&!fromSequence&&(JSON.stringify({...settings,brightness:nextS.brightness})!==JSON.stringify(nextS)||JSON.stringify(nextL)!==JSON.stringify(layout))){sequence.enabled=false;sequence.armed=false;note='Cue sequence stopped by a manual pattern or room edit.';}
@@ -270,19 +282,22 @@ function makeController(cfg,group,options={}) {
     recoveryRequired=false;activated={};held={};fromFrames={};fromGradient={};persist();note='New session. Fresh states will be captured on the next Start or Bridge handoff.';
   }
   function dispatch(command,payload=null){if(closed)return;
+    if(command==='live'&&ui.continueInBackground)command='background';
     if(command==='background'||command==='backgroundPreset'){
       if(command==='backgroundPreset'&&!PRESET_LIBRARY.some(p=>p.id===payload)){controlError='Choose a valid scene from the library.';return;}
       const eligible=layout.order.filter(id=>layout.selected.includes(id)&&byId.get(id)?.mode!=='streaming'&&capabilities(byId.get(id)).color&&capabilities(byId.get(id)).dynamic&&!['task','anchor'].includes(layout.placements[id].role));
       if(!['room','zone'].includes(group.type)){controlError='Choose a Hue room or zone. All lights is a local view and cannot host a Bridge scene.';return;}
       if(!eligible.length){controlError='No selected color lights support a Bridge dynamic palette. Choose another area or try an advertised Bridge effect in Studio.';return;}
     }
+    if(command==='setBackgroundPreference'){update({ui:{...ui,continueInBackground:payload===true}});return;}
     if(command==='refreshScenes'){refreshScenes();return;}
     if(command==='manual'){let intent;try{intent=validateManualIntent(payload,byId);}catch(e){controlError=shortError(e);return;}
       pause('Applying everyday lighting. Live animation is paused.');pending={command,token:epoch,payload:intent};controlError='';mode='adjusting';return;}
     if(command==='applyScene'){pause('Applying a static copy of the saved Hue scene.');pending={command,token:epoch,payload};controlError='';mode='adjusting';return;}
-    if(command==='playPreset'||command==='backgroundPreset'){try{update({settings:applyLibraryPreset(settings,payload)});command=command==='backgroundPreset'?'background':'live';}catch(e){controlError=shortError(e);return;}}
+    if(command==='playPreset'||command==='backgroundPreset'){try{update({settings:applyLibraryPreset(settings,payload)});command=command==='backgroundPreset'||ui.continueInBackground?'background':'live';}catch(e){controlError=shortError(e);return;}}
     if(command==='applyPreset'){try{update({settings:applyLibraryPreset(settings,payload)});note='Preset applied without starting playback. Master brightness and room limits retained.';}catch(e){controlError=shortError(e);}return;}
     if(command==='stopSequence'){sequence.enabled=false;sequence.armed=false;note='Cue sequence stopped; the current live look continues.';return;}
+    if(command==='startSequence'&&ui.continueInBackground){controlError='Cue sequences need an active controller. Turn off Keep playing when I leave to run a sequence.';return;}
     if(command==='startSequence'){
       const ids=settings.sequenceIds.filter(id=>PRESET_LIBRARY.some(p=>p.id===id));
       if(!ids.length){controlError='Add at least one valid preset to the cue sequence.';return;}

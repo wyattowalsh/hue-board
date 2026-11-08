@@ -29,6 +29,7 @@ function makeCompatibilityPanel(meta,initial) {
       ['Restore',()=>send('restore'),state.touched>0]],72);
     text(state.note||'Ready',state.error||'Light changes require a power, brightness, color, playback or restore action.',90);
     text('Bridge-reported state',TELEMETRY.summary(state.telemetry,Date.now())+'\nResource readback is not optical telemetry.',85);
+    if(view==='perform'){const row=text('Keep playing when I leave: '+(state.ui?.continueInBackground?'On':'Off'),'On: Play starts a Bridge palette before you leave. Turning it on during Live starts a handoff now; wait for confirmation. Cues need foreground.',92);row.onSelect=()=>{send('setBackgroundPreference',!state.ui?.continueInBackground);};}
     if(view==='lights'){
       const ids=l.order.slice(),dimmers=ids.filter(id=>lamp(id).capabilities.dimming),whites=ids.filter(id=>lamp(id).capabilities.temperature);
       text('Everyday lighting','On/off, brightness, white and color. Manual actions pause the local show. Values below come from Bridge reads.',90);

@@ -16,10 +16,10 @@
     "main",
     "types"
   ],
-  "candidateCount": 829,
+  "candidateCount": 865,
   "bytes": {
-    "js": 110818,
-    "css": 33249
+    "js": 113550,
+    "css": 32907
   },
   "checks": "TypeScript syntax/transpile diagnostics. Full semantic checking is separate."
 }

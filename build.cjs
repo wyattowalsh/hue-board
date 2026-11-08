@@ -1,12 +1,13 @@
 const fs=require('node:fs'),path=require('node:path');
-const root=__dirname,files=['core','legacy','engine','presets','hue-layout','model','daily','hue','telemetry','controller','workspace','ui-react','ui-native','runtime'];
+const root=__dirname;
+const files=['core','legacy','engine','presets','hue-layout','model','daily','hue','telemetry','controller','workspace','ui-react','ui-native','runtime'];
 const assets=['REACT_RUNTIME','FRONTEND_JS','FRONTEND_CSS'].map((name,i)=>'const '+name+'='+JSON.stringify(fs.readFileSync(path.join(root,['vendor/react-runtime.js','dist/frontend.js','dist/frontend.css'][i]),'utf8'))+';').join('\n');
 const notices=['react.txt','react-dom.txt','scheduler.txt','shadcn.txt','tailwindcss.txt'].map(n=>'\n'+n+'\n'+fs.readFileSync(path.join(root,'licenses',n),'utf8')).join('\n');
-const source='// Hue Board 5.1.0 | Standalone Scriptable controller\n/* THIRD-PARTY NOTICES\n'+notices.replaceAll('*/','* /')+'\n*/\n'+assets+'\n'+files.map(n=>'\n// ===== '+n+' =====\n'+fs.readFileSync(path.join(root,'src',n+'.js'),'utf8')).join('\n');
+const source='// Hue Board 5.2.0 | Standalone Scriptable controller\n/* THIRD-PARTY NOTICES\n'+notices.replaceAll('*/','* /')+'\n*/\n'+assets+'\n'+files.map(n=>'\n// ===== '+n+' =====\n'+fs.readFileSync(path.join(root,'src',n+'.js'),'utf8')).join('\n');
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;new AsyncFunction(source);
 const out=path.join(root,'dist');fs.mkdirSync(out,{recursive:true});
 const boot='\ntry { await main(); } catch(e) { console.error(shortError(e)); await inform("Hue Board / ERROR",shortError(e)); } finally { Script.complete(); }\n';
 fs.writeFileSync(path.join(out,'hue-board.js'),source+boot);fs.writeFileSync(path.join(out,'hue-board.txt'),source+boot);
-const exportNames=['VERSION','LEGACY_KEYS','migrateLegacyState','migrateLegacyBridgeKey','readConfig','saveConfig','authName','manualAction','validateManualIntent','makeWorkspaceController','ENGINE','makeEngine','PRESET_LIBRARY','applyLibraryPreset','cleanUiPrefs','makeTelemetryTools','makeTelemetryMonitor','capabilities','cleanLayout','snapshotAction','validatedSnapshot','fixtureSample','actionFromFrame','effectAction','availableEffects','DeadlinePlanner','makeController','buildPage','makeCompatibilityPanel','http','endpoint','ensurePairing','validIp','HueError','validatePreset','safeJSON','makeWebPanel','localDeckRequest','inventory','huePosition','hueProjection','huePhase','cleanHuePlacement','huePlacementText','buildHueLayoutCatalog','fetchHueLayoutCatalog','applyHueLayout'];
+const exportNames=['VERSION','manualAction','validateManualIntent','makeWorkspaceController','ENGINE','makeEngine','PRESET_LIBRARY','applyLibraryPreset','cleanUiPrefs','makeTelemetryTools','makeTelemetryMonitor','capabilities','cleanLayout','snapshotAction','validatedSnapshot','fixtureSample','actionFromFrame','effectAction','availableEffects','DeadlinePlanner','makeController','buildPage','makeCompatibilityPanel','http','endpoint','ensurePairing','validIp','HueError','validatePreset','safeJSON','makeWebPanel','localDeckRequest','inventory','huePosition','hueProjection','huePhase','cleanHuePlacement','huePlacementText','buildHueLayoutCatalog','fetchHueLayoutCatalog','applyHueLayout'];
 fs.writeFileSync(path.join(out,'testable.cjs'),source+'\nmodule.exports={'+exportNames.join(',')+'};\n');
-console.log('Built offline controller: '+fs.statSync(path.join(out,'hue-board.js')).size+' bytes');
+console.log('Built Hue Board:',fs.statSync(path.join(out,'hue-board.js')).size,'bytes');
