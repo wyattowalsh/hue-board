@@ -10,7 +10,7 @@ public actor HueEventStreamClient {
     public func stream(
         profile: BridgeProfile,
         credential: HueBridgeCredential
-    ) -> AsyncThrowingStream<HueEventBatch, Error> {
+    ) -> AsyncThrowingStream<HueEventStreamMessage, Error> {
         AsyncThrowingStream { continuation in
             let task = Task { [weak self] in
                 guard let self else {
@@ -38,7 +38,7 @@ public actor HueEventStreamClient {
     private func consume(
         profile: BridgeProfile,
         credential: HueBridgeCredential,
-        continuation: AsyncThrowingStream<HueEventBatch, Error>.Continuation
+        continuation: AsyncThrowingStream<HueEventStreamMessage, Error>.Continuation
     ) async throws {
         guard profile.certificateSHA256 != nil else {
             throw HueBoardError.authorization(
@@ -101,21 +101,16 @@ public actor HueEventStreamClient {
                 )
             }
 
-            var dataLines: [String] = []
+            continuation.yield(.connected)
+            var parser = HueEventStreamParser()
             for try await line in bytes.lines {
                 try Task.checkCancellation()
-                if line.isEmpty {
-                    if let batch = try decode(dataLines: dataLines) {
-                        continuation.yield(batch)
-                    }
-                    dataLines.removeAll(keepingCapacity: true)
-                } else if line.hasPrefix("data:") {
-                    let raw = line.dropFirst(5)
-                    dataLines.append(String(raw.first == " " ? raw.dropFirst() : raw))
+                if let batch = try parser.ingest(line) {
+                    continuation.yield(.batch(batch))
                 }
             }
-            if let batch = try decode(dataLines: dataLines) {
-                continuation.yield(batch)
+            if let batch = try parser.finish() {
+                continuation.yield(.batch(batch))
             }
             try Task.checkCancellation()
             throw HueBoardError.network("The Hue event stream ended unexpectedly.")
@@ -136,28 +131,11 @@ public actor HueEventStreamClient {
     private func consume(
         profile: BridgeProfile,
         credential: HueBridgeCredential,
-        continuation: AsyncThrowingStream<HueEventBatch, Error>.Continuation
+        continuation: AsyncThrowingStream<HueEventStreamMessage, Error>.Continuation
     ) async throws {
         throw HueBoardError.unsupported(
             "Hue event streaming requires Apple URLSession, Security, and CryptoKit support."
         )
     }
 #endif
-
-    private func decode(dataLines: [String]) throws -> HueEventBatch? {
-        guard !dataLines.isEmpty else { return nil }
-        let payload = dataLines.joined(separator: "\n")
-        do {
-            let containers = try JSONDecoder().decode(
-                [HueEventContainer].self,
-                from: Data(payload.utf8)
-            )
-            return containers.isEmpty ? nil : HueEventBatch(containers: containers)
-        } catch {
-            let preview = payload.prefix(160)
-            throw HueBoardError.invalidResponse(
-                "Malformed Hue event payload: \(preview)"
-            )
-        }
-    }
 }
