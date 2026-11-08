@@ -1,0 +1,113 @@
+{
+  "schema": 1,
+  "release": "5.3.0",
+  "algorithm": "sha256",
+  "numberFormat": "fixed-12-posix",
+  "brightness": 72,
+  "seed": 731,
+  "topology": "ring",
+  "times": [
+    0,
+    7.25,
+    31.5,
+    83.125
+  ],
+  "positions": [
+    0,
+    0.125,
+    0.5,
+    0.875
+  ],
+  "caseCount": 512,
+  "sha256": "625efe90e7efe914fec46235510cbae85944aa22a8a395b3c4331e874756334a",
+  "anchors": [
+    {
+      "preset": "ion-eclipse",
+      "time": 0,
+      "position": 0,
+      "rgb": [
+        0.046314011381,
+        0.209743359624,
+        0.741604203701
+      ],
+      "brightness": 31.541258221454
+    },
+    {
+      "preset": "ion-eclipse",
+      "time": 0,
+      "position": 0.125,
+      "rgb": [
+        0.046536654623,
+        0.209324447545,
+        0.741473618152
+      ],
+      "brightness": 31.525281468665
+    },
+    {
+      "preset": "ion-eclipse",
+      "time": 0,
+      "position": 0.5,
+      "rgb": [
+        0,
+        0.479085254774,
+        0.838419826407
+      ],
+      "brightness": 44.847534063329
+    },
+    {
+      "preset": "ion-eclipse",
+      "time": 0,
+      "position": 0.875,
+      "rgb": [
+        0.033669340675,
+        0.231455845052,
+        0.748543381961
+      ],
+      "brightness": 32.396597963958
+    },
+    {
+      "preset": "control-room",
+      "time": 83.125,
+      "position": 0,
+      "rgb": [
+        0,
+        0.500420665185,
+        0.847934200003
+      ],
+      "brightness": 42.077088
+    },
+    {
+      "preset": "control-room",
+      "time": 83.125,
+      "position": 0.125,
+      "rgb": [
+        0,
+        0.575002007086,
+        0.874892961646
+      ],
+      "brightness": 44.906963279434
+    },
+    {
+      "preset": "control-room",
+      "time": 83.125,
+      "position": 0.5,
+      "rgb": [
+        0,
+        0.500420665185,
+        0.847934200003
+      ],
+      "brightness": 42.077088
+    },
+    {
+      "preset": "control-room",
+      "time": 83.125,
+      "position": 0.875,
+      "rgb": [
+        0,
+        0.421254478769,
+        0.818550514401
+      ],
+      "brightness": 39.247212720566
+    }
+  ]
+}

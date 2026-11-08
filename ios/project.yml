@@ -1,0 +1,44 @@
+name: HueBoard
+options:
+  minimumXcodeGenVersion: 2.46.0
+  deploymentTarget:
+    iOS: "18.0"
+  defaultConfig: Debug
+  createIntermediateGroups: true
+packages:
+  HueBoardKit:
+    path: Packages/HueBoardKit
+targets:
+  HueBoard:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.wyattowalsh.HueBoard
+        PRODUCT_NAME: Hue Board
+        MARKETING_VERSION: 0.1.0
+        CURRENT_PROJECT_VERSION: 1
+        SWIFT_VERSION: 6.0
+        SWIFT_STRICT_CONCURRENCY: complete
+        INFOPLIST_FILE: App/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
+    dependencies:
+      - package: HueBoardKit
+        product: HueBoardKit
+      - package: HueBoardKit
+        product: HueBoardNativeCore
+      - package: HueBoardKit
+        product: HueBoardAppleEngine
+    scheme:
+      testTargets: []
+      gatherCoverageData: false
+      configVariants:
+        - Debug
+        - Release

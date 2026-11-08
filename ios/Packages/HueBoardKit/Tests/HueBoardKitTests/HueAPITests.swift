@@ -1,0 +1,7 @@
+import XCTest
+@testable import HueBoardKit
+
+final class HueAPITests:XCTestCase{
+ func testInventoryMapping()throws{let d=JSONDecoder();let rooms=try d.decode(HueAPIResponse<HueAreaResource>.self,from:Data(#"{"errors":[],"data":[{"id":"room-1","type":"room","metadata":{"name":"Living Room"},"children":[{"rid":"device-1","rtype":"device"}]}]}"#.utf8)).data;let devices=try d.decode(HueAPIResponse<HueDeviceResource>.self,from:Data(#"{"errors":[],"data":[{"id":"device-1","metadata":{"name":"Floor Lamp"},"product_data":{"model_id":"LCX001"}}]}"#.utf8)).data;let lights=try d.decode(HueAPIResponse<HueLightResource>.self,from:Data(#"{"errors":[],"data":[{"id":"light-1","owner":{"rid":"device-1","rtype":"device"},"on":{"on":true},"dimming":{"brightness":42,"min_dim_level":0.2},"color":{"xy":{"x":0.3,"y":0.31}},"dynamics":{"status":"none","status_values":["none","dynamic_palette"]},"gradient":{"points_capable":5},"mode":"normal"}]}"#.utf8)).data;let result=HueInventoryBuilder.build(rooms:rooms,zones:[],lights:lights,devices:devices);XCTAssertEqual(result.count,1);XCTAssertEqual(result[0].lights[0].name,"Floor Lamp");XCTAssertTrue(result[0].lights[0].capabilities.dynamicPalette)}
+ func testHostValidation(){XCTAssertTrue(HueBridgeHostValidator.isAllowed("192.168.1.2"));XCTAssertTrue(HueBridgeHostValidator.isAllowed("001788abcdef.local"));XCTAssertFalse(HueBridgeHostValidator.isAllowed("8.8.8.8"));XCTAssertFalse(HueBridgeHostValidator.isAllowed("192.168.1.2/evil"))}
+}
