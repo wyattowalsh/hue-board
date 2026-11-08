@@ -81,6 +81,19 @@ struct ConnectionSheet: View {
                 if model.profile != nil, !model.isReady {
                     Section("Saved connection") {
                         Text(
+                            "Retry first when pairing already succeeded but the initial inventory read or network connection failed. Retry verifies the certificate pin and reuses the Keychain application key; it never creates another key."
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        Button {
+                            Task { await model.reconnectSavedBridge() }
+                        } label: {
+                            Label("Retry saved connection", systemImage: "arrow.clockwise")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(model.isBusy)
+
+                        Text(
                             "If a Bridge replacement or firmware certificate change cannot be verified, remove the saved credential and pair again only after checking the physical Bridge."
                         )
                         .font(.footnote)
@@ -110,7 +123,7 @@ struct ConnectionSheet: View {
 
                 Section {
                     Text(
-                        "Opening, verifying, pairing, and refreshing never change a light. Local requests require a private-LAN host, reject redirects, match the certificate Bridge ID to the API identity, and pin the leaf certificate SHA-256 after verification."
+                        "Opening, verifying, pairing, reconnecting, and refreshing never change a light. Local requests require a private-LAN host, reject redirects, match the certificate Bridge ID to the API identity, and pin the leaf certificate SHA-256 after verification."
                     )
                     .font(.footnote)
                     .foregroundStyle(.secondary)
