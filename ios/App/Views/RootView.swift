@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         @Bindable var model = model
@@ -34,7 +35,24 @@ struct RootView: View {
         } message: {
             Text(model.errorMessage ?? "Unknown error")
         }
-        .task { await model.bootstrap() }
+        .task {
+            await model.bootstrap()
+            if scenePhase == .active { model.startEventMonitoring() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .active:
+                model.startEventMonitoring()
+            case .background:
+                // Native Live's explicit continued-processing task is separate.
+                // Passive readback should not consume background execution time.
+                model.stopEventMonitoring()
+            case .inactive:
+                break
+            @unknown default:
+                model.stopEventMonitoring()
+            }
+        }
     }
 
     private var errorPresented: Binding<Bool> {
