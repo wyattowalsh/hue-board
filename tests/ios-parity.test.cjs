@@ -101,6 +101,20 @@ test('native local transport verifies bridge identity and pins its certificate',
   assert.doesNotMatch(plist,/NSAllowsArbitraryLoads|NSExceptionAllowsInsecureHTTPLoads/);
 });
 
+test('native discovery combines Bonjour with the Hue broker without light writes',()=>{
+  const discovery=read('ios/App/Services/HueLocalDiscovery.swift');
+  const connection=read('ios/App/AppModel+Connection.swift');
+  const plist=read('ios/App/Info.plist');
+  assert.match(discovery,/NWBrowser/);
+  assert.match(discovery,/bonjour\(type: "_hue\._tcp", domain: "local\."\)/);
+  assert.match(discovery,/currentPath\?\.remoteEndpoint/);
+  assert.match(connection,/localDiscovery\.discover\(\)/);
+  assert.match(connection,/client\.discover\(\)/);
+  assert.match(plist,/NSBonjourServices/);
+  assert.match(plist,/_hue\._tcp/);
+  assert.doesNotMatch(discovery,/updateLight\(|recallScene\(|createScene\(|updateScene\(/);
+});
+
 test('native project includes exact engine and explicit continued-processing contract',()=>{
   const project=read('ios/project.yml');
   const coordinator=read('ios/App/Services/ContinuedLiveCoordinator.swift');
