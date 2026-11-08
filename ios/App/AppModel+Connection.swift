@@ -1,0 +1,146 @@
+import Foundation
+import HueBoardKit
+import HueBoardNativeCore
+
+@MainActor
+extension AppModel {
+    func bootstrap() async {
+        guard connectionState == .disconnected else { return }
+        do {
+            guard let savedProfile = try await persistence.loadProfile() else {
+                isConnectionSheetPresented = true
+                return
+            }
+            guard let savedCredential = try keychain.credential(bridgeID: savedProfile.bridgeID) else {
+                pendingProfile = savedProfile
+                manualHost = savedProfile.host
+                connectionState = .awaitingBridgeButton
+                isConnectionSheetPresented = true
+                return
+            }
+            connectionState = .connecting
+            profile = savedProfile
+            credential = savedCredential
+            try await loadInventory(profile: savedProfile, credential: savedCredential)
+            connectionState = .ready
+            note = "Connected. Play delegates to the Bridge; Native Live is explicit and bounded."
+        } catch {
+            connectionState = .disconnected
+            errorMessage = error.localizedDescription
+            isConnectionSheetPresented = true
+        }
+    }
+
+    func discoverBridges() async {
+        guard !isBusy else { return }
+        isBusy = true
+        connectionState = .discovering
+        defer { isBusy = false }
+        do {
+            discoveredBridges = try await client.discover()
+            connectionState = .disconnected
+            note = discoveredBridges.isEmpty
+                ? "No Bridges were discovered. Enter a private LAN address manually."
+                : "Choose a discovered Bridge or enter its private LAN address."
+        } catch {
+            connectionState = .disconnected
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func probe(_ candidate: HueBridgeCandidate) async {
+        guard !isBusy else { return }
+        isBusy = true
+        connectionState = .probing
+        defer { isBusy = false }
+        do {
+            let value = try await client.probe(candidate: candidate)
+            pendingProfile = value
+            manualHost = value.host
+            connectionState = .awaitingBridgeButton
+            note = "Bridge identity verified. Press the physical Bridge button, then pair."
+        } catch {
+            connectionState = .disconnected
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func probeManualHost() async {
+        let host = manualHost.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard HueBridgeHostValidator.isAllowed(host) else {
+            errorMessage = "Use a private LAN IPv4 address or trusted .local Hue Bridge hostname."
+            return
+        }
+        await probe(.init(id: host, host: host))
+    }
+
+    func pairPendingBridge() async {
+        guard !isBusy, let pendingProfile else { return }
+        isBusy = true
+        connectionState = .connecting
+        defer { isBusy = false }
+        do {
+            let credential = try await client.pair(profile: pendingProfile)
+            try keychain.save(credential)
+            try await persistence.saveProfile(pendingProfile)
+            self.profile = pendingProfile
+            self.credential = credential
+            try await loadInventory(profile: pendingProfile, credential: credential)
+            connectionState = .ready
+            self.pendingProfile = nil
+            isConnectionSheetPresented = false
+            note = "Paired. Opening and refreshing Hue Board do not change lights."
+        } catch {
+            connectionState = .awaitingBridgeButton
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func refreshInventory() async {
+        guard let profile, let credential, !isBusy else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            try await loadInventory(profile: profile, credential: credential)
+            note = "Bridge state refreshed. No light writes were sent."
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func forgetBridge() async {
+        guard canForgetBridge, let profile else {
+            errorMessage = "Stop and restore the current area before removing Bridge credentials."
+            return
+        }
+        do {
+            try keychain.removeCredential(bridgeID: profile.bridgeID)
+            try await persistence.clearBridgeState(bridgeID: profile.bridgeID)
+            self.profile = nil
+            credential = nil
+            areas = []
+            selectedAreaID = nil
+            pendingProfile = nil
+            manualHost = ""
+            connectionState = .disconnected
+            playback = HuePlaybackMachine()
+            note = "Bridge credentials were removed from this device."
+            isConnectionSheetPresented = true
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func loadInventory(profile: BridgeProfile, credential: HueBridgeCredential) async throws {
+        let values = try await client.inventory(profile: profile, credential: credential)
+        areas = values
+        let saved = await persistence.loadSelectedAreaID(bridgeID: profile.bridgeID)
+        if let saved, values.contains(where: { $0.id == saved }) {
+            selectedAreaID = saved
+        } else {
+            selectedAreaID = values.first?.id
+            await persistence.saveSelectedAreaID(selectedAreaID, bridgeID: profile.bridgeID)
+        }
+        try await loadRecoveryState()
+    }
+}
