@@ -62,4 +62,8 @@ test('native project includes exact engine and explicit continued-processing con
   assert.match(coordinator,/request\.strategy = \.fail/);
   assert.match(plist,/com\.wyattowalsh\.HueBoard\.live/);
   assert.match(plist,/NSLocalNetworkUsageDescription/);
+  const runner=read('ios/App/Services/NativeLiveRunner.swift');
+  assert.match(runner,/minimumCycleSeconds/);
+  assert.match(runner,/Task\.sleep\(\s*for:/);
+  assert.match(runner,/Hue Entertainment transport/);
 });

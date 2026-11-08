@@ -5,7 +5,7 @@ The native SwiftUI app is the primary product direction for Hue Board. Scriptabl
 ## Playback contract
 
 - **Play** creates or updates a compatible Hue Bridge dynamic scene, recalls it, and then lets the Bridge continue independently of the phone.
-- **Native Live** executes the same deterministic JavaScript engine bundled with Scriptable through JavaScriptCore. Sessions are explicitly user-started and duration-bounded.
+- **Native Live** samples the same deterministic JavaScript engine bundled with Scriptable through JavaScriptCore. The current transport uses conservative, long REST transitions; sessions are explicitly user-started and duration-bounded.
 - On iOS 18–25, Native Live is foreground-only. On iOS 26+, it automatically requests `BGContinuedProcessingTask` after the user taps Start. The system displays progress and can cancel or expire the task.
 - Force-quitting the app ends continued processing. It is not an unlimited daemon.
 - Opening, pairing, refreshing, browsing, and changing tabs never write to lights.
@@ -52,7 +52,7 @@ The client accepts only private-LAN IPv4 addresses or syntactically valid `.loca
 - Xcode/iOS semantic typechecking, simulator build, code signing, installation or launch.
 - Real Hue Bridge TLS, pairing, firmware resource variations, scene creation, lock-screen continuation or physical output.
 - VoiceOver, Dynamic Type extremes, Reduce Motion, landscape, battery/thermal behavior and multiple competing Hue controllers.
-- High-rate Hue Entertainment streaming. Native Live currently uses conservative paced REST transitions.
+- High-rate Hue Entertainment streaming. The current Native Live REST fallback deliberately revisits each light no faster than its long transition horizon; an Entertainment transport is required for high-rate temporal fidelity.
 
 Do not call this App Store-ready until the Xcode and physical-device matrix passes.
 
@@ -65,7 +65,7 @@ Do not call this App Store-ready until the Xcode and physical-device matrix pass
 | 32 looks and automatic Bridge Play | Yes | Yes |
 | Phone-free Bridge playback | Yes | Yes |
 | Exact 24-pattern engine | Yes | Yes, shared JavaScriptCore runtime |
-| Exact Live choreography | Foreground REST | Foreground, or bounded continued processing on iOS 26+ |
+| Shared-engine Live samples | Foreground REST | Low-rate REST fallback, foreground or bounded continued processing on iOS 26+ |
 | Static restore baseline | Yes | Yes |
 | Hue layout editor, gradients, cue sequencer, saved-scene copy | Yes | Planned |
-| Hue Entertainment high-rate streaming | No | Planned transport |
+| Hue Entertainment high-rate streaming | No | Required future transport for exact temporal choreography |
