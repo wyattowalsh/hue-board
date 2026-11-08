@@ -48,11 +48,36 @@ extension AppModel {
         connectionState = .discovering
         defer { isBusy = false }
         do {
-            discoveredBridges = try await client.discover()
+            async let localRequest = localDiscovery.discover()
+            async let cloudRequest = client.discover()
+            let localValues = await localRequest
+            let cloudValues: [HueBridgeCandidate]
+            do {
+                cloudValues = try await cloudRequest
+            } catch {
+                guard !localValues.isEmpty else { throw error }
+                cloudValues = []
+            }
+
+            var merged: [String: HueBridgeCandidate] = [:]
+            // Insert broker results first so a directly resolved local candidate wins.
+            for candidate in cloudValues + localValues {
+                let identity = HueBridgeTLSIdentity.normalizeBridgeID(candidate.id)
+                    ?? "\(candidate.host):\(candidate.port)"
+                merged[identity] = candidate
+            }
+            discoveredBridges = merged.values.sorted {
+                if $0.host == $1.host { return $0.port < $1.port }
+                return $0.host.localizedStandardCompare($1.host) == .orderedAscending
+            }
             connectionState = .disconnected
-            note = discoveredBridges.isEmpty
-                ? "No Bridges were discovered. Enter a private LAN address manually."
-                : "Choose a discovered Bridge or enter its private LAN address."
+            if discoveredBridges.isEmpty {
+                note = "No Bridges were discovered by Bonjour or the Hue broker. Enter a private LAN address manually."
+            } else {
+                let localCount = localValues.count
+                let brokerCount = cloudValues.count
+                note = "Found \(discoveredBridges.count) Bridge candidate(s): \(localCount) local Bonjour result(s), \(brokerCount) broker result(s). Verify one before pairing."
+            }
         } catch {
             connectionState = .disconnected
             errorMessage = error.localizedDescription
