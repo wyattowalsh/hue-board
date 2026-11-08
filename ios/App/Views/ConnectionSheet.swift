@@ -46,12 +46,27 @@ struct ConnectionSheet: View {
                 }
 
                 if let pending = model.pendingProfile {
-                    Section("Ready to pair") {
+                    Section("Verified Bridge") {
                         LabeledContent("Bridge", value: pending.bridgeID)
                         LabeledContent("Address", value: pending.displayHost)
-                        Text("Press the physical center button on the Bridge, then pair. Hue Board stores the application key in Keychain.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                        if let fingerprint = pending.displayCertificateSHA256 {
+                            LabeledContent("Certificate") {
+                                Text(fingerprint)
+                                    .font(.caption2.monospaced())
+                                    .multilineTextAlignment(.trailing)
+                                    .textSelection(.enabled)
+                            }
+                        }
+                        Text(
+                            "Hue Board verified that the local API identity matches the TLS certificate. The certificate fingerprint is pinned after pairing; later changes fail closed. Verify first contact on a trusted home network."
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        Text(
+                            "Press the physical center button on the Bridge, then pair. Hue Board stores the application key in Keychain."
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                         Button {
                             Task { await model.pairPendingBridge() }
                         } label: {
@@ -62,10 +77,28 @@ struct ConnectionSheet: View {
                     }
                 }
 
-                Section {
-                    Text("Opening, verifying, pairing, and refreshing never change a light. The current native transport uses standard HTTPS trust, private-LAN host validation, and redirect rejection.")
+                if model.profile != nil, !model.isReady {
+                    Section("Saved connection") {
+                        Text(
+                            "If a Bridge replacement or firmware certificate change cannot be verified, remove the saved credential and pair again only after checking the physical Bridge."
+                        )
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                        Button(role: .destructive) {
+                            Task { await model.forgetBridge() }
+                        } label: {
+                            Label("Forget saved Bridge", systemImage: "trash")
+                        }
+                        .disabled(!model.canForgetBridge)
+                    }
+                }
+
+                Section {
+                    Text(
+                        "Opening, verifying, pairing, and refreshing never change a light. Local requests require a private-LAN host, reject redirects, match the certificate Bridge ID to the API identity, and pin the leaf certificate SHA-256 after verification."
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Connect Bridge")
