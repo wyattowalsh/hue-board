@@ -24,7 +24,7 @@
 
 Native SwiftUI is now Hue Board’s primary product direction. The implementation under [`ios/`](ios/README.md) provides system-native Lights, Scenes, Native Live, Settings, Bridge pairing, restore recovery, and playback status surfaces.
 
-The native app shares a generated contract with Scriptable: **32 looks, 24 patterns, and 19 palettes**. Its `HueBoardAppleEngine` target runs the exact shared JavaScript engine through JavaScriptCore and verifies the bundled runtime digest before use.
+The native app shares a generated contract with Scriptable: **32 looks, 24 patterns, and 19 palettes**. Its `HueBoardAppleEngine` target runs the exact shared JavaScript engine through JavaScriptCore, verifies the bundled runtime digest before use, and recomputes a canonical SHA-256 over **512 deterministic scene frames** on Apple test hosts.
 
 - **Play** creates or updates a compatible Bridge-native dynamic scene. Once the Bridge acknowledges recall, playback continues independently of the phone.
 - **Native Live** samples the exact Hue Board engine on the iPhone and sends conservative, long REST transitions for an explicit, duration-bounded session. It is not high-rate Hue Entertainment streaming.
@@ -46,7 +46,7 @@ The eventual v5.3 Scriptable installation will continue to require trusted Wi-Fi
 | User action | When phone locks | Fidelity |
 | --- | --- | --- |
 | **Play** on a compatible room | **Hue Bridge keeps playing automatically** after accepted scene recall | Compatible Bridge-native dynamic palette, not exact Live choreography |
-| **Native Live**, iOS 26+ | Requests a bounded, user-visible continued-processing session | Exact shared-engine samples over low-rate, long REST transitions; system may cancel/expire it |
+| **Native Live**, iOS 26+ | Requests a bounded, user-visible continued-processing session | Exact shared-engine samples over low-rate, long REST transitions; system may cancel or expire it |
 | **Native Live**, iOS 18–25 | Stops sending updates when the app is suspended | Exact shared-engine samples over low-rate, long REST transitions while foregrounded |
 | **Scriptable Live Studio** | Stops sending animation updates when Scriptable is suspended | Existing foreground procedural controller |
 | **Stop & restore** | Explicit command when Hue Board is available | Restores captured static state; review timestamps and competing-controller changes |
@@ -84,9 +84,9 @@ The illustrative [README SVG](assets/readme/hero.svg) is source-controlled. An o
 
 ## Safety and provenance
 
-The native app accepts private-LAN Bridge hosts, rejects redirects, uses standard system HTTPS trust, and stores the application key in Keychain. Its actual Hue Bridge TLS and firmware behavior remains a physical-validation item. The Scriptable transport still relaxes local Bridge certificate validation, so use trusted Wi-Fi only.
+The native app accepts only private-LAN Bridge hosts and rejects redirects. On first verification it requires the certificate’s Bridge ID to match the local Hue API identity, records the leaf certificate SHA-256, and pins that fingerprint for later requests. A changed certificate fails closed and requires deliberate re-verification on a trusted home network. The Hue application key remains in Keychain. This trust-on-first-use design still requires physical validation across Bridge firmware and certificate generations.
 
-Bridge acknowledgement/readback does not prove emitted optical output. Source tests and mocked resources do not replace real iOS, Hue Bridge, accessibility, battery, or competing-controller validation. Restore points and previous Keychain data are preserved through migration.
+The Scriptable transport still relaxes local Bridge certificate validation, so use trusted Wi-Fi only. Bridge acknowledgement/readback does not prove emitted optical output. Source tests and mocked resources do not replace real iOS, Hue Bridge, accessibility, battery, or competing-controller validation. Restore points and previous Keychain data are preserved through migration.
 
 [MIT license](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Migration](docs/migration.md)
 
