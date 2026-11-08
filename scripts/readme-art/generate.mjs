@@ -1,37 +1,37 @@
 /**
- * Render the Hue Board README banner with Takumi.
+ * Hue Board README lighting-console concept rendered by Takumi.
+ * Takumi generates SVG from an explicit HTML/CSS layout, with no runtime browser.
  * Run: cd scripts/readme-art && npm install && npm run build
+ * Inspect the resulting SVG before committing; this is not an auto-update job.
  */
-import { renderSvg } from "takumi-js";
-import { writeFile, mkdir } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
-import { resolve, dirname } from "node:path";
-const here = dirname(fileURLToPath(import.meta.url));
-const output = resolve(here, "../../assets/readme/hero.svg");
-const leds = [
-  ["#30D9E3",0,96],["#6E82FF",105,8],["#AAE969",299,19],
-  ["#FCA86F",399,105],["#30D9D0",301,237],["#8171FA",105,234],
-].map(([color,x,y]) =>
-  '<div style="position:absolute;left:'+x+'px;top:'+y+'px;width:35px;height:35px;border-radius:50%;background:'+color+';border:3px solid #D5F7FA;box-shadow:0 0 40px '+color+';"></div>'
-).join("");
-const html = '<div style="display:flex;flex-direction:row;width:1440px;height:480px;box-sizing:border-box;overflow:hidden;padding:70px 78px;background:linear-gradient(125deg,#0B141C,#081323 68%,#101C2C);color:#F7FCFF;font-family:Arial,sans-serif;">'+
-'<div style="display:flex;flex-direction:column;width:655px;">'+
-'<div style="display:flex;flex-direction:row;align-items:center;gap:14px;margin-bottom:38px;">'+
-'<div style="width:42px;height:42px;border-radius:50%;border:2px solid #35DAE6;background:#163240;display:flex;align-items:center;justify-content:center;font-size:24px;color:#A6FCFC;font-weight:700;">H</div>'+
-'<div style="font-size:22px;font-weight:700;letter-spacing:4px;color:#DCE9F2;">HUE BOARD</div></div>'+
-'<div style="font-size:64px;font-weight:750;letter-spacing:-3px;line-height:1.1;">Make light<br/>feel alive.</div>'+
-'<div style="font-size:22px;color:#91AFBF;margin-top:25px;">Control, compose, and animate your Hue lights.</div>'+
-'<div style="display:flex;flex-direction:row;gap:12px;margin-top:35px;">'+
-['LIGHTS','SCENES','STUDIO'].map(x=>'<span style="background:#15323E;border:1px solid #355362;color:#B2E5ED;border-radius:30px;padding:10px 28px;font-size:15px;font-weight:600;">'+x+'</span>').join('')+
-'</div></div>'+
-'<div style="position:relative;width:535px;height:340px;border-radius:30px;background:#0D1D2B;border:1px solid #365466;overflow:hidden;">'+
-'<div style="position:absolute;top:36px;left:38px;width:456px;height:268px;border:2px dashed #2C5367;border-radius:50%;"></div>'+
-'<div style="position:absolute;top:72px;left:83px;width:362px;height:200px;border:1px solid #214153;border-radius:50%;"></div>'+
-'<div style="position:absolute;top:116px;left:190px;width:155px;height:110px;border-radius:60px;background:#102D3B;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid #296074;">'+
-'<div style="font-size:25px;font-weight:700;">Room</div><div style="font-size:15px;color:#93BECA;">in harmony</div></div>'+
-'<div style="position:absolute;left:54px;top:44px;width:435px;height:290px;">'+leds+'</div></div></div>';
-const svg = await renderSvg(html, {width:1440,height:480});
-if (!svg.includes("<svg")) throw new Error("Takumi did not return an SVG");
+import {renderSvg} from 'takumi-js';
+import {writeFile, mkdir} from 'node:fs/promises';
+import {resolve,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+
+const here=dirname(fileURLToPath(import.meta.url));
+const output=resolve(here,'../../assets/readme/hero-takumi.svg');
+const lamps=[
+  ['#37E1E7',90,155],['#7786FF',225,62],['#CCEF78',400,107],
+  ['#FFAE73',460,240],['#35D9BF',305,283],['#A183FE',105,281]
+].map(([color,x,y])=>`<div style="position:absolute;left:${x}px;top:${y}px;width:25px;height:25px;border-radius:50%;background:${color};border:2px solid #DEFDFF;box-shadow:0 0 26px ${color};"></div>`).join('');
+const html=`<div style="display:flex;flex-direction:row;box-sizing:border-box;width:1600px;height:550px;padding:76px;background:linear-gradient(135deg,#07111F,#0B1726 68%,#10152E);font-family:Arial,sans-serif;color:#F6FBFF;overflow:hidden;">
+<div style="display:flex;flex-direction:column;flex:1;min-width:0;padding-top:15px;">
+<div style="font-size:19px;font-weight:700;letter-spacing:5px;color:#9EC7D7;margin-bottom:64px;">HUE BOARD / LIGHTING INSTRUMENT</div>
+<div style="font-size:82px;font-weight:750;letter-spacing:-3px;line-height:1.08;">Shape the<br/>atmosphere.</div>
+<div style="font-size:24px;color:#92B1C4;margin-top:33px;">Everyday control. Cinematic scenes. Your room, reimagined.</div>
+<div style="display:flex;flex-direction:row;gap:12px;margin-top:48px;">${['LIGHTS','SCENES','STUDIO'].map(x=>`<span style="padding:12px 24px;border-radius:28px;border:1px solid #426176;background:#122A3C;font-size:16px;font-weight:700;letter-spacing:2px;color:#BDECF6;">${x}</span>`).join('')}</div></div>
+<div style="position:relative;width:580px;height:393px;border-radius:30px;background:#0B1C2B;border:2px solid #47657B;overflow:hidden;">
+<div style="position:absolute;top:26px;left:32px;font-size:14px;letter-spacing:3px;font-weight:700;color:#8DB2C7;">ROOM PREVIEW / DESIGN</div>
+<div style="position:absolute;top:93px;left:48px;width:480px;height:260px;border:2px dashed #31516A;border-radius:50%;"></div>
+<div style="position:absolute;top:137px;left:116px;width:350px;height:178px;border:1px solid #264359;border-radius:50%;"></div>
+<div style="position:absolute;top:147px;left:155px;width:280px;height:88px;border-radius:18px;background:#102A3A;border:1px solid #3B697B;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+<div style="font-size:23px;font-weight:700;letter-spacing:2px;">ION ECLIPSE</div>
+<div style="font-size:15px;color:#A3C2D1;margin-top:8px;">Scene preview • illustrative</div></div>
+<div style="position:absolute;top:20px;left:17px;width:540px;height:330px;">${lamps}</div>
+</div></div>`;
+const svg=await renderSvg(html,{width:1600,height:550});
+if(!svg.includes('<svg'))throw Error('Takumi returned no SVG output');
 await mkdir(dirname(output),{recursive:true});
-await writeFile(output,svg,"utf8");
-console.log("Takumi banner rendered:",output);
+await writeFile(output,svg,'utf8');
+console.log('Takumi SVG rendered:',output);

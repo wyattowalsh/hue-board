@@ -13,7 +13,8 @@
     "test:ui": "python tests/react_ui_qa.py",
     "test:e2e": "python tests/react_controller_e2e.py",
     "test:ui:everyday": "node tests/everyday_host.cjs --demo && python tests/v5_ui_qa.py",
-    "test:e2e:everyday": "node tests/everyday_host.cjs --demo && python tests/v5_controller_e2e.py"
+    "test:e2e:everyday": "node tests/everyday_host.cjs --demo && python tests/v5_controller_e2e.py",
+    "verify:release": "node scripts/check-published-bundle.cjs"
   },
   "devDependencies": {
     "tailwindcss": "4.1.10",
@@ -21,5 +22,6 @@
   },
   "engines": {
     "node": ">=20"
-  }
+  },
+  "packageManager": "pnpm@10.17.1"
 }
