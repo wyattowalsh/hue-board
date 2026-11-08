@@ -46,7 +46,7 @@ struct ConnectionSheet: View {
                     .disabled(model.manualHost.isEmpty || model.isBusy)
                 }
 
-                if let pending = model.pendingProfile {
+                if let pending = model.pendingProfile, model.credential == nil {
                     Section("Verified Bridge") {
                         LabeledContent("Bridge", value: pending.bridgeID)
                         LabeledContent("Address", value: pending.displayHost)
