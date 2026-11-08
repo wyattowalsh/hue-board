@@ -1,11 +1,13 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
+const crypto=require('node:crypto');
 const fs=require('node:fs');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const {ENGINE,PRESET_LIBRARY}=require('../dist/testable.cjs');
-const resource=path.join(root,'ios/Packages/HueBoardKit/Sources/HueBoardKit/Resources/hue-board-contract.json');
-const contract=JSON.parse(fs.readFileSync(resource,'utf8'));
+const resources=path.join(root,'ios/Packages/HueBoardKit/Sources/HueBoardKit/Resources');
+const contract=JSON.parse(fs.readFileSync(path.join(resources,'hue-board-contract.json'),'utf8'));
+const golden=JSON.parse(fs.readFileSync(path.join(resources,'engine-golden.json'),'utf8'));
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 
 test('native contract mirrors JavaScript definitions',()=>{
@@ -17,6 +19,30 @@ test('native contract mirrors JavaScript definitions',()=>{
   assert.deepEqual(contract.patterns.map(x=>x.id),ENGINE.shows.map(x=>x[0]));
   assert.deepEqual(contract.presets.map(x=>x.id),PRESET_LIBRARY.map(x=>x.id));
   assert.equal(new Set(contract.presets.map(x=>x.id)).size,contract.presets.length);
+});
+
+test('native engine manifest covers all 512 deterministic frames',()=>{
+  assert.equal(golden.schema,1);
+  assert.equal(golden.release,require('../package.json').version);
+  assert.equal(golden.algorithm,'sha256');
+  assert.equal(golden.numberFormat,'fixed-12-posix');
+  assert.equal(golden.caseCount,PRESET_LIBRARY.length*golden.times.length*golden.positions.length);
+  const fixed=value=>Math.abs(value)<5e-13?'0.000000000000':Number(value).toFixed(12);
+  const lines=[];
+  const observed=[];
+  for(const preset of PRESET_LIBRARY){
+    const settings=ENGINE.clean({...ENGINE.defaults,...preset.settings,brightness:golden.brightness,seed:golden.seed,topology:golden.topology});
+    for(const time of golden.times)for(const position of golden.positions){
+      const frame=ENGINE.sample(time,position,settings,0);
+      lines.push([preset.id,fixed(time),fixed(position),...frame.rgb.map(fixed),fixed(frame.b)].join('|')+'\n');
+      if(golden.anchors.some(a=>a.preset===preset.id&&a.time===time&&a.position===position)){
+        observed.push({preset:preset.id,time,position,rgb:frame.rgb.map(v=>+v.toFixed(12)),brightness:+frame.b.toFixed(12)});
+      }
+    }
+  }
+  assert.equal(lines.length,golden.caseCount);
+  assert.equal(crypto.createHash('sha256').update(lines.join(''),'utf8').digest('hex'),golden.sha256);
+  assert.deepEqual(observed,golden.anchors);
 });
 
 test('native app source preserves no-write-on-open and restore gates',()=>{
