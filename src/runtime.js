@@ -58,7 +58,7 @@ async function main(){const cfg=readConfig();if(!await bridgeSetup(cfg)||!await 
   if(action){await shortcutBackground(cfg,getGroup(cfg,groups),groups,action,action==='backgroundPreset'?shortcut.slice('background:'.length):null);return;}
   for(;;){const g=getGroup(cfg,groups);if(!g){if(!await selectGroup(cfg,groups))return;continue;}
     const action=await choose('Hue Board',g.name+'\nYour existing pairing is reused. Do not run another Hue Board controller at the same time.',
-      ['Open control deck','Compatibility controls (no WebView)','Play in background','Stop background','Choose room / zone','Change Bridge address','Refresh inventory'],'Exit');if(action<0)return;
+      ['Open control deck','Compatibility controls (no WebView)','Play (phone-free)','Stop Bridge playback','Choose room / zone','Change Bridge address','Refresh inventory'],'Exit');if(action<0)return;
     if(action===2||action===3){try{await shortcutBackground(cfg,g,groups,action===2?'background':'stopBridge');await inform('Hue Board',action===2?'Bridge playback accepted. Lock your phone if you wish.':'Bridge stop accepted.');}catch(e){await inform('Playback',shortError(e));}continue;}
     if(action<=1){try{await runDeck(cfg,g,action===1?'compatibility':'web',groups);}catch(e){await inform('Control deck',shortError(e)+'\nThe native compatibility controls remain available.');}}
     else if(action===4)await selectGroup(cfg,groups);

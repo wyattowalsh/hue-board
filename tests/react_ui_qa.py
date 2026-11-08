@@ -14,7 +14,7 @@ async def main():
   errors=[];requests=[]
   page.on('pageerror',lambda e:errors.append(str(e)))
   page.on('request',lambda r:requests.append(r.url))
-  async def load(scheme='light',width=390,html='hue-demo.html'):
+  async def load(scheme='light',width=390,html='demo.html'):
    await page.set_viewport_size({'width':width,'height':844});await page.emulate_media(color_scheme=scheme,reduced_motion='no-preference')
    await page.set_content((ROOT/'qa'/html).read_text(),wait_until='load')
    await page.wait_for_function('()=>window.DECK_BOOT && window.DECK_BOOT.ready')
@@ -84,7 +84,7 @@ async def main():
   await sync({'mode':'live','running':True});await page.get_by_role('button',name='Pause / cancel',exact=True).click();packet=await sync();check('Pause dispatch while live',packet['command']['name']=='pause')
   await sync({'mode':'preparing','running':False,'busy':True,'inFlight':True});await page.get_by_role('button',name='Pause / cancel',exact=True).click();packet=await sync();check('Pause remains available during pending request',packet['command']['name']=='pause')
   await sync({'mode':'paused','busy':False,'inFlight':False,'touched':2});await page.get_by_role('button',name='Restore',exact=True).click();packet=await sync();check('Restore dispatch',packet['command']['name']=='restore')
-  await sync({'native':True});await page.get_by_role('button',name='Stop background',exact=True).click();packet=await sync();check('delegated playback stop is explicit',packet['command']['name']=='stopBridge')
+  await sync({'native':True});await page.get_by_role('button',name='Stop / inspect Bridge',exact=True).click();packet=await sync();check('delegated playback stop is explicit',packet['command']['name']=='stopBridge')
   await sync({'error':'Synthetic connection timeout','native':False});check('action error shown visibly',await page.get_by_role('alert').filter(has_text='Synthetic connection timeout').is_visible())
   await sync({'error':''});await tab('Perform')
   await page.evaluate('''()=>{const h=window.__host;h.telemetry.targets[h.layout.order[0]]={kind:'live',acceptedAt:Date.now(),action:{dimming:{brightness:50},color:{xy:{x:.2,y:.3}}}};window.DECK.report(h);}''')

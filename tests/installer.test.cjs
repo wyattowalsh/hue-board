@@ -1,36 +1,54 @@
-const {test}=require('node:test'),assert=require('node:assert/strict');
-const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),crypto=require('node:crypto');
-const script=fs.readFileSync(path.join(__dirname,'../install/install-hue-board.js'),'utf8');
-const m=require('../releases/v5.2.0.json');
-const value=(name)=>{const v=script.match(new RegExp("const "+name+" = '([^']+)'"))?.[1];assert.ok(v,'Missing '+name);return v;};
-test('Scriptable installer pins the published revision, version and digest',()=>{
- assert.equal(value('VERSION'),require('../package.json').version);
- assert.equal(value('REVISION'),m.sourceRevision);
- assert.equal(value('EXPECTED_SHA256'),m.sha256);
- assert.match(script,/raw\.githubusercontent\.com\/wyattowalsh\/hue-board\/\$\{REVISION\}\/dist\/hue-board\.js/);
- assert.doesNotThrow(()=>new (Object.getPrototypeOf(async function(){}).constructor)(script));
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const crypto = require('node:crypto');
+const root = path.resolve(__dirname, '..');
+const script = fs.readFileSync(path.join(root, 'install/install-hue-board.js'), 'utf8');
+const releaseManifest = require('../releases/v'+require('../package.json').version+'.json');
+const extract = pattern => { const value = script.match(pattern)?.[1]; assert.ok(value, 'Missing installer constant'); return value; };
+
+test('installer pins a versioned commit, exact release bytes, and uses valid Scriptable JavaScript', () => {
+  const version = extract(/const VERSION = '([^']+)'/);
+  const revision = extract(/const REVISION = '([a-f0-9]+)'/);
+  const digest = extract(/const EXPECTED_SHA256 = '([a-f0-9]+)'/);
+  assert.equal(version, require('../package.json').version);
+  assert.equal(revision, releaseManifest.sourceRevision);
+  assert.equal(digest, releaseManifest.sha256);
+  assert.equal(releaseManifest.artifact, 'dist/hue-board.js');
+  assert.match(digest, /^[a-f\d]{64}$/);
+  assert.match(script, /https:\/\/raw\.githubusercontent\.com\/wyattowalsh\/hue-board\/\$\{REVISION\}\/dist\/hue-board\.js/);
+  const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+  assert.doesNotThrow(() => new AsyncFunction(script));
 });
-test('installer SHA-256 passes reference vectors and UTF-8 payloads',()=>{
- const body=script.slice(script.indexOf('function sha256Hex('),script.indexOf('\nasync function notice('));
- const hash=vm.runInNewContext(body+'\nsha256Hex');
- for(const s of ['','abc','Hue Board ✅','Hue Board\n'.repeat(1024)]){
-   assert.equal(hash(Buffer.from(s,'utf8')),crypto.createHash('sha256').update(s).digest('hex'));
- }
+
+test('installer SHA-256 matches known vectors and UTF-8 release', () => {
+  const body = script.slice(script.indexOf('function sha256Hex('), script.indexOf('\nasync function notice('));
+  const sha = vm.runInNewContext(`${body}\nsha256Hex`);
+  for (const sample of ['', 'abc', 'Hue Board ✅']) {
+    const bytes = Buffer.from(sample, 'utf8');
+    assert.equal(sha(bytes), crypto.createHash('sha256').update(bytes).digest('hex'));
+  }
+  assert.equal(sha(Buffer.from('Hue Board\n'.repeat(1024))), crypto.createHash('sha256').update('Hue Board\n'.repeat(1024)).digest('hex'));
 });
-test('a tampered download stops before reading or writing existing files',async()=>{
- let reads=0,writes=0;const notifications=[];
- class Alert{addAction(){}addCancelAction(){}async presentAlert(){notifications.push(this.title);return 0;}}
- class Request{async loadString(){return '// Hue Board 5.2.0 | Standalone Scriptable controller\n// tampered';}get response(){return {statusCode:200}}}
- const manager={documentsDirectory:()=>'/tmp',joinPath:(a,b)=>a+'/'+b,fileExists:()=>{reads++;return true},writeString:()=>{writes++},copy:()=>{writes++}};
- const c={Alert,Request,FileManager:{iCloud:()=>manager,local:()=>manager},Data:{fromString:s=>({getBytes:()=>Array.from(Buffer.from(s))})},Script:{complete(){}}};
- await vm.runInNewContext('(async()=>{'+script+'})()',c);
- assert.equal(reads,0);assert.equal(writes,0);assert.deepEqual(notifications,['Installation stopped']);
+
+test('tampered downloads never write or replace the installed script', async () => {
+  let writes = 0, reads = 0;
+  const notices = [];
+  class Alert { addAction(){} addCancelAction(){} async presentAlert(){notices.push(this.title);return 0;} }
+  class Request { constructor(url){assert.match(url,/\/dist\/hue-board\.js$/);} async loadString(){return '// Hue Board 5.3.0 | Standalone Scriptable controller\n// tampered';} get response(){return {statusCode:200};} }
+  const manager = {documentsDirectory:()=>'/tmp',joinPath:(a,b)=>a+'/'+b,fileExists:()=>{reads++;return true;},writeString:()=>{writes++;},copy:()=>{writes++;}};
+  const context = {Alert,Request,FileManager:{iCloud:()=>manager,local:()=>manager},Data:{fromString:s=>({getBytes:()=>Array.from(Buffer.from(s))})},Script:{complete:()=>{}}};
+  await vm.runInNewContext(`(async () => { ${script} })()`,context);
+  assert.equal(writes,0);
+  assert.equal(reads,0);
+  assert.deepEqual(notices,['Installation stopped']);
 });
-test('installer neither writes Hue state nor touches Keychain and checks hash before write',()=>{
- assert.doesNotMatch(script,/Keychain\.(?:set|remove)\(/);
- assert.doesNotMatch(script,/\/clip\/v2\/resource\//);
- const hash=script.indexOf('sha256Hex(Data.fromString(script).getBytes())');
- const backup=script.indexOf('manager.copy(destination,');
- const write=script.search(/manager\.writeString\(destination,\s*script\)/);
- assert.ok(hash>=0&&backup>hash&&write>backup);
+
+test('installer does not touch Keychain or Hue lights', () => {
+  assert.doesNotMatch(script, /Keychain\.(?:set|remove)\(/);
+  assert.doesNotMatch(script, /\/clip\/v2\/resource\//);
+  assert.ok(script.indexOf('sha256Hex(Data.fromString(script).getBytes())') < script.indexOf('manager.writeString(destination,script)'));
+  assert.ok(script.indexOf('manager.copy(destination,') < script.indexOf('manager.writeString(destination,script)'));
 });

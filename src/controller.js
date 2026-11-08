@@ -55,19 +55,8 @@ function makeController(cfg,group,options={}) {
   }
   function freezeForEdit(){const f={},g={};for(const l of lights){f[l.id]=desired(l.id);g[l.id]=gradients(l.id);}fromFrames=f;fromGradient=g;transitionAt=now();}
   function update(packet,fromSequence=false) {
-    if(packet.ui){
-      const previous=ui.continueInBackground;
-      ui=cleanUiPrefs(packet.ui);
-      // Handoff while still in the foreground. Waiting for document.hidden is unreliable on iOS.
-      if(!previous&&ui.continueInBackground&&mode==='live'){
-        dispatch('background');
-        if(!pending?.command||pending.command!=='background'){
-          ui.continueInBackground=false;
-          note='Bridge handoff unavailable in this area; foreground Live remains active.';
-        } else note='Handing the current look to the Hue Bridge. Keep Scriptable open until it confirms playback.';
-      }
-      persistPrefs(true);
-    }
+    // Playback selection is per action. A UI update never starts or changes a show.
+    if(packet.ui){ui=cleanUiPrefs(packet.ui);persistPrefs(true);}
     const nextS=ENGINE.clean(packet.settings||settings),nextL=cleanLayout(packet.layout||layout,lights);
     if(JSON.stringify(nextS)!==JSON.stringify(settings)||JSON.stringify(nextL)!==JSON.stringify(layout)){
       if(sequence.enabled&&!fromSequence&&(JSON.stringify({...settings,brightness:nextS.brightness})!==JSON.stringify(nextS)||JSON.stringify(nextL)!==JSON.stringify(layout))){sequence.enabled=false;sequence.armed=false;note='Cue sequence stopped by a manual pattern or room edit.';}
@@ -282,22 +271,21 @@ function makeController(cfg,group,options={}) {
     recoveryRequired=false;activated={};held={};fromFrames={};fromGradient={};persist();note='New session. Fresh states will be captured on the next Start or Bridge handoff.';
   }
   function dispatch(command,payload=null){if(closed)return;
-    if(command==='live'&&ui.continueInBackground)command='background';
-    if(command==='background'||command==='backgroundPreset'){
-      if(command==='backgroundPreset'&&!PRESET_LIBRARY.some(p=>p.id===payload)){controlError='Choose a valid scene from the library.';return;}
-      const eligible=layout.order.filter(id=>layout.selected.includes(id)&&byId.get(id)?.mode!=='streaming'&&capabilities(byId.get(id)).color&&capabilities(byId.get(id)).dynamic&&!['task','anchor'].includes(layout.placements[id].role));
-      if(!['room','zone'].includes(group.type)){controlError='Choose a Hue room or zone. All lights is a local view and cannot host a Bridge scene.';return;}
-      if(!eligible.length){controlError='No selected color lights support a Bridge dynamic palette. Choose another area or try an advertised Bridge effect in Studio.';return;}
-    }
-    if(command==='setBackgroundPreference'){update({ui:{...ui,continueInBackground:payload===true}});return;}
     if(command==='refreshScenes'){refreshScenes();return;}
     if(command==='manual'){let intent;try{intent=validateManualIntent(payload,byId);}catch(e){controlError=shortError(e);return;}
       pause('Applying everyday lighting. Live animation is paused.');pending={command,token:epoch,payload:intent};controlError='';mode='adjusting';return;}
     if(command==='applyScene'){pause('Applying a static copy of the saved Hue scene.');pending={command,token:epoch,payload};controlError='';mode='adjusting';return;}
-    if(command==='playPreset'||command==='backgroundPreset'){try{update({settings:applyLibraryPreset(settings,payload)});command=command==='backgroundPreset'||ui.continueInBackground?'background':'live';}catch(e){controlError=shortError(e);return;}}
+    // Normal Play always delegates before the phone can be suspended; Studio is a separate explicit action.
+    if(command==='playPreset'||command==='backgroundPreset'){try{update({settings:applyLibraryPreset(settings,payload)});command='background';}catch(e){controlError=shortError(e);return;}}
+    // Validate the resolved action before launching any network request; never silently
+    // switch back to foreground animation when phone-free playback is unsupported.
+    if(command==='background'){
+      if(!['room','zone'].includes(group.type)){controlError='Choose a Hue room or zone. All lights is a local view and cannot host a Bridge scene.';return;}
+      const eligible=layout.order.some(id=>layout.selected.includes(id)&&byId.get(id)?.mode!=='streaming'&&capabilities(byId.get(id)).color&&capabilities(byId.get(id)).dynamic&&!['task','anchor'].includes(layout.placements[id].role));
+      if(!eligible){controlError='No selected color lights support a Bridge dynamic palette. Choose another room or run Live Studio while Scriptable stays open.';return;}
+    }
     if(command==='applyPreset'){try{update({settings:applyLibraryPreset(settings,payload)});note='Preset applied without starting playback. Master brightness and room limits retained.';}catch(e){controlError=shortError(e);}return;}
     if(command==='stopSequence'){sequence.enabled=false;sequence.armed=false;note='Cue sequence stopped; the current live look continues.';return;}
-    if(command==='startSequence'&&ui.continueInBackground){controlError='Cue sequences need an active controller. Turn off Keep playing when I leave to run a sequence.';return;}
     if(command==='startSequence'){
       const ids=settings.sequenceIds.filter(id=>PRESET_LIBRARY.some(p=>p.id===id));
       if(!ids.length){controlError='Add at least one valid preset to the cue sequence.';return;}
@@ -390,7 +378,9 @@ function makeController(cfg,group,options={}) {
   function state(){const telem=telemetry.snapshot(),design={};for(const l of lights)design[l.id]=desired(l.id);
     const effective={};for(const id of layout.order)effective[id]=held[id]||session.delegated[id]?.state||(mode==='live'&&layout.selected.includes(id)?'live':'uncontrolled');
     const backgroundEligible=['room','zone'].includes(group.type)?layout.selected.filter(id=>{const l=byId.get(id);return l&&l.mode!=='streaming'&&capabilities(l).color&&capabilities(l).dynamic&&!['task','anchor'].includes(layout.placements[id].role);}).length:0;
-    return {version:VERSION,background:{available:backgroundEligible>0,count:backgroundEligible,groupType:group.type},ui:clone(ui),sequence:{...sequence,remaining:Math.max(0,sequence.nextAt-activeSeconds)},systemDark:typeof Device!=='undefined'&&typeof Device.isUsingDarkAppearance==='function'?Device.isUsingDarkAppearance():null,mode,running:mode==='live',native:Object.keys(session.delegated).length>0,busy:!!job||!!pending,inFlight:!!job,quarantined,
+    const delegations=Object.values(session.delegated),confirmed=delegations.some(d=>['accepted','reported'].includes(d.state));
+    const uncertain=delegations.some(d=>!['accepted','reported'].includes(d.state));
+    return {version:VERSION,background:{available:backgroundEligible>0,count:backgroundEligible,groupType:group.type,uncertain},ui:clone(ui),sequence:{...sequence,remaining:Math.max(0,sequence.nextAt-activeSeconds)},systemDark:typeof Device!=='undefined'&&typeof Device.isUsingDarkAppearance==='function'?Device.isUsingDarkAppearance():null,mode,running:mode==='live',native:confirmed,busy:!!job||!!pending,inFlight:!!job,quarantined,
       sent,t:elapsed,note,error:controlError,settings:clone(settings),layout:clone(layout),design,surge:surge(),telemetry:clone(telem),
       touched:Object.values(session.states).filter(v=>v.touchedAt||session.legacy).length,
       session:{id:session.id,createdAt:session.createdAt,legacy:session.legacy,recoveryRequired,entries:Object.entries(session.states).map(([id,v])=>({id,capturedAt:v.capturedAt,touchedAt:v.touchedAt})),archives:journal.history.filter(v=>v.area===area).map(v=>({id:v.session.id,createdAt:v.session.createdAt,archivedAt:v.archivedAt}))},

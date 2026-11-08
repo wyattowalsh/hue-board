@@ -3,7 +3,7 @@ const root=__dirname;
 const files=['core','legacy','engine','presets','hue-layout','model','daily','hue','telemetry','controller','workspace','ui-react','ui-native','runtime'];
 const assets=['REACT_RUNTIME','FRONTEND_JS','FRONTEND_CSS'].map((name,i)=>'const '+name+'='+JSON.stringify(fs.readFileSync(path.join(root,['vendor/react-runtime.js','dist/frontend.js','dist/frontend.css'][i]),'utf8'))+';').join('\n');
 const notices=['react.txt','react-dom.txt','scheduler.txt','shadcn.txt','tailwindcss.txt'].map(n=>'\n'+n+'\n'+fs.readFileSync(path.join(root,'licenses',n),'utf8')).join('\n');
-const source='// Hue Board 5.2.0 | Standalone Scriptable controller\n/* THIRD-PARTY NOTICES\n'+notices.replaceAll('*/','* /')+'\n*/\n'+assets+'\n'+files.map(n=>'\n// ===== '+n+' =====\n'+fs.readFileSync(path.join(root,'src',n+'.js'),'utf8')).join('\n');
+const source='// Hue Board 5.3.0 | Standalone Scriptable controller\n/* THIRD-PARTY NOTICES\n'+notices.replaceAll('*/','* /')+'\n*/\n'+assets+'\n'+files.map(n=>'\n// ===== '+n+' =====\n'+fs.readFileSync(path.join(root,'src',n+'.js'),'utf8')).join('\n');
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;new AsyncFunction(source);
 const out=path.join(root,'dist');fs.mkdirSync(out,{recursive:true});
 const boot='\ntry { await main(); } catch(e) { console.error(shortError(e)); await inform("Hue Board / ERROR",shortError(e)); } finally { Script.complete(); }\n';

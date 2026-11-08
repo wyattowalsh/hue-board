@@ -25,11 +25,11 @@ function makeCompatibilityPanel(meta,initial) {
     buttons([['Lights',()=>{view='lights';render(true);}],['Studio',()=>{view='perform';render(true);}],['Room',()=>{view='room';render(true);}],['Lab',()=>{view='lab';render(true);}]]);
     const stop=['live','preparing','adjusting','restoring','stopping'].includes(state.mode)||state.busy;
     buttons([[stop?'Pause / cancel':'Start live',()=>send(stop?'pause':'live'),stop||l.selected.length>0],
-      [state.native?'Stop background':'Play in background',()=>send(state.native?'stopBridge':'background'),state.native||state.background?.available],
+      [state.native||state.background?.uncertain?'Stop / inspect Bridge':'Play phone-free',()=>send(state.native||state.background?.uncertain?'stopBridge':'background'),state.native||state.background?.uncertain||state.background?.available],
       ['Restore',()=>send('restore'),state.touched>0]],72);
     text(state.note||'Ready',state.error||'Light changes require a power, brightness, color, playback or restore action.',90);
     text('Bridge-reported state',TELEMETRY.summary(state.telemetry,Date.now())+'\nResource readback is not optical telemetry.',85);
-    if(view==='perform'){const row=text('Keep playing when I leave: '+(state.ui?.continueInBackground?'On':'Off'),'On: Play starts a Bridge palette before you leave. Turning it on during Live starts a handoff now; wait for confirmation. Cues need foreground.',92);row.onSelect=()=>{send('setBackgroundPreference',!state.ui?.continueInBackground);};}
+    if(view==='perform')text('Phone-free Play is automatic','Compatible Hue Bridge scenes continue when you lock your phone. Exact Live Studio effects and cue sequences need Scriptable in the foreground.',92);
     if(view==='lights'){
       const ids=l.order.slice(),dimmers=ids.filter(id=>lamp(id).capabilities.dimming),whites=ids.filter(id=>lamp(id).capabilities.temperature);
       text('Everyday lighting','On/off, brightness, white and color. Manual actions pause the local show. Values below come from Bridge reads.',90);
@@ -109,7 +109,7 @@ function makeCompatibilityPanel(meta,initial) {
       buttons([['Redacted diagnostics',()=>send('exportDiagnostics')]]);
       for(const id of l.order){const t=state.telemetry||{},r=t.data?.[id];text(lamp(id).name,TELEMETRY.stateText(r)+'\n'+TELEMETRY.ageText(r?.fetchedAt,Date.now())+' · '+TELEMETRY.connection(t.links?.[r?.owner],Date.now())+'\n'+TELEMETRY.targetText(t.targets?.[id],Date.now())+'\n'+(state.ownership?.[id]||'uncontrolled'),120);}
     }
-    text('Foreground live / phone-free Bridge playback','Done stops new live work and leaves current states. Stop Bridge or Restore changes delegated playback. Trusted Wi-Fi only; local certificate validation is disabled.',110);
+    text('Automatic Bridge Play / foreground Live Studio','Done stops new live work and leaves current states. Stop Bridge or Restore changes delegated playback. Trusted Wi-Fi only; local certificate validation is disabled.',110);
     table.reload();
   }
   function report(next){if(next.meta&&next.meta.scopeId!==meta.scopeId){meta=next.meta;dirty=false;command=null;picker=null;view='lights';s=clone(next.settings);l=clone(next.layout);}state=next;let force=false;if(!dirty){if(JSON.stringify(s)!==JSON.stringify(next.settings)){s=clone(next.settings);force=true;}if(JSON.stringify(l)!==JSON.stringify(next.layout)){l=clone(next.layout);force=true;}}render(force);}

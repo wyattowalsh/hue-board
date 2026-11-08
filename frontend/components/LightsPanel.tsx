@@ -19,14 +19,11 @@ export function LightsPanel({state,layout,ui,onLooks}:{state:State;layout:Layout
  return <div className="lights-home">
   <section className="everyday" aria-label="Everyday lighting">
    <div className="everyday-heading"><div><h2 className="panel-heading">Your lights, your way.</h2><p className="muted-note mt-2">{on} on · {lights.length} lights{unknown?` · ${unknown} not read yet`:''}{!fresh?' · Waiting for current state':''}</p></div><Badge variant="outline">{state.mode==='live'?'Animating':'Everyday'}</Badge></div>
-   <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-muted/40 p-3 text-sm">
-    <input type="checkbox" className="mt-0.5 size-5 shrink-0 accent-primary" checked={ui.continueInBackground===true}
-      disabled={!ui.continueInBackground&&!state.background?.available}
-      onChange={e=>deck.ui({continueInBackground:e.currentTarget.checked})}/>
-    <span><strong className="block">Keep playing when I leave</strong><span className="mt-1 block text-xs text-muted-foreground">{state.background?.available
-      ? 'Play sends compatible color animation to the Hue Bridge now, so it keeps moving after you lock your phone. Exact Studio patterns and cue sequences require an active controller.'
-      : 'Requires a Hue room or zone with compatible dynamic color lights.'}</span></span>
-   </label>
+   <div className="mb-4 rounded-xl border border-border bg-muted/40 p-3 text-sm" role="note">
+    <strong className="block">Phone-free Play is automatic</strong><p className="mt-1 text-xs text-muted-foreground">{state.background?.available
+      ? 'Press Play on any look to start a supported Hue Bridge dynamic palette. Wait for confirmation, then lock your phone. Exact Live Studio requires a foreground controller.'
+      : 'No compatible Hue dynamic palette in this scope. Select a supported room or zone for phone-free Play; Live Studio still works while Scriptable is open.'}</p>
+   </div>
    <ToggleGroup label="Control scope" value={scope} options={[["area",`This area · ${layout.order.length}`],["selected",`Selected · ${layout.selected.length}`]]} onChange={setScope}/>
    <div className="power-pair"><Button disabled={locked||!ids.length} onClick={()=>send({on:true})}><PowerIcon/>Turn on</Button><Button variant="outline" disabled={locked||!ids.length} onClick={()=>send({on:false})}><PowerIcon/>Turn off</Button></div>
    {dimmers.length?<CommitRange label={`Set brightness · ${dimmers.length} dimmable lights`} value={average} disabled={locked} onCommit={v=>send({on:true,brightness:v},dimmers.map(l=>l.id))}/>:null}
