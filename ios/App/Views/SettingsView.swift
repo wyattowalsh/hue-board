@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
+    @State private var confirmsDestructiveReset = false
 
     var body: some View {
         Form {
@@ -38,6 +39,20 @@ struct SettingsView: View {
                     Label("Forget Bridge on this device", systemImage: "trash")
                 }
                 .disabled(!model.canForgetBridge)
+
+                if model.profile != nil, model.hasRestorePoint {
+                    Button(role: .destructive) {
+                        confirmsDestructiveReset = true
+                    } label: {
+                        Label("Discard recovery & forget Bridge", systemImage: "trash.slash")
+                    }
+                    .disabled(model.isBusy)
+                    Text(
+                        "Use only when the old Bridge cannot be reached or has been replaced. This permanently deletes the saved pre-playback baseline."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
             }
 
             Section("Playback model") {
@@ -63,5 +78,19 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Settings")
+        .confirmationDialog(
+            "Delete the restore baseline?",
+            isPresented: $confirmsDestructiveReset,
+            titleVisibility: .visible
+        ) {
+            Button("Discard recovery & forget Bridge", role: .destructive) {
+                Task { await model.discardRecoveryAndForgetBridge() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(
+                "Hue Board will delete the application key, certificate pin, scene registry, and the only saved state needed to restore lights changed by the current playback session. This cannot be undone."
+            )
+        }
     }
 }
