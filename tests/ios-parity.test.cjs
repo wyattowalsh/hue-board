@@ -45,13 +45,16 @@ test('native engine manifest covers all 512 deterministic frames',()=>{
   assert.deepEqual(observed,golden.anchors);
 });
 
-test('native app source preserves no-write-on-open and restore gates',()=>{
+test('native app source preserves no-write-on-open and complete restore gates',()=>{
   const appModelFiles=fs.readdirSync(path.join(root,'ios/App'))
     .filter(name=>/^AppModel.*\.swift$/.test(name))
     .sort()
     .map(name=>read(path.join('ios/App',name)));
   const model=appModelFiles.join('\n');
   const connection=read('ios/App/AppModel+Connection.swift');
+  const recovery=read('ios/App/AppModel+Recovery.swift');
+  const everyday=read('ios/App/AppModel+Everyday.swift');
+  const journal=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/RestoreJournal+Capture.swift');
   const bootstrap=connection.slice(connection.indexOf('func bootstrap()'),connection.indexOf('func discoverBridges()'));
   assert.doesNotMatch(bootstrap,/updateLight\(|recallScene\(|createScene\(|updateScene\(/);
   assert.match(model,/scene\.group\?\.resourceID == area\.id/);
@@ -65,6 +68,11 @@ test('native app source preserves no-write-on-open and restore gates',()=>{
   assert.match(model,/func turnOffNow\(\)/);
   assert.match(model,/ContinuedLiveCoordinator\.shared\.cancel\(\)/);
   assert.match(model,/saved baseline is retained/);
+  assert.match(recovery,/captureMissing\(from: area, touchedIDs: touchedIDs\)/);
+  assert.match(journal,/let existing = capturedLightIDs/);
+  assert.match(journal,/!existing\.contains\(\$0\.id\)/);
+  assert.match(everyday,/targetIDs = journal\.capturedLightIDs/);
+  assert.match(everyday,/No restorable non-streaming lights/);
 });
 
 test('native app keeps credentials out of source and in Keychain',()=>{
@@ -101,9 +109,11 @@ test('native local transport verifies bridge identity and pins its certificate',
   assert.doesNotMatch(plist,/NSAllowsArbitraryLoads|NSExceptionAllowsInsecureHTTPLoads/);
 });
 
-test('native discovery combines Bonjour with the Hue broker without light writes',()=>{
+test('native discovery and readback streams are bounded and non-writing',()=>{
   const discovery=read('ios/App/Services/HueLocalDiscovery.swift');
   const connection=read('ios/App/AppModel+Connection.swift');
+  const stream=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/HueEventStreamClient.swift');
+  const events=read('ios/Packages/HueBoardKit/Sources/HueBoardKit/HueEvents.swift');
   const plist=read('ios/App/Info.plist');
   assert.match(discovery,/NWBrowser/);
   assert.match(discovery,/bonjourWithTXTRecord\(type: "_hue\._tcp", domain: "local\."\)/);
@@ -116,6 +126,11 @@ test('native discovery combines Bonjour with the Hue broker without light writes
   assert.match(plist,/NSBonjourServices/);
   assert.match(plist,/_hue\._tcp/);
   assert.doesNotMatch(discovery,/updateLight\(|recallScene\(|createScene\(|updateScene\(/);
+  assert.match(stream,/case 429:/);
+  assert.match(stream,/case 500\.\.<600:/);
+  assert.match(stream,/text\/event-stream/);
+  assert.match(events,/maximumEventBytes = 256 \* 1_024/);
+  assert.doesNotMatch(stream,/updateLight\(|recallScene\(|createScene\(|updateScene\(/);
 });
 
 test('native project includes exact engine and explicit continued-processing contract',()=>{
