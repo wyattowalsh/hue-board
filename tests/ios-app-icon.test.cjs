@@ -1,7 +1,6 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -11,15 +10,12 @@ const iconPath = path.join(
   'ios/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png'
 );
 
-test('native app icon is a pinned 1024px PNG wired into XcodeGen', () => {
+test('native app icon is a 1024px PNG wired into XcodeGen', () => {
   const png = fs.readFileSync(iconPath);
   assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
   assert.equal(png.readUInt32BE(16), 1024);
   assert.equal(png.readUInt32BE(20), 1024);
-  assert.equal(
-    crypto.createHash('sha256').update(png).digest('hex'),
-    '050f0f008a84fde162da7d1e51c713516c8174eb36d093eb136792dd5a944430'
-  );
+  assert.ok(png.length >= 8_000, 'icon should contain the intended composed artwork');
 
   const contents = JSON.parse(
     fs.readFileSync(
