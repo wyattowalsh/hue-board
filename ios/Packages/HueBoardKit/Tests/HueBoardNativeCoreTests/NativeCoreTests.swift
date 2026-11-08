@@ -77,6 +77,56 @@ final class NativeCoreTests: XCTestCase {
         XCTAssertEqual(loaded, profile)
     }
 
+    func testRestoreJournalCapturesOnlyNewlyTouchedLights() throws {
+        let capturedAt = Date(timeIntervalSince1970: 100)
+        let later = Date(timeIntervalSince1970: 200)
+        let first = light("one", brightness: 25)
+        let second = light("two", brightness: 75)
+        let area = HueArea(
+            id: .init(rawValue: "room"),
+            kind: .room,
+            name: "Room",
+            lights: [first, second]
+        )
+        var journal = RestoreJournal(
+            bridgeID: bridgeID,
+            area: area,
+            lights: [first],
+            createdAt: capturedAt
+        )
+
+        XCTAssertEqual(
+            try journal.captureMissing(
+                from: area,
+                touchedIDs: [first.id, second.id],
+                capturedAt: later
+            ),
+            1
+        )
+        XCTAssertEqual(journal.capturedLightIDs, [first.id, second.id])
+        XCTAssertEqual(journal.snapshots.first?.capturedAt, capturedAt)
+        XCTAssertEqual(journal.snapshots.last?.capturedAt, later)
+        XCTAssertEqual(
+            try journal.captureMissing(from: area, touchedIDs: [first.id, second.id]),
+            0
+        )
+        XCTAssertEqual(journal.snapshots.count, 2)
+    }
+
+    func testRestoreJournalRejectsAnotherArea() throws {
+        let first = light("one", brightness: 25)
+        let room = HueArea(
+            id: .init(rawValue: "room"), kind: .room, name: "Room", lights: [first]
+        )
+        let zone = HueArea(
+            id: .init(rawValue: "zone"), kind: .zone, name: "Zone", lights: [first]
+        )
+        var journal = RestoreJournal(bridgeID: bridgeID, area: room, lights: [first])
+        XCTAssertThrowsError(
+            try journal.captureMissing(from: zone, touchedIDs: [first.id])
+        )
+    }
+
     func testDescriptorBounds() throws {
         let profile = try BridgeProfile(
             bridgeID: bridgeID,
@@ -93,5 +143,25 @@ final class NativeCoreTests: XCTestCase {
         )
         XCTAssertEqual(descriptor.brightness, 100)
         XCTAssertEqual(descriptor.duration, 60)
+    }
+
+    private func light(_ id: String, brightness: Double) -> HueLight {
+        HueLight(
+            id: .init(rawValue: id),
+            ownerID: .init(rawValue: "device-\(id)"),
+            name: id,
+            isOn: true,
+            brightness: brightness,
+            color: .init(x: 0.3, y: 0.3),
+            colorTemperatureMirek: nil,
+            gamut: nil,
+            capabilities: .init(
+                power: true,
+                dimming: true,
+                color: true,
+                colorTemperature: false,
+                dynamicPalette: true
+            )
+        )
     }
 }
