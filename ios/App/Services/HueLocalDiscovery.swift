@@ -28,11 +28,9 @@ final class HueLocalDiscovery: @unchecked Sendable {
     ) {
       self.timeout = min(max(timeout, 1), 8)
       self.continuation = continuation
-      let parameters = NWParameters.tcp
-      parameters.includePeerToPeer = false
       browser = NWBrowser(
         for: .bonjourWithTXTRecord(type: "_hue._tcp", domain: "local."),
-        using: parameters
+        using: Self.ipv4TCPParameters()
       )
     }
 
@@ -76,7 +74,7 @@ final class HueLocalDiscovery: @unchecked Sendable {
       case .hostPort(let host, let port):
         add(host: host, port: port, serviceName: nil, txtBridgeID: txtBridgeID)
       case .service(let name, _, _, _):
-        let connection = NWConnection(to: endpoint, using: .tcp)
+        let connection = NWConnection(to: endpoint, using: Self.ipv4TCPParameters())
         connections[key] = connection
         connection.stateUpdateHandler = { [weak self, weak connection] state in
           guard let self, let connection else { return }
@@ -153,6 +151,17 @@ final class HueLocalDiscovery: @unchecked Sendable {
       }
       continuation.resume(returning: result)
       keepAlive = nil
+    }
+
+    private static func ipv4TCPParameters() -> NWParameters {
+      let parameters = NWParameters.tcp
+      parameters.includePeerToPeer = false
+      if let options = parameters.defaultProtocolStack.internetProtocol
+        as? NWProtocolIP.Options
+      {
+        options.version = .v4
+      }
+      return parameters
     }
   }
 }
