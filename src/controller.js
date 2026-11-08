@@ -74,7 +74,7 @@ function makeController(cfg,group,options={}) {
         else if(offChecks[l.id]===1&&l.on?.on===true){delete held[l.id];offChecks[l.id]=0;}
       }
       const d=session.delegated[l.id];if(d&&started>d.acceptedAt){const matches=d.kind==='effect'?((l.effects_v2?.status?.effect||l.effects?.status)===d.effect):l.dynamics?.status==='dynamic_palette';
-        if(matches){d.confirmedAt=finished;d.state='reported';}
+        if(matches&&['accepted','reported'].includes(d.state)){d.confirmedAt=finished;d.state='reported';}
         else if(finished-d.acceptedAt>15000){d.state='not reported';}}
     }
     for(const l of lights)if(!found.has(l.id))held[l.id]='Missing from latest Bridge response';
