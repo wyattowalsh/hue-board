@@ -9,6 +9,7 @@ extension AppModel {
     isBusy = true
     playback.beginBridge(presetID: preset.id)
     var sceneID: HueResourceID?
+    var recallAttempted = false
     defer { isBusy = false }
     do {
       let freshAreas = try await client.inventory(profile: profile, credential: credential)
@@ -20,11 +21,6 @@ extension AppModel {
         preset: preset,
         contract: contract,
         brightness: brightness
-      )
-      try await ensureRestoreJournal(
-        profile: profile,
-        area: freshArea,
-        touchedIDs: Set(draft.animatedLightIDs)
       )
 
       sceneID = await persistence.sceneID(bridgeID: profile.bridgeID, areaID: area.id)
@@ -54,16 +50,31 @@ extension AppModel {
         await persistence.saveSceneID(sceneID, bridgeID: profile.bridgeID, areaID: area.id)
       }
       guard let sceneID else { throw HueBoardError.invalidResponse("Scene identifier is missing.") }
+
+      // Scene creation/update changes only the stored Hue scene. Capture the
+      // physical light baseline at the last safe point before recall.
+      try await ensureRestoreJournal(
+        profile: profile,
+        area: freshArea,
+        touchedIDs: Set(draft.animatedLightIDs)
+      )
       playback.markBridgeRequestPending(sceneID: sceneID)
+      recallAttempted = true
       try await client.recallScene(id: sceneID, profile: profile, credential: credential)
       playback.markBridgeAccepted(sceneID: sceneID)
       selectedPresetID = preset.id
       note =
         "\(preset.name) was accepted by the Bridge and continues independently after you leave the app."
     } catch {
-      playback.markUncertain(
-        "Bridge playback is uncertain: \(error.localizedDescription) Stop and restore before retrying."
-      )
+      if recallAttempted {
+        playback.markUncertain(
+          "Bridge playback is uncertain: \(error.localizedDescription) Stop and restore before retrying."
+        )
+      } else {
+        playback.stop(
+          "Could not prepare Bridge playback: \(error.localizedDescription) No scene recall was sent."
+        )
+      }
       errorMessage = playback.snapshot.message
     }
   }

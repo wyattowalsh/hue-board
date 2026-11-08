@@ -77,8 +77,8 @@ final class AppModel {
   var canTurnOffNow: Bool { isReady && !isBusy }
   var requiresRecovery: Bool {
     playback.snapshot.phase == .uncertain
-      || playback.snapshot.phase == .failed
       || playback.snapshot.mode == .stopping
+      || (playback.snapshot.phase == .failed && hasRestorePoint)
   }
   var canPlayScene: Bool {
     isReady && !isLiveRunning && !isBusy && !requiresRecovery

@@ -34,6 +34,8 @@ test('native app source preserves no-write-on-open and restore gates',()=>{
   assert.match(model,/markBridgeRequestPending/);
   assert.match(model,/markUncertain/);
   assert.match(model,/requiresRecovery/);
+  assert.match(model,/recallAttempted/);
+  assert.match(model,/No scene recall was sent/);
   assert.match(model,/func turnOffNow\(\)/);
   assert.match(model,/ContinuedLiveCoordinator\.shared\.cancel\(\)/);
   assert.match(model,/saved baseline is retained/);
