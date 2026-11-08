@@ -1,0 +1,57 @@
+name: Native iOS
+
+on:
+  push:
+    paths:
+      - ios/**
+      - scripts/export-ios-contract.cjs
+      - tests/ios-parity.test.cjs
+      - .github/workflows/ios.yml
+      - package.json
+  pull_request:
+    paths:
+      - ios/**
+      - scripts/export-ios-contract.cjs
+      - tests/ios-parity.test.cjs
+      - .github/workflows/ios.yml
+      - package.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Verify generated parity contract
+        run: |
+          node scripts/export-ios-contract.cjs
+          git diff --exit-code -- ios/Packages/HueBoardKit/Sources/HueBoardKit/Resources
+          node --test tests/ios-parity.test.cjs
+      - name: Test shared Swift packages
+        run: swift test --package-path ios/Packages/HueBoardKit
+      - name: Build pinned XcodeGen
+        run: |
+          git clone --no-checkout https://github.com/yonaskolb/XcodeGen.git /tmp/XcodeGen
+          git -C /tmp/XcodeGen checkout 8445e778451c7e44237b90281bde622d764b0084
+          swift build --package-path /tmp/XcodeGen -c release --product xcodegen
+      - name: Generate Xcode project
+        run: /tmp/XcodeGen/.build/release/xcodegen generate --spec ios/project.yml --project ios
+      - name: Build iOS Simulator target
+        run: >-
+          xcodebuild
+          -project ios/HueBoard.xcodeproj
+          -scheme HueBoard
+          -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO
+          build
