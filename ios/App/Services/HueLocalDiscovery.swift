@@ -31,7 +31,7 @@ final class HueLocalDiscovery: @unchecked Sendable {
       let parameters = NWParameters.tcp
       parameters.includePeerToPeer = false
       browser = NWBrowser(
-        for: .bonjour(type: "_hue._tcp", domain: "local."),
+        for: .bonjourWithTXTRecord(type: "_hue._tcp", domain: "local."),
         using: parameters
       )
     }
@@ -49,7 +49,7 @@ final class HueLocalDiscovery: @unchecked Sendable {
       }
       browser.browseResultsChangedHandler = { [weak self] results, _ in
         guard let self else { return }
-        for result in results { self.resolve(result.endpoint) }
+        for result in results { self.resolve(result) }
       }
       browser.start(queue: queue)
       queue.asyncAfter(deadline: .now() + timeout) { [weak self] in
@@ -57,13 +57,24 @@ final class HueLocalDiscovery: @unchecked Sendable {
       }
     }
 
-    private func resolve(_ endpoint: NWEndpoint) {
+    private func resolve(_ result: NWBrowser.Result) {
+      let endpoint = result.endpoint
       let key = String(describing: endpoint)
       guard seenEndpoints.insert(key).inserted else { return }
 
+      let txtBridgeID: String?
+      switch result.metadata {
+      case .bonjour(let record):
+        txtBridgeID = HueBridgeTLSIdentity.normalizeBridgeID(record["bridgeid"])
+      case .none:
+        txtBridgeID = nil
+      @unknown default:
+        txtBridgeID = nil
+      }
+
       switch endpoint {
       case .hostPort(let host, let port):
-        add(host: host, port: port, serviceName: nil)
+        add(host: host, port: port, serviceName: nil, txtBridgeID: txtBridgeID)
       case .service(let name, _, _, _):
         let connection = NWConnection(to: endpoint, using: .tcp)
         connections[key] = connection
@@ -74,7 +85,12 @@ final class HueLocalDiscovery: @unchecked Sendable {
             if let remoteEndpoint = connection.currentPath?.remoteEndpoint,
                case .hostPort(let host, let port) = remoteEndpoint
             {
-              self.add(host: host, port: port, serviceName: name)
+              self.add(
+                host: host,
+                port: port,
+                serviceName: name,
+                txtBridgeID: txtBridgeID
+              )
             }
             self.finishConnection(key: key, connection: connection)
           case .failed(_), .cancelled:
@@ -92,7 +108,8 @@ final class HueLocalDiscovery: @unchecked Sendable {
     private func add(
       host: NWEndpoint.Host,
       port: NWEndpoint.Port,
-      serviceName: String?
+      serviceName: String?,
+      txtBridgeID: String?
     ) {
       let value = String(describing: host)
         .split(separator: "%", maxSplits: 1, omittingEmptySubsequences: true)
@@ -102,7 +119,8 @@ final class HueLocalDiscovery: @unchecked Sendable {
         .lowercased()
       guard let value, HueBridgeHostValidator.isAllowed(value) else { return }
 
-      let advertisedID = serviceName.flatMap(HueBridgeTLSIdentity.normalizeBridgeID)
+      let advertisedID = txtBridgeID
+        ?? serviceName.flatMap(HueBridgeTLSIdentity.normalizeBridgeID)
       let candidate = HueBridgeCandidate(
         id: advertisedID ?? serviceName ?? value,
         host: value,
