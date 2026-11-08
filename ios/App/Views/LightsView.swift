@@ -41,7 +41,7 @@ struct LightsView: View {
             }
 
             Text(
-              "Turn off now remains available during playback. It preserves the saved baseline and cancels Native Live before sending off commands."
+              "During playback, Turn off now cancels Native Live and turns off only lights covered by the saved baseline, so restoration remains complete. Otherwise it turns off the current area."
             )
             .font(.caption)
             .foregroundStyle(.secondary)
