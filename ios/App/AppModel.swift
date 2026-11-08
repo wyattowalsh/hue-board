@@ -72,6 +72,12 @@ final class AppModel {
   var selectedPreset: HuePreset? { contract.preset(id: selectedPresetID) }
   var isReady: Bool { connectionState == .ready && profile != nil && credential != nil }
   var playbackSnapshot: HuePlaybackSnapshot { playback.snapshot }
+  var eventStreamStatus: String {
+    guard isReady else { return "Unavailable" }
+    if eventStreamConnected { return "Receiving updates" }
+    if eventTask != nil { return "Connecting" }
+    return "Paused"
+  }
   var isLiveRunning: Bool {
     (playback.snapshot.mode == .liveForeground || playback.snapshot.mode == .liveContinued)
       && playback.snapshot.phase == .running
