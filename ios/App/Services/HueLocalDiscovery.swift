@@ -69,7 +69,9 @@ final class HueLocalDiscovery: @unchecked Sendable {
           guard let self, let connection else { return }
           switch state {
           case .ready:
-            if case .hostPort(let host, let port) = connection.currentPath?.remoteEndpoint {
+            if let remoteEndpoint = connection.currentPath?.remoteEndpoint,
+               case .hostPort(let host, let port) = remoteEndpoint
+            {
               self.add(host: host, port: port, serviceName: name)
             }
             self.finishConnection(key: key, connection: connection)
