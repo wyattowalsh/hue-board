@@ -20,14 +20,20 @@ test('native contract mirrors JavaScript definitions',()=>{
 });
 
 test('native app source preserves no-write-on-open and restore gates',()=>{
-  const model=read('ios/App/AppModel.swift');
-  const bootstrap=model.slice(model.indexOf('func bootstrap()'),model.indexOf('func discoverBridges()'));
+  const appModelFiles=fs.readdirSync(path.join(root,'ios/App'))
+    .filter(name=>/^AppModel.*\.swift$/.test(name))
+    .sort()
+    .map(name=>read(path.join('ios/App',name)));
+  const model=appModelFiles.join('\n');
+  const connection=read('ios/App/AppModel+Connection.swift');
+  const bootstrap=connection.slice(connection.indexOf('func bootstrap()'),connection.indexOf('func discoverBridges()'));
   assert.doesNotMatch(bootstrap,/updateLight\(|recallScene\(|createScene\(|updateScene\(/);
   assert.match(model,/scene\.group\?\.resourceID == area\.id/);
   assert.match(model,/Stop and restore the current area before switching/);
   assert.match(model,/ensureRestoreJournal/);
   assert.match(model,/markBridgeRequestPending/);
   assert.match(model,/markUncertain/);
+  assert.match(model,/requiresRecovery/);
 });
 
 test('native app keeps credentials out of source and in Keychain',()=>{
