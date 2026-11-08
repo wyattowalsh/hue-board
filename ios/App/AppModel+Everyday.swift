@@ -12,12 +12,11 @@ extension AppModel {
     let previous = selectedAreaID
     selectedAreaID = id
     do {
-      if let profile { await persistence.saveSelectedAreaID(id, bridgeID: profile.bridgeID) }
       try await loadRecoveryState()
+      if let profile { await persistence.saveSelectedAreaID(id, bridgeID: profile.bridgeID) }
     } catch {
       selectedAreaID = previous
-      if let profile { await persistence.saveSelectedAreaID(previous, bridgeID: profile.bridgeID) }
-      errorMessage = "Could not load the selected area’s recovery state: \(error.localizedDescription)"
+      errorMessage = "Could not review restore state for the selected area: \(error.localizedDescription)"
     }
   }
 
@@ -54,7 +53,27 @@ extension AppModel {
     isBusy = true
     defer { isBusy = false }
     do {
-      for light in area.lights where light.capabilities.power && !light.capabilities.streaming {
+      let journal = try await persistence.loadRestoreJournal()
+      let targetIDs: Set<HueResourceID>
+      if let journal {
+        guard journal.bridgeID == profile.bridgeID, journal.areaID == area.id else {
+          throw HueBoardError.unsupported(
+            "The saved playback baseline belongs to another Bridge or area. Restore it before using emergency off here."
+          )
+        }
+        targetIDs = journal.capturedLightIDs
+      } else {
+        targetIDs = Set(area.lights.map(\.id))
+      }
+
+      let targets = area.lights.filter {
+        targetIDs.contains($0.id) && $0.capabilities.power && !$0.capabilities.streaming
+      }
+      guard !targets.isEmpty else {
+        throw HueBoardError.unsupported("No restorable non-streaming lights are available to turn off.")
+      }
+
+      for light in targets {
         try await client.updateLight(
           id: light.id,
           action: HueLightAction(on: .init(on: false)),
@@ -62,9 +81,10 @@ extension AppModel {
           credential: credential
         )
       }
-      if hasRestorePoint {
+      if journal != nil {
         playback.fail(
-          "Lights were turned off. The saved baseline is retained; restore before new playback.")
+          "Playback lights were turned off. The saved baseline is retained; restore before new playback."
+        )
       } else {
         playback.stop("Lights were turned off.")
       }
