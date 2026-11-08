@@ -28,11 +28,14 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
     dependencies:
       - package: HueBoardKit
         product: HueBoardKit
       - package: HueBoardKit
         product: HueBoardNativeCore
+      - package: HueBoardKit
+        product: HueBoardAppleEngine
     scheme:
       testTargets: []
       gatherCoverageData: false

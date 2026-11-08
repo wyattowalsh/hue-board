@@ -10,8 +10,9 @@ test-kit:
 	swift test --package-path Packages/HueBoardKit
 
 parity:
-	cd .. && node scripts/export-ios-contract.cjs
+	cd .. && pnpm build && pnpm export:ios-contract
 	$(MAKE) test-kit
+	cd .. && node --test tests/ios-parity.test.cjs
 
 build: project
 	xcodebuild -project HueBoard.xcodeproj -scheme HueBoard -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
@@ -19,4 +20,4 @@ build: project
 verify: parity build
 
 clean:
-	rm -rf HueBoard.xcodeproj Packages/HueBoardKit/.build
+	rm -rf HueBoard.xcodeproj Packages/HueBoardKit/.build DerivedData

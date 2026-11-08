@@ -1,71 +1,71 @@
-# Hue Board for iOS
+# Hue Board native iOS app
 
-This directory contains the native SwiftUI vertical slice stacked on the Hue Board 5.3 source candidate.
+The native SwiftUI app is the primary product direction for Hue Board. Scriptable remains a compatibility implementation and source-of-truth parity oracle while the native feature set converges.
 
-## Product contract
+## Playback contract
 
-- **Play** creates or updates a Hue Bridge-native dynamic scene and recalls it. Once the Bridge acknowledges the recall, playback is independent of the phone.
-- **Native Live** runs the deterministic Hue Board engine in Swift. On iOS 18–25 it is foreground-only. On iOS 26+, a user-started, duration-bounded session can request `BGContinuedProcessingTask` support so network updates may continue after the app backgrounds. iOS shows progress and can cancel or terminate the task.
-- The current Live transport is deliberately rate-limited REST with long transitions. It is not a claim of exact high-frequency Hue Entertainment parity. A future production transport should integrate the Hue Entertainment Development Kit.
-- Opening, pairing, refreshing, or changing tabs never writes to lights.
+- **Play** creates or updates a compatible Hue Bridge dynamic scene, recalls it, and then lets the Bridge continue independently of the phone.
+- **Native Live** executes the same deterministic JavaScript engine bundled with Scriptable through JavaScriptCore. Sessions are explicitly user-started and duration-bounded.
+- On iOS 18–25, Native Live is foreground-only. On iOS 26+, it automatically requests `BGContinuedProcessingTask` after the user taps Start. The system displays progress and can cancel or expire the task.
+- Force-quitting the app ends continued processing. It is not an unlimited daemon.
+- Opening, pairing, refreshing, browsing, and changing tabs never write to lights.
 
-## Structure
+## Architecture
 
-- `Packages/HueBoardKit`: platform-neutral models, generated parity contract, full Swift engine port, scene payload builder, playback state machine, Hue v2 resource decoding, and Linux-testable parity tests.
-- `Packages/HueBoardKit/Sources/HueBoardNativeCore/HueBridgeClient.swift`: strict HTTPS local Bridge transport, redirect rejection, application-key headers, request pacing, inventory and scene/light writes.
-- `Packages/HueBoardKit/Sources/HueBoardNativeCore/NativeLiveRunner.swift`: bounded rate-limited Live loop.
-- `App/Services/ContinuedLiveCoordinator.swift`: iOS 26 continued-processing registration, progress, persistence and cancellation.
-- `App/AppModel.swift`: main-actor orchestration, recovery journal, Bridge scene registry, everyday controls and app state.
-- `project.yml`: deterministic XcodeGen project source.
+- `HueBoardKit`: platform-neutral Hue models, API decoding, scene payloads, restore snapshots, playback state and generated parity contract.
+- `HueBoardAppleEngine`: SHA-256-verified JavaScriptCore adapter around the exact shared Hue Board engine runtime.
+- `HueBoardNativeCore`: persistence, strict private-host validation, redirect-rejecting HTTPS transport, Hue pairing, inventory and writes.
+- `AppModel`: one-writer main-actor orchestration, restore journal, scene registry, everyday control, Bridge Play and Native Live.
+- `App/Services`: Keychain credentials and iOS 26 continued-processing integration.
+- `App/Views`: Lights, Scenes, Live, connection, playback status and Settings surfaces.
+- `project.yml`: deterministic XcodeGen source. The generated `.xcodeproj` is intentionally ignored.
 
-## Generate and run
+## Generate and verify
 
-Requirements:
-
-- macOS with Xcode 26 or newer for `BGContinuedProcessingTask` compilation and device testing
-- XcodeGen 2.46.0
-- A physical iPhone and Hue Bridge on the same trusted network for meaningful validation
+Requirements: Xcode 26+, XcodeGen 2.46.0, Node 22, pnpm 10.17.1, and a physical iPhone/Hue Bridge for integration qualification.
 
 ```sh
-brew install xcodegen
+corepack enable
+pnpm install --frozen-lockfile
 cd ios
 make parity
-make verify
+make project
+make build
 open HueBoard.xcodeproj
 ```
 
-Select a signing team, install on a physical device, grant Local Network permission, press the Hue Bridge button, and pair.
+Select a signing team before installing on a device. Pairing requires the physical Bridge button and Local Network permission.
 
-## Verified here
+## Security boundary
 
-- Swift 6.2 package compiles on Linux.
-- 512 JavaScript engine vectors match Swift to `1e-9`.
-- Contract, Hue resource decoding, scene JSON, host allowlisting and playback state tests pass.
-- Every app Swift file passes the Swift parser.
-- JavaScript behavior tests pass independently of the unpublished v5.3 installer manifest.
-- GitHub includes a macOS 26 / Xcode 26.6 simulator build workflow for the generated project; current Actions execution remains externally blocked by the repository owner billing lock.
+The client accepts only private-LAN IPv4 addresses or syntactically valid `.local` hostnames, rejects HTTP redirects, uses standard system HTTPS trust, and keeps the Hue application key in Keychain with `AfterFirstUnlockThisDeviceOnly` accessibility. Actual Hue Bridge certificate-chain behavior still requires physical-device validation; this document does not claim certificate pinning.
 
-## Not verified here
+## Verified in the current non-Xcode environment
 
-- Xcode/iOS target compilation, code signing or installation, because this environment does not include Xcode.
-- Hue Bridge TLS behavior and firmware compatibility.
-- Local Network permission UX, iOS suspension, `BGContinuedProcessingTask` scheduling/expiration, or app-switcher termination.
-- Physical light output, VoiceOver, energy use, thermal behavior, interruption recovery, or concurrent Hue controllers.
+- The shared native package previously compiled with Swift 6.2 before the app layer was added.
+- The parity contract covers 32 looks, 24 patterns and 19 palettes; the Apple engine validates the bundled runtime digest before execution.
+- All new SwiftUI and service sources pass the Swift parser.
+- Existing JavaScript regression and synthetic timing suites remain independent of the unpublished v5.3 installer manifest.
 
-Do not publish or claim App Store readiness until those device checks pass.
+## Not yet verified
 
-## Current parity boundary
+- Xcode/iOS semantic typechecking, simulator build, code signing, installation or launch.
+- Real Hue Bridge TLS, pairing, firmware resource variations, scene creation, lock-screen continuation or physical output.
+- VoiceOver, Dynamic Type extremes, Reduce Motion, landscape, battery/thermal behavior and multiple competing Hue controllers.
+- High-rate Hue Entertainment streaming. Native Live currently uses conservative paced REST transitions.
 
-| Capability | Scriptable 5.3 | Native app |
+Do not call this App Store-ready until the Xcode and physical-device matrix passes.
+
+## Current parity
+
+| Capability | Scriptable 5.3 candidate | Native app |
 | --- | --- | --- |
 | Room/zone discovery and selection | Yes | Yes |
-| Everyday power and area brightness | Yes | Yes |
-| 32 curated looks and Bridge-native Play | Yes | Yes |
-| Automatic phone-free Bridge playback | Yes | Yes |
-| Deterministic 24-pattern engine | Yes | Yes, 512-vector parity gate |
-| Exact Live choreography | Foreground REST controller | Foreground or bounded iOS 26 continued REST controller |
-| Restore baseline | Yes | Yes |
-| Hue layout editor, gradients, cue sequencer, saved-scene static copy | Yes | Planned native parity work |
-| Hue Entertainment high-rate streaming | No | Planned native transport |
-
-The native app is the primary product direction. Scriptable remains a compatibility implementation and parity oracle until the shared contract and native feature set cover the remaining advanced surfaces.
+| Everyday power and brightness | Yes | Yes |
+| 32 looks and automatic Bridge Play | Yes | Yes |
+| Phone-free Bridge playback | Yes | Yes |
+| Exact 24-pattern engine | Yes | Yes, shared JavaScriptCore runtime |
+| Exact Live choreography | Foreground REST | Foreground, or bounded continued processing on iOS 26+ |
+| Static restore baseline | Yes | Yes |
+| Hue layout editor, gradients, cue sequencer, saved-scene copy | Yes | Planned |
+| Hue Entertainment high-rate streaming | No | Planned transport |
