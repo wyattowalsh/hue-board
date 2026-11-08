@@ -39,7 +39,7 @@ final class HueLocalDiscovery: @unchecked Sendable {
       browser.stateUpdateHandler = { [weak self] state in
         guard let self else { return }
         switch state {
-        case .failed, .cancelled:
+        case .failed(_), .cancelled:
           self.finish()
         default:
           break
@@ -73,7 +73,7 @@ final class HueLocalDiscovery: @unchecked Sendable {
               self.add(host: host, port: port, serviceName: name)
             }
             self.finishConnection(key: key, connection: connection)
-          case .failed, .cancelled:
+          case .failed(_), .cancelled:
             self.finishConnection(key: key, connection: connection)
           default:
             break
