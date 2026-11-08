@@ -11,6 +11,21 @@ struct SettingsView: View {
                     LabeledContent("Address", value: profile.displayHost)
                     LabeledContent("Bridge ID", value: profile.bridgeID)
                     if let api = profile.apiVersion { LabeledContent("API", value: api) }
+                    if let certificate = profile.displayCertificateSHA256 {
+                        LabeledContent("Certificate") {
+                            Text(certificate)
+                                .font(.caption2.monospaced())
+                                .multilineTextAlignment(.trailing)
+                                .textSelection(.enabled)
+                        }
+                    }
+                }
+                LabeledContent("Push updates", value: model.eventStreamStatus)
+                if let lastEventAt = model.lastEventAt {
+                    LabeledContent(
+                        "Last event",
+                        value: lastEventAt.formatted(date: .abbreviated, time: .standard)
+                    )
                 }
                 Button {
                     model.isConnectionSheetPresented = true
@@ -32,8 +47,9 @@ struct SettingsView: View {
             }
 
             Section("Safety") {
-                Text("The native transport accepts private-LAN Bridge hosts, rejects HTTP redirects, relies on standard HTTPS trust, and stores the application key in Keychain.")
-                Text("Bridge acknowledgements and API readback are not optical measurements. Another Hue controller can still change the same lights.")
+                Text("Hue Board verifies that the Bridge API identity matches its local TLS certificate, pins the leaf SHA-256 after first verification, rejects redirects, and stores the application key separately in Keychain.")
+                Text("The pin is trust on first use. Verify initial pairing on a trusted home network. A later certificate change fails closed and requires deliberate re-verification.")
+                Text("Bridge acknowledgements, push events, and API readback are not optical measurements. Another Hue controller can still change the same lights.")
             }
             .font(.footnote)
             .foregroundStyle(.secondary)
@@ -43,6 +59,7 @@ struct SettingsView: View {
                 LabeledContent("Shared contract", value: model.contract.release)
                 LabeledContent("Patterns", value: "\(model.contract.patterns.count)")
                 LabeledContent("Looks", value: "\(model.contract.presets.count)")
+                LabeledContent("Parity frames", value: "512")
             }
         }
         .navigationTitle("Settings")
