@@ -66,30 +66,53 @@ extension AppModel {
         targetIDs = Set(area.lights.map(\.id))
       }
 
-      let targets = area.lights.filter {
-        targetIDs.contains($0.id) && $0.capabilities.power && !$0.capabilities.streaming
-      }
-      guard !targets.isEmpty else {
-        throw HueBoardError.unsupported("No restorable non-streaming lights are available to turn off.")
+      guard !targetIDs.isEmpty else {
+        throw HueBoardError.unsupported("No lights are available to turn off.")
       }
 
-      for light in targets {
-        try await client.updateLight(
-          id: light.id,
-          action: HueLightAction(on: .init(on: false)),
-          profile: profile,
-          credential: credential
+      let byID = Dictionary(uniqueKeysWithValues: area.lights.map { ($0.id, $0) })
+      var accepted = 0
+      var unresolved: [HueResourceID] = []
+      for id in targetIDs.sorted(by: { $0.rawValue < $1.rawValue }) {
+        guard let light = byID[id], light.capabilities.power, !light.capabilities.streaming else {
+          unresolved.append(id)
+          continue
+        }
+        do {
+          try await client.updateLight(
+            id: id,
+            action: HueLightAction(on: .init(on: false)),
+            profile: profile,
+            credential: credential
+          )
+          accepted += 1
+        } catch {
+          unresolved.append(id)
+        }
+      }
+
+      guard accepted > 0 else {
+        throw HueBoardError.network(
+          "No emergency-off command was accepted. The saved baseline remains available."
         )
       }
-      if journal != nil {
-        playback.fail(
-          "Playback lights were turned off. The saved baseline is retained; restore before new playback."
-        )
+
+      if unresolved.isEmpty {
+        if journal != nil {
+          playback.fail(
+            "Playback lights were turned off. The saved baseline is retained; restore before new playback."
+          )
+        } else {
+          playback.stop("Lights were turned off.")
+        }
       } else {
-        playback.stop("Lights were turned off.")
+        playback.fail(
+          "Emergency off reached \(accepted) of \(targetIDs.count) lights. \(unresolved.count) were missing, streaming, or failed; the saved baseline is retained."
+        )
+        errorMessage = playback.snapshot.message
       }
       note = playback.snapshot.message
-      try await loadInventory(profile: profile, credential: credential)
+      try? await loadInventory(profile: profile, credential: credential)
     } catch {
       playback.fail("Emergency off was incomplete: \(error.localizedDescription)")
       errorMessage = playback.snapshot.message
