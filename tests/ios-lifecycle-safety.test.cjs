@@ -28,6 +28,18 @@ test('partial Bridge forgetting cannot resume with an in-memory deleted credenti
   assert.match(source, /else if isReady \{\s+startEventMonitoring\(\)/s);
 });
 
+test('saved Bridge retry reuses Keychain state and suppresses duplicate pairing', () => {
+  const reconnect = read('ios/App/AppModel+Reconnect.swift');
+  const sheet = read('ios/App/Views/ConnectionSheet.swift');
+  assert.match(reconnect, /client\.verify\(profile: savedProfile\)/);
+  assert.match(reconnect, /keychain\.credential/);
+  assert.doesNotMatch(reconnect, /client\.pair\(/);
+  assert.match(reconnect, /without creating a new Bridge application key/);
+  assert.match(sheet, /if let pending = model\.pendingProfile, model\.credential == nil/);
+  assert.match(sheet, /Retry saved connection/);
+  assert.match(sheet, /model\.reconnectSavedBridge\(\)/);
+});
+
 test('passive event monitoring stops in background while continued Live remains separate', () => {
   const rootView = read('ios/App/Views/RootView.swift');
   assert.match(rootView, /case \.background:/);
