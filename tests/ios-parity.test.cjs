@@ -54,6 +54,27 @@ test('native app keeps credentials out of source and in Keychain',()=>{
   assert.match(read('ios/App/Services/KeychainVault.swift'),/kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly/);
 });
 
+test('native local transport verifies bridge identity and pins its certificate',()=>{
+  const tls=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/HueBridgeTLS.swift');
+  const client=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/HueBridgeClient.swift');
+  const models=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/Models.swift');
+  const connection=read('ios/App/AppModel+Connection.swift');
+  const sheet=read('ios/App/Views/ConnectionSheet.swift');
+  const plist=read('ios/App/Info.plist');
+  assert.match(tls,/SecPolicyCreateSSL\(true, observation\.bridgeID/);
+  assert.match(tls,/SecTrustSetAnchorCertificates\(/);
+  assert.match(tls,/pinnedSHA256/);
+  assert.match(tls,/certificate changed/i);
+  assert.match(client,/func verify\(profile:/);
+  assert.match(client,/requirePinned\(profile\)/);
+  assert.match(client,/bridgeID == response\.certificate\.bridgeID/);
+  assert.match(models,/certificateSHA256/);
+  assert.match(connection,/client\.verify\(profile: savedProfile\)/);
+  assert.match(sheet,/Certificate/);
+  assert.match(sheet,/fail closed/i);
+  assert.doesNotMatch(plist,/NSAllowsArbitraryLoads|NSExceptionAllowsInsecureHTTPLoads/);
+});
+
 test('native project includes exact engine and explicit continued-processing contract',()=>{
   const project=read('ios/project.yml');
   const coordinator=read('ios/App/Services/ContinuedLiveCoordinator.swift');
