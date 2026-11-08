@@ -31,6 +31,8 @@ final class AppModel {
   var liveDuration: TimeInterval = 15 * 60
   var playback = HuePlaybackMachine()
   var liveProgress = 0.0
+  var eventStreamConnected = false
+  var lastEventAt: Date?
   var note = "Connect a Hue Bridge to begin. Opening Hue Board never changes lights."
   var errorMessage: String?
   var isBusy = false
@@ -42,10 +44,13 @@ final class AppModel {
   let engine: JavaScriptHueEngine
 
   @ObservationIgnored nonisolated let client = HueBridgeClient()
+  @ObservationIgnored nonisolated let eventClient = HueEventStreamClient()
   @ObservationIgnored nonisolated let persistence = AppPersistence.shared
   @ObservationIgnored nonisolated let localDiscovery = HueLocalDiscovery()
   @ObservationIgnored let keychain = KeychainVault()
   @ObservationIgnored var foregroundLiveTask: Task<Void, Never>?
+  @ObservationIgnored var eventTask: Task<Void, Never>?
+  @ObservationIgnored var eventRefreshTask: Task<Void, Never>?
 
   init() {
     do {
