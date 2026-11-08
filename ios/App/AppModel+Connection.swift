@@ -11,22 +11,33 @@ extension AppModel {
                 isConnectionSheetPresented = true
                 return
             }
-            guard let savedCredential = try keychain.credential(bridgeID: savedProfile.bridgeID) else {
-                pendingProfile = savedProfile
-                manualHost = savedProfile.host
+            profile = savedProfile
+            manualHost = savedProfile.host
+            connectionState = .connecting
+
+            let verifiedProfile = try await client.verify(profile: savedProfile)
+            if verifiedProfile != savedProfile {
+                try await persistence.saveProfile(verifiedProfile)
+            }
+            profile = verifiedProfile
+
+            guard let savedCredential = try keychain.credential(bridgeID: verifiedProfile.bridgeID) else {
+                pendingProfile = verifiedProfile
                 connectionState = .awaitingBridgeButton
+                note = "Bridge certificate verified. Press the physical Bridge button, then pair."
                 isConnectionSheetPresented = true
                 return
             }
-            connectionState = .connecting
-            profile = savedProfile
+
             credential = savedCredential
-            try await loadInventory(profile: savedProfile, credential: savedCredential)
+            try await loadInventory(profile: verifiedProfile, credential: savedCredential)
             connectionState = .ready
-            note = "Connected. Play delegates to the Bridge; Native Live is explicit and bounded."
+            note = "Connected over pinned HTTPS. Play delegates to the Bridge; Native Live is explicit and bounded."
         } catch {
             connectionState = .disconnected
+            credential = nil
             errorMessage = error.localizedDescription
+            note = "Bridge verification failed closed. Re-verify or forget the saved Bridge before continuing."
             isConnectionSheetPresented = true
         }
     }
@@ -58,7 +69,7 @@ extension AppModel {
             pendingProfile = value
             manualHost = value.host
             connectionState = .awaitingBridgeButton
-            note = "Bridge identity verified. Press the physical Bridge button, then pair."
+            note = "Bridge API identity and TLS certificate agree. Review the fingerprint, press the physical Bridge button, then pair."
         } catch {
             connectionState = .disconnected
             errorMessage = error.localizedDescription
@@ -89,7 +100,7 @@ extension AppModel {
             connectionState = .ready
             self.pendingProfile = nil
             isConnectionSheetPresented = false
-            note = "Paired. Opening and refreshing Hue Board do not change lights."
+            note = "Paired over pinned HTTPS. Opening and refreshing Hue Board do not change lights."
         } catch {
             connectionState = .awaitingBridgeButton
             errorMessage = error.localizedDescription
@@ -102,7 +113,7 @@ extension AppModel {
         defer { isBusy = false }
         do {
             try await loadInventory(profile: profile, credential: credential)
-            note = "Bridge state refreshed. No light writes were sent."
+            note = "Bridge state refreshed over pinned HTTPS. No light writes were sent."
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -124,7 +135,7 @@ extension AppModel {
             manualHost = ""
             connectionState = .disconnected
             playback = HuePlaybackMachine()
-            note = "Bridge credentials were removed from this device."
+            note = "Bridge credentials and certificate pin were removed from this device."
             isConnectionSheetPresented = true
         } catch {
             errorMessage = error.localizedDescription
