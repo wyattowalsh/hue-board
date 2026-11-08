@@ -270,7 +270,7 @@ function LabPanel({ state, settings, ui, theme }) {
             React.createElement("pre", { className: "trace" }, state.logs?.length ? state.logs.slice(-30).map(l => `${new Date(l.at).toLocaleTimeString()} ${l.kind}: ${l.message}`).join('\n') : 'No controller events yet.'),
             React.createElement(ui_1.Button, { variant: "outline", onClick: () => bridge_1.deck.send({ name: 'exportDiagnostics' }) }, "Export redacted diagnostics"),
             React.createElement("p", { className: "muted-note" }, "The export omits keys, IPs, light names, resource IDs, and raw request bodies. Export/import pauses live updates.")),
-        React.createElement("p", { className: "muted-note" }, "React + Tailwind, with shadcn-derived controls and React Bits SpotlightCard. All runtime assets are bundled locally. Trusted Wi-Fi only: this Scriptable transport disables local Bridge certificate checking."),
+        React.createElement("p", { className: "muted-note" }, "React + Tailwind, with shadcn-derived controls and an original MIT focus surface. All runtime assets are bundled locally. Trusted Wi-Fi only: this Scriptable transport disables local Bridge certificate checking."),
         confirm ? React.createElement(ui_1.Confirm, { ...confirm, onAccept: confirm.accept, onClose: () => setConfirm(null) }) : null);
 }
 

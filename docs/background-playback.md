@@ -1,14 +1,14 @@
 # Background playback
 
-Hue Board 5.2.0 adds **Keep playing when I leave** in Scenes, Studio, and Settings → App & recovery.
+Hue Board 5.2.0 adds **Keep playing when I leave** in **Scenes**, **Studio**, and **Settings → App & recovery**.
 
-- **Off (default):** Play uses the interactive multi-light controller. Keep Scriptable open and the iPhone awake.
-- **On:** Play requests a supported Hue Bridge dynamic palette immediately, while the application is active. After the Bridge confirms recall, it can continue when the iPhone locks or switches apps.
-- **Enabled during live playback:** Hue Board attempts a Bridge handoff immediately. Wait for the accepted/Bridge status before leaving. If the chosen area or lamps do not support native dynamics, no background-playback guarantee is made.
-- **Cue sequences and exact Studio choreography** need a continuously active controller and cannot run on the Bridge as implemented.
-- **Turning the preference off** affects future Play actions, not an already delegated scene. Use Stop Bridge to stop existing delegated playback.
-- **Unsupported scopes:** choose a Hue room or zone with compatible color/dynamic lights. The local All lights scope is not a Hue scene group.
+- **Off (default):** Play uses the interactive multi-light controller; keep Scriptable open and the iPhone awake.
+- **On:** Play uses a supported Hue Bridge dynamic palette from the outset; when the Bridge confirms the recall, the iPhone can lock or switch apps. The scene runs independently on the Bridge.
+- **Toggle on during live playback:** Hue Board attempts the Bridge handoff immediately while the application is foregrounded. Wait for the accepted/Bridge status before leaving. If the area or fixtures do not support native dynamics, no background-capability claim is made and the existing live show remains foreground only.
+- **Cue sequences:** need an active controller and cannot run in this mode; disable the preference to run them. Native scenes cannot reproduce the exact Studio geometry, per-light gain envelopes, gradient choreography, audio reactivity, or custom cue timeline.
+- **Turning the preference off:** changes future playback only. It does not stop an already delegated Bridge scene. Use **Stop Bridge** to stop that scene.
+- **If unavailable:** choose a Hue room or zone containing compatible color/dynamic lamps. The virtual All lights view cannot be recalled as a Hue scene. Prior restore points and per-light ceilings remain preserved.
 
-**Why not hand off only after backgrounding?** iOS may suspend Scriptable and WebView JavaScript when an app leaves foreground. A `visibilitychange`/`pagehide` event is not a reliable opportunity to complete authenticated network handoff. This setting selects Bridge playback *before* leaving so it does not depend on continued iOS execution.
+**Why not handoff only when iOS backgrounds?** Scriptable and WebView JavaScript can be suspended when the application leaves foreground. A `visibilitychange`/`pagehide` callback is not a reliable opportunity to finish multiple authenticated network requests. Hue Board starts Bridge playback *while the application is active* whenever that setting is enabled.
 
-No always-on iOS service, microphone capture, or Hue Entertainment/DTLS streaming was added. API readback is not optical telemetry. On the current Scriptable transport, use only trusted home Wi-Fi because Hue's local TLS certificate verification is relaxed.
+No microphone use, background service, or Hue Entertainment/DTLS streaming is added. The current Scriptable HTTP transport relaxes certificate validation on the home LAN; use only trusted Wi-Fi. API readback is not physical-output telemetry.
