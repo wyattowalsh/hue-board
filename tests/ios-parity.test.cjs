@@ -34,6 +34,9 @@ test('native app source preserves no-write-on-open and restore gates',()=>{
   assert.match(model,/markBridgeRequestPending/);
   assert.match(model,/markUncertain/);
   assert.match(model,/requiresRecovery/);
+  assert.match(model,/func turnOffNow\(\)/);
+  assert.match(model,/ContinuedLiveCoordinator\.shared\.cancel\(\)/);
+  assert.match(model,/saved baseline is retained/);
 });
 
 test('native app keeps credentials out of source and in Keychain',()=>{

@@ -1,8 +1,8 @@
 import Foundation
-import Observation
 import HueBoardAppleEngine
 import HueBoardKit
 import HueBoardNativeCore
+import Observation
 
 @MainActor
 @Observable
@@ -57,7 +57,9 @@ final class AppModel {
   }
 
   var selectedArea: HueArea? {
-    if let selectedAreaID, let area = areas.first(where: { $0.id == selectedAreaID }) { return area }
+    if let selectedAreaID, let area = areas.first(where: { $0.id == selectedAreaID }) {
+      return area
+    }
     return areas.first
   }
 
@@ -72,6 +74,7 @@ final class AppModel {
   var canUseEverydayControls: Bool {
     isReady && !hasRestorePoint && playback.snapshot.mode != .bridge && !isLiveRunning && !isBusy
   }
+  var canTurnOffNow: Bool { isReady && !isBusy }
   var requiresRecovery: Bool {
     playback.snapshot.phase == .uncertain
       || playback.snapshot.phase == .failed
