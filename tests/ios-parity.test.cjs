@@ -106,8 +106,11 @@ test('native discovery combines Bonjour with the Hue broker without light writes
   const connection=read('ios/App/AppModel+Connection.swift');
   const plist=read('ios/App/Info.plist');
   assert.match(discovery,/NWBrowser/);
-  assert.match(discovery,/bonjour\(type: "_hue\._tcp", domain: "local\."\)/);
+  assert.match(discovery,/bonjourWithTXTRecord\(type: "_hue\._tcp", domain: "local\."\)/);
+  assert.match(discovery,/record\["bridgeid"\]/);
   assert.match(discovery,/currentPath\?\.remoteEndpoint/);
+  assert.match(discovery,/keepAlive = self/);
+  assert.match(discovery,/options\.version = \.v4/);
   assert.match(connection,/localDiscovery\.discover\(\)/);
   assert.match(connection,/client\.discover\(\)/);
   assert.match(plist,/NSBonjourServices/);
