@@ -43,6 +43,7 @@ final class AppModel {
 
   @ObservationIgnored nonisolated let client = HueBridgeClient()
   @ObservationIgnored nonisolated let persistence = AppPersistence.shared
+  @ObservationIgnored nonisolated let localDiscovery = HueLocalDiscovery()
   @ObservationIgnored let keychain = KeychainVault()
   @ObservationIgnored var foregroundLiveTask: Task<Void, Never>?
 
