@@ -1,0 +1,13 @@
+'use strict';
+const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),path=require('node:path');
+const root=path.resolve(__dirname,'..'),m=require('../releases/v5.2.0.json');
+const installer=fs.readFileSync(path.join(root,'install/install-hue-board.js'),'utf8');
+const bytes=fs.readFileSync(path.join(root,m.artifact));
+const hash=crypto.createHash('sha256').update(bytes).digest('hex');
+assert.match(m.sourceRevision,/^[a-f0-9]{40}$/);
+assert.match(m.sha256,/^[a-f0-9]{64}$/);
+assert.equal(m.version,require('../package.json').version);
+assert.ok(installer.includes("const REVISION = '"+m.sourceRevision+"';"));
+assert.ok(installer.includes("const EXPECTED_SHA256 = '"+m.sha256+"';"));
+assert.equal(hash,m.sha256,'Checked-in release artifact changed from its immutable pinned digest');
+console.log('Verified immutable published Hue Board '+m.version+' artifact: '+hash);

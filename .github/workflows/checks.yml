@@ -2,9 +2,15 @@ name: Verify
 on:
   push:
   pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -15,6 +21,8 @@ jobs:
           node-version: '22'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Verify pinned published release before rebuilding
+        run: pnpm verify:release
       - run: pnpm build
       - run: pnpm test
       - run: pnpm test:timing

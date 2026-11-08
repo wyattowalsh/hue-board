@@ -1,0 +1,7 @@
+{
+  "version": "5.2.0",
+  "sourceRevision": "f5c1bd9d3c1a6336d2639d8ef63028b31fa945d6",
+  "artifact": "dist/hue-board.js",
+  "sha256": "d733ef2af228cddf45ca179e567d0c479e1a802b2689818c0918b57c37a71a7d",
+  "description": "Immutable published Scriptable artifact. Development builds and release artifacts are verified separately."
+}
