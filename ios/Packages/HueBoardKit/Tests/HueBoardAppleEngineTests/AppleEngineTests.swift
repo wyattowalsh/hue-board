@@ -1,11 +1,14 @@
-import CryptoKit
 import Foundation
 import XCTest
 import HueBoardKit
 @testable import HueBoardAppleEngine
 
+#if canImport(CryptoKit) && canImport(JavaScriptCore)
+import CryptoKit
+#endif
+
 final class AppleEngineTests: XCTestCase {
-#if canImport(JavaScriptCore)
+#if canImport(CryptoKit) && canImport(JavaScriptCore)
     func testSharedRuntimeMatchesGeneratedParityDigest() async throws {
         let contract = try HueBoardContractLoader.load()
         let manifest = try HueEngineGoldenLoader.load()
@@ -93,6 +96,10 @@ final class AppleEngineTests: XCTestCase {
             locale: Locale(identifier: "en_US_POSIX"),
             value
         )
+    }
+#else
+    func testAppleEngineParityIsGatedToApplePlatforms() throws {
+        XCTAssertThrowsError(try JavaScriptHueEngine())
     }
 #endif
 }
