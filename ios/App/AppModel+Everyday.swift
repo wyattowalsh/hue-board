@@ -9,9 +9,16 @@ extension AppModel {
       errorMessage = "Stop and restore the current area before switching rooms or zones."
       return
     }
+    let previous = selectedAreaID
     selectedAreaID = id
-    if let profile { await persistence.saveSelectedAreaID(id, bridgeID: profile.bridgeID) }
-    await loadRecoveryState()
+    do {
+      if let profile { await persistence.saveSelectedAreaID(id, bridgeID: profile.bridgeID) }
+      try await loadRecoveryState()
+    } catch {
+      selectedAreaID = previous
+      if let profile { await persistence.saveSelectedAreaID(previous, bridgeID: profile.bridgeID) }
+      errorMessage = "Could not load the selected area’s recovery state: \(error.localizedDescription)"
+    }
   }
 
   func setAreaPower(_ on: Bool) async {
