@@ -87,5 +87,7 @@ final class AppModel {
   var canStartLive: Bool {
     isReady && !hasRestorePoint && playback.snapshot.mode != .bridge && !requiresRecovery && !isBusy
   }
-  var canForgetBridge: Bool { isReady && !hasRestorePoint && !isLiveRunning && !isBusy }
+  var canForgetBridge: Bool {
+    profile != nil && !hasRestorePoint && !isLiveRunning && !isBusy
+  }
 }
