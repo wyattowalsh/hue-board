@@ -152,24 +152,62 @@ extension AppModel {
             errorMessage = "Stop and restore the current area before removing Bridge credentials."
             return
         }
+        await removeBridge(profile, discardRecovery: false)
+    }
+
+    /// Last-resort escape for a replaced or permanently unreachable Bridge.
+    /// The UI must obtain explicit confirmation because this deletes the only restore baseline.
+    func discardRecoveryAndForgetBridge() async {
+        guard let profile, hasRestorePoint, !isBusy else {
+            errorMessage = "A saved recovery baseline is required for destructive reset."
+            return
+        }
+        await removeBridge(profile, discardRecovery: true)
+    }
+
+    private func removeBridge(_ profile: BridgeProfile, discardRecovery: Bool) async {
+        isBusy = true
         stopEventMonitoring()
+        foregroundLiveTask?.cancel()
+        foregroundLiveTask = nil
+        ContinuedLiveCoordinator.shared.cancel()
+        defer { isBusy = false }
+
         do {
+            if !discardRecovery, try await persistence.loadRestoreJournal() != nil {
+                throw HueBoardError.unsupported(
+                    "Restore the saved baseline before removing this Bridge."
+                )
+            }
             try keychain.removeCredential(bridgeID: profile.bridgeID)
             try await persistence.clearBridgeState(bridgeID: profile.bridgeID)
-            self.profile = nil
-            credential = nil
-            areas = []
-            selectedAreaID = nil
-            pendingProfile = nil
-            manualHost = ""
-            lastEventAt = nil
-            connectionState = .disconnected
-            playback = HuePlaybackMachine()
-            note = "Bridge credentials and certificate pin were removed from this device."
+            resetDisconnectedState()
+            note = discardRecovery
+                ? "Bridge credentials and the unrecoverable restore baseline were deleted from this device."
+                : "Bridge credentials were removed from this device."
             isConnectionSheetPresented = true
         } catch {
             errorMessage = error.localizedDescription
+            if isReady { startEventMonitoring() }
         }
+    }
+
+    private func resetDisconnectedState() {
+        profile = nil
+        credential = nil
+        areas = []
+        selectedAreaID = nil
+        pendingProfile = nil
+        discoveredBridges = []
+        manualHost = ""
+        lastEventAt = nil
+        eventStreamConnected = false
+        eventStreamDetail = "Unavailable until a Bridge is connected."
+        connectionState = .disconnected
+        playback = HuePlaybackMachine()
+        liveProgress = 0
+        hasRestorePoint = false
+        restoreAreaID = nil
     }
 
     func loadInventory(profile: BridgeProfile, credential: HueBridgeCredential) async throws {
