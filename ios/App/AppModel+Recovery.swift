@@ -31,18 +31,24 @@ extension AppModel {
     area: HueArea,
     touchedIDs: Set<HueResourceID>
   ) async throws {
-    if let existing = try await persistence.loadRestoreJournal() {
+    let touched = area.lights.filter { touchedIDs.contains($0.id) }
+    guard !touched.isEmpty else {
+      throw HueBoardError.unsupported("No compatible lights are selected.")
+    }
+
+    if var existing = try await persistence.loadRestoreJournal() {
       guard existing.bridgeID == profile.bridgeID, existing.areaID == area.id else {
         throw HueBoardError.unsupported("Restore the previous area before starting new playback.")
+      }
+      let added = try existing.captureMissing(from: area, touchedIDs: touchedIDs)
+      if added > 0 {
+        try await persistence.saveRestoreJournal(existing)
       }
       hasRestorePoint = true
       restoreAreaID = existing.areaID
       return
     }
-    let touched = area.lights.filter { touchedIDs.contains($0.id) }
-    guard !touched.isEmpty else {
-      throw HueBoardError.unsupported("No compatible lights are selected.")
-    }
+
     let journal = RestoreJournal(bridgeID: profile.bridgeID, area: area, lights: touched)
     try await persistence.saveRestoreJournal(journal)
     hasRestorePoint = true
