@@ -32,6 +32,7 @@ final class AppModel {
   var playback = HuePlaybackMachine()
   var liveProgress = 0.0
   var eventStreamConnected = false
+  var eventStreamDetail = "Paused while Hue Board is inactive."
   var lastEventAt: Date?
   var note = "Connect a Hue Bridge to begin. Opening Hue Board never changes lights."
   var errorMessage: String?
@@ -51,6 +52,8 @@ final class AppModel {
   @ObservationIgnored var foregroundLiveTask: Task<Void, Never>?
   @ObservationIgnored var eventTask: Task<Void, Never>?
   @ObservationIgnored var eventRefreshTask: Task<Void, Never>?
+  @ObservationIgnored var eventMonitorGeneration = 0
+  @ObservationIgnored var eventRefreshGeneration = 0
 
   init() {
     do {
