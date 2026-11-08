@@ -12,6 +12,7 @@ extension AppModel {
     isBusy = true
     playback.beginBridge(presetID: preset.id)
     var sceneID: HueResourceID?
+    var sceneMutationAttempted = false
     var recallAttempted = false
     defer { isBusy = false }
     do {
@@ -29,23 +30,37 @@ extension AppModel {
 
       sceneID = await persistence.sceneID(bridgeID: profile.bridgeID, areaID: area.id)
       if let existing = sceneID {
-        if let scene = try await client.scene(
+        if let scene = try await client.sceneIfPresent(
           id: existing, profile: profile, credential: credential),
           scene.group?.resourceID == area.id,
           scene.group?.resourceType == area.kind.rawValue
         {
-          try await client.updateScene(
-            id: existing,
-            scene: draft.update,
-            profile: profile,
-            credential: credential
-          )
+          // The resource identity is valid. Mutation happens only after baseline capture.
         } else {
           await persistence.saveSceneID(nil, bridgeID: profile.bridgeID, areaID: area.id)
           sceneID = nil
         }
       }
-      if sceneID == nil {
+
+      // Capture every light that the next scene may touch before creating, updating,
+      // or recalling a Bridge resource. Updating an already-active scene may affect
+      // physical output on some firmware, so it is not treated as an inert operation.
+      try await ensureRestoreJournal(
+        profile: profile,
+        area: freshArea,
+        touchedIDs: Set(draft.animatedLightIDs)
+      )
+
+      if let existing = sceneID {
+        sceneMutationAttempted = true
+        try await client.updateScene(
+          id: existing,
+          scene: draft.update,
+          profile: profile,
+          credential: credential
+        )
+      } else {
+        sceneMutationAttempted = true
         sceneID = try await client.createScene(
           draft.create,
           profile: profile,
@@ -55,11 +70,6 @@ extension AppModel {
       }
       guard let sceneID else { throw HueBoardError.invalidResponse("Scene identifier is missing.") }
 
-      try await ensureRestoreJournal(
-        profile: profile,
-        area: freshArea,
-        touchedIDs: Set(draft.animatedLightIDs)
-      )
       playback.markBridgeRequestPending(sceneID: sceneID)
       recallAttempted = true
       try await client.recallScene(id: sceneID, profile: profile, credential: credential)
@@ -70,11 +80,15 @@ extension AppModel {
     } catch {
       if recallAttempted {
         playback.markUncertain(
-          "Bridge playback is uncertain: \(error.localizedDescription) Stop and restore before retrying."
+          "Bridge scene recall is uncertain: \(error.localizedDescription) Stop and restore before retrying."
+        )
+      } else if sceneMutationAttempted {
+        playback.markUncertain(
+          "Bridge scene preparation is uncertain: \(error.localizedDescription) No recall was confirmed; stop and restore before retrying."
         )
       } else {
         playback.stop(
-          "Could not prepare Bridge playback: \(error.localizedDescription) No scene recall was sent."
+          "Could not prepare Bridge playback: \(error.localizedDescription) No scene mutation or recall was sent."
         )
       }
       errorMessage = playback.snapshot.message
