@@ -33,7 +33,9 @@ extension AppModel {
             try await loadInventory(profile: verifiedProfile, credential: savedCredential)
             connectionState = .ready
             note = "Connected over pinned HTTPS. Play delegates to the Bridge; Native Live is explicit and bounded."
+            startEventMonitoring()
         } catch {
+            stopEventMonitoring()
             connectionState = .disconnected
             credential = nil
             errorMessage = error.localizedDescription
@@ -126,6 +128,7 @@ extension AppModel {
             self.pendingProfile = nil
             isConnectionSheetPresented = false
             note = "Paired over pinned HTTPS. Opening and refreshing Hue Board do not change lights."
+            startEventMonitoring()
         } catch {
             connectionState = .awaitingBridgeButton
             errorMessage = error.localizedDescription
@@ -149,6 +152,7 @@ extension AppModel {
             errorMessage = "Stop and restore the current area before removing Bridge credentials."
             return
         }
+        stopEventMonitoring()
         do {
             try keychain.removeCredential(bridgeID: profile.bridgeID)
             try await persistence.clearBridgeState(bridgeID: profile.bridgeID)
@@ -158,6 +162,7 @@ extension AppModel {
             selectedAreaID = nil
             pendingProfile = nil
             manualHost = ""
+            lastEventAt = nil
             connectionState = .disconnected
             playback = HuePlaybackMachine()
             note = "Bridge credentials and certificate pin were removed from this device."
