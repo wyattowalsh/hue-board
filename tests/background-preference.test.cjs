@@ -42,11 +42,13 @@ test('cue sequence remains an explicit foreground session',async()=>{
   await e.ctl.close();
 });
 
-test('a non-room scope refuses phone-free Play without silently starting Live',async()=>{
+test('a non-room scope refuses phone-free Play without mutating the saved composition or starting Live',async()=>{
   const e=env({count:2});const group={...e.group,type:'all',id:'all-synthetic'};
   const c=e.A.makeController(e.cfg,group,{now:e.now,api:e.basic,read:e.read,save:e.save,uid:()=> 'all-session',sleep:async()=>{}});
+  const before=clone(c.state().settings);
   c.dispatch('playPreset','ion-eclipse');c.tick();await c.settled();
   assert.equal(c.state().running,false);assert.match(c.state().error,/room or zone/i);
+  assert.deepEqual(c.state().settings,before);
   assert.equal(e.calls.filter(x=>x.method!=='GET').length,0);
   await c.close();await e.ctl.close();
 });
