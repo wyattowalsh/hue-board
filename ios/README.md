@@ -53,6 +53,12 @@ open HueBoard.xcodeproj
 
 Select a signing team before installing on a device. Pairing requires the physical Bridge button and Local Network permission.
 
+## Test on an iPhone
+
+Use the [physical iPhone testing guide](DEVICE_TESTING.md) for the exact repository checkout, project generation, signing, Developer Mode, Local Network permission, Bridge pairing, low-risk playback matrix, evidence capture, troubleshooting, and later TestFlight path.
+
+The fastest first install is a direct Xcode development build. A free Personal Team is sufficient for a personal device, although its provisioning expires and requires periodic reinstallation. Do not begin with TestFlight because direct Xcode installation exposes signing, local-network, TLS, pairing, and runtime diagnostics immediately.
+
 ## Security boundary
 
 The local client accepts only private-LAN IPv4 addresses or syntactically valid `.local` hostnames and rejects redirects. During verification it requires the TLS certificate Bridge ID to match the Bridge API identity, validates the certificate as a leaf trust anchor with an SSL policy for that Bridge ID, records the certificate SHA-256, and pins the fingerprint for later requests. A changed certificate fails closed.
