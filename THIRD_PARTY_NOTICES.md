@@ -26,6 +26,10 @@ React Bits component is not included in this build.
 
 Actual compiler: 4.1.10. The emitted CSS includes its copyright/license banner. MIT notice in `licenses/tailwindcss.txt`. Build package integrity hashes are in pnpm-lock.yaml, copied from observed installed package metadata.
 
+## Takumi README renderer
+
+The optional README-art workflow pins `takumi-js` 2.19.0 in `scripts/readme-art/package.json`. Takumi is dual-licensed under MIT or Apache-2.0; Hue Board uses it under the MIT option. The complete MIT notice is included in `licenses/takumi-js.txt`. Takumi is a development-only renderer and is not bundled into either the Scriptable controller or the native iOS application.
+
 ## Source/API references
 
 - https://reactbits.dev/get-started/installation
@@ -35,5 +39,6 @@ Actual compiler: 4.1.10. The emitted CSS includes its copyright/license banner. 
 - https://docs.scriptable.app/device/
 - https://docs.scriptable.app/webview/
 - https://docs.scriptable.app/request/
+- https://github.com/kane50613/takumi
 
 Source URLs may evolve. Pinned compiler versions and the bundled runtime are documented in the build metadata.

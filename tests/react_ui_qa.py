@@ -14,7 +14,7 @@ async def main():
   errors=[];requests=[]
   page.on('pageerror',lambda e:errors.append(str(e)))
   page.on('request',lambda r:requests.append(r.url))
-  async def load(scheme='light',width=390,html='hue-demo.html'):
+  async def load(scheme='light',width=390,html='demo.html'):
    await page.set_viewport_size({'width':width,'height':844});await page.emulate_media(color_scheme=scheme,reduced_motion='no-preference')
    await page.set_content((ROOT/'qa'/html).read_text(),wait_until='load')
    await page.wait_for_function('()=>window.DECK_BOOT && window.DECK_BOOT.ready')
@@ -70,7 +70,7 @@ async def main():
   await page.get_by_text('Build a cue sequence',exact=True).click();await page.get_by_label('Add a look',exact=True).select_option('arcade-drift');await page.get_by_role('button',name='Add cue ',exact=False).click();packet=await sync();check('cue addition edits saved sequence',packet['edit']['settings']['sequenceIds'][-1]=='arcade-drift')
   await page.get_by_role('button',name='Move cue 4 earlier',exact=True).click();await slider('Hold each cue',45);await page.get_by_label('Sequence order',exact=True).select_option('shuffle');packet=await sync();check('cue order dwell shuffle configurable',packet['edit']['settings']['sequenceIds'][2]=='arcade-drift' and packet['edit']['settings']['sequenceHold']==45 and packet['edit']['settings']['sequenceOrder']=='shuffle')
   await page.get_by_role('button',name='Start sequence and lights',exact=True).click();packet=await sync();check('cue start explicit command',packet['command']['name']=='startSequence')
-  await tab('Room');await page.get_by_role('button',name='Import saved positions',exact=True).click();check('import confirmation opens with a title',await page.get_by_role('dialog',name='Import saved positions?',exact=True).is_visible())
+  await tab('Room');await sync({'hueLayouts':{'pending':False,'error':'','fetchedAt':123456,'revision':1,'canUndo':False,'areas':[{'id':'demo-hue-area','name':'Synthetic saved room','type':'entertainment','active':True,'matched':3,'total':6,'outside':0,'warnings':[],'unmatched':[],'matchedNames':['Sofa left','Sofa right','Window wash']}]}});await page.get_by_role('button',name='Import saved positions',exact=True).click();check('import confirmation opens with a title',await page.get_by_role('dialog',name='Import saved positions?',exact=True).is_visible())
   await page.get_by_role('button',name='Cancel',exact=True).click();packet=await sync();check('cancel import emits no command',packet['command'] is None)
   await page.get_by_label('Map projection',exact=True).select_option('xz');await page.get_by_label('Derive animation path',exact=True).select_option('z');await page.get_by_label('Mirror map horizontally',exact=True).check();await page.get_by_role('button',name='Import saved positions',exact=True).click();await page.get_by_role('button',name='Continue',exact=True).click();packet=await sync()
   check('Hue import preserves reference/projection/path/mirror contract',packet['command']['name']=='importHueLayout' and packet['command']['payload']=={'areaId':'demo-hue-area','projection':'xz','phaseMode':'z','mirror':True})
@@ -84,7 +84,7 @@ async def main():
   await sync({'mode':'live','running':True});await page.get_by_role('button',name='Pause / cancel',exact=True).click();packet=await sync();check('Pause dispatch while live',packet['command']['name']=='pause')
   await sync({'mode':'preparing','running':False,'busy':True,'inFlight':True});await page.get_by_role('button',name='Pause / cancel',exact=True).click();packet=await sync();check('Pause remains available during pending request',packet['command']['name']=='pause')
   await sync({'mode':'paused','busy':False,'inFlight':False,'touched':2});await page.get_by_role('button',name='Restore',exact=True).click();packet=await sync();check('Restore dispatch',packet['command']['name']=='restore')
-  await sync({'native':True});await page.get_by_role('button',name='Stop background',exact=True).click();packet=await sync();check('delegated playback stop is explicit',packet['command']['name']=='stopBridge')
+  await sync({'native':True});await page.get_by_role('button',name='Stop / inspect Bridge',exact=True).click();packet=await sync();check('delegated playback stop is explicit',packet['command']['name']=='stopBridge')
   await sync({'error':'Synthetic connection timeout','native':False});check('action error shown visibly',await page.get_by_role('alert').filter(has_text='Synthetic connection timeout').is_visible())
   await sync({'error':''});await tab('Perform')
   await page.evaluate('''()=>{const h=window.__host;h.telemetry.targets[h.layout.order[0]]={kind:'live',acceptedAt:Date.now(),action:{dimming:{brightness:50},color:{xy:{x:.2,y:.3}}}};window.DECK.report(h);}''')
@@ -108,7 +108,7 @@ async def main():
       await page.screenshot(path=str(ROOT/f'qa/{section.lower()}-{theme}-{width}.png'),full_page=False)
   # Long content and failing startup state.
   await load('light',320);await page.evaluate("window.__host.error='Long synthetic error '.repeat(60);window.DECK.report(window.__host)");check('long error wraps on narrow screen',await page.evaluate('document.documentElement.scrollWidth<=innerWidth'))
-  await page.set_content((ROOT/'qa/hue-demo.html').read_text().replace('Sofa left','LampWithAnExtremelyLongUnbrokenName'*9));await tab('Room')
+  await page.set_content((ROOT/'qa/demo.html').read_text().replace('Sofa left','LampWithAnExtremelyLongUnbrokenName'*9));await tab('Room')
   check('long fixture names wrap on narrow Room view',await page.evaluate('document.documentElement.scrollWidth<=innerWidth'))
   await page.evaluate("window.deckBootError('Synthetic startup failure')");check('startup failure is not hidden behind blank canvas',await page.locator('#boot').is_visible() and 'Synthetic startup failure' in await page.locator('#bootDetail').inner_text())
   check('no page JavaScript errors',not errors);check('no external asset or network requests',not requests)

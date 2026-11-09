@@ -1,63 +1,93 @@
 <p align="center">
-  <img src="assets/readme/hero.svg" alt="Hue Board: an illustrated lighting console with six colorful lamps, a scene preview, and a spectrum wave" width="100%">
+  <img src="assets/readme/hero.svg" alt="Hue Board: a luminous lighting console with six colorful lamps and a prismatic scene wave" width="100%">
 </p>
 
-<p align="center"><strong>Light, composed.</strong> An open-source Philips Hue lighting dashboard and creative scene studio for iPhone.</p>
+<p align="center"><strong>Light, composed.</strong> An independent open-source Philips Hue lighting dashboard and creative scene studio for iPhone.</p>
 
 <p align="center">
-  <a href="#install-on-iphone">Install</a> ·
-  <a href="#how-playback-works">Playback modes</a> ·
+  <a href="#native-ios-app">Native iOS</a> ·
+  <a href="#scriptable-installation">Scriptable</a> ·
+  <a href="#playback-and-background-behavior">Playback</a> ·
   <a href="docs/architecture.md">Architecture</a> ·
+  <a href="docs/audit-2026-11-08.md">Audit</a> ·
   <a href="docs/v6-plan.md">Roadmap</a> ·
-  <a href="LICENSE">MIT License</a>
+  <a href="LICENSE">MIT</a>
 </p>
 
-## Turn a room into an instrument
+## A lighting instrument for everyday rooms
 
-**Lights** makes everyday lighting effortless: room or zone control, power, brightness, per-light color and temperature, saved Hue scenes, and practical quick looks.
+- **Lights:** room and zone power, brightness, individual fixtures, and honest Bridge readback.
+- **Scenes:** 32 curated looks, visual previews, and one-tap automatic **Play** on the Hue Bridge.
+- **Native Live / Studio:** deterministic procedural lighting sampled in explicit, bounded sessions. High-rate temporal fidelity requires a supported Hue Entertainment transport.
 
-**Scenes** lets you explore a curated library of 32 looks, with previews and favorites. **Studio** adds custom procedural animation, spatial lamp placement, transitions, presets and cue sequences. An accessible compatibility interface is available if the embedded React view cannot open.
+## Native iOS app
 
-This project is independent and not affiliated with, endorsed by, or sponsored by Signify or Philips Hue.
+Native SwiftUI is now Hue Board’s primary product direction. The implementation under [`ios/`](ios/README.md) provides system-native Lights, Scenes, Native Live, Settings, Bridge pairing, restore recovery, and playback status surfaces.
 
-## Install on iPhone
+The native app shares a generated contract with Scriptable: **32 looks, 24 patterns, and 19 palettes**. Its `HueBoardAppleEngine` target runs the exact shared JavaScript engine through JavaScriptCore, verifies the bundled runtime digest before use, and recomputes a canonical SHA-256 over **512 deterministic scene frames** on Apple test hosts.
 
-1. Install [Scriptable](https://scriptable.app/) and connect your phone to the **same trusted Wi-Fi** as your Hue Bridge.
-2. Create a script in Scriptable and paste the [pinned installer](install/install-hue-board.js). Run the installer once. It downloads the immutable v5.2 release, verifies its SHA-256, and backs up an existing Hue Board script before replacement.
-3. Run **Hue Board**, pair with the Bridge if necessary, and select a room or zone. Opening Hue Board does **not** automatically turn on lights.
+- **Play** creates or updates a compatible Bridge-native dynamic scene. Once the Bridge acknowledges recall, playback continues independently of the phone.
+- **Native Live** samples the exact Hue Board engine on the iPhone and sends conservative, long REST transitions for an explicit, duration-bounded session. It is not high-rate Hue Entertainment streaming.
+- On iOS 18–25, Native Live is foreground-only. On iOS 26+, a user-started session requests continued processing, reports progress, and remains subject to system cancellation and expiration.
+- Opening, pairing, refreshing, browsing, and changing tabs never write to lights.
 
-Alternatively, paste the [standalone controller](dist/hue-board.js) directly into a new Scriptable script. The controller contains its own UI assets; installation does not require a backend service.
+The current native app is a reviewable vertical slice, **not** an App Store release. Xcode semantic compilation, simulator/device launch, physical Hue behavior, lifecycle, accessibility, energy, and thermal qualification remain required. See the [native build and parity guide](ios/README.md).
 
-## How playback works
+## Scriptable installation
 
-| Mode | Runs after iPhone locks? | Behavior |
+**Release qualification pending:** This branch implements automatic phone-free Play in source, but the published GitHub installer and checked-in `dist/` still contain **v5.2.0**. Do not use those files expecting v5.3 behavior. A new compiled bundle, immutable release SHA-256, and pinned installer must be published and checked before release.
+
+For now, use the verified v5.2.0 installer from `main` or inspect the local v5.3 source candidate. The source branch is **not a new installable Scriptable release**.
+
+The eventual v5.3 Scriptable installation will continue to require trusted Wi-Fi, preserve existing Hue credentials and baselines, and never turn lights on merely by opening the app.
+
+## Playback and background behavior
+
+| User action | When phone locks | Fidelity |
 | --- | --- | --- |
-| Everyday lighting | Light settings persist | Ordinary Hue power, brightness, and color settings |
-| **Keep playing when I leave** | **Yes, for compatible Hue rooms/zones** | When enabled before Play, a native Hue Bridge dynamic palette is recalled while Scriptable is foregrounded; wait for Bridge confirmation |
-| Live Studio choreography | **No** | Custom 24-pattern animation, gradient timing, cue sequences and other live updates require Scriptable to stay active |
+| **Play** on a compatible room | **Hue Bridge keeps playing automatically** after accepted scene recall | Compatible Bridge-native dynamic palette, not exact Live choreography |
+| **Native Live**, iOS 26+ | Requests a bounded, user-visible continued-processing session | Exact shared-engine samples over low-rate, long REST transitions; system may cancel or expire it |
+| **Native Live**, iOS 18–25 | Stops sending updates when the app is suspended | Exact shared-engine samples over low-rate, long REST transitions while foregrounded |
+| **Scriptable Live Studio** | Stops sending animation updates when Scriptable is suspended | Existing foreground procedural controller |
+| **Stop & restore** | Explicit command when Hue Board is available | Restores captured static state; review timestamps and competing-controller changes |
 
-The background preference defaults **off**. A Bridge handoff is not a perfect reproduction of Studio effects; it delegates a compatible palette. Virtual **All lights** and unsupported fixtures cannot use that mode. See [background playback details](docs/background-playback.md).
+There is no background toggle and no silent fallback to a foreground-only animation when automatic Play is unsupported. Real Hue rooms/zones and eligible dynamic color lamps are required. Unacknowledged recall is displayed as **uncertain**, not as successful playback.
 
-## Develop
+Bridge dynamic scenes do not reproduce Hue Board’s exact 24-pattern engine. Native Live preserves the engine’s sampled state but deliberately limits REST frequency to long transition cycles. iOS continued processing is bounded and system-controlled rather than a permanent daemon. A future supported Hue Entertainment transport remains required for high-rate temporal choreography.
 
-Requirements: Node.js 22, pnpm 10.17.1. Source is in `src/` (lighting behavior) and `frontend/` (React/WebView). The standalone Scriptable distribution in `dist/` is generated, not hand-edited.
+## Develop and verify
 
-```bash
+Node 22 and pnpm 10.17.1:
+
+```sh
 corepack enable
 pnpm install --frozen-lockfile
+pnpm verify:release   # committed pinned Scriptable artifact, before rebuild
 pnpm build
+pnpm verify:rebuild   # rebuilt Scriptable artifact must match published artifact
 pnpm test
 pnpm test:timing
 ```
 
-`pnpm verify:release` verifies the **committed published bundle** before a local rebuild changes it. Release artifacts and development builds have intentionally separate validation. See [architecture and contributor workflow](docs/architecture.md), [v5 validation scope](docs/validation-v5.md), and [migration guidance](docs/migration.md).
+Native iOS development requires Xcode 26+ and XcodeGen 2.46.0:
 
-## Safety and transparency
+```sh
+cd ios
+make parity
+make project
+make build
+```
 
-- Hue application keys remain in Scriptable Keychain; never commit credentials, IPs, or configuration.
-- The Scriptable LAN transport relaxes local Bridge TLS certificate validation. **Use trusted Wi-Fi only.**
-- Per-fixture ceilings and saved restore points are preserved. Review timestamps before restoring, especially after another controller has changed lights.
-- Bridge acknowledgments and readback are **not** measurements of emitted light. Physical Hue Bridge behavior, real iOS suspension, and complete accessibility still require device testing.
-- Visual previews are illustrative. Planned browser, sound-reactive and native Apple integrations are described in the [v6 plan](docs/v6-plan.md), not claimed as released features.
+Source lives in `src/`, `frontend/`, and `ios/`; `dist/` is a generated Scriptable distribution, not an implementation-edit surface. See [architecture](docs/architecture.md), the [engineering audit](docs/audit-2026-11-08.md), and the [native iOS guide](ios/README.md).
 
-<sub>Hero artwork: source-controlled SVG plus an optional [Takumi renderer](scripts/readme-art/generate.mjs). The illustration represents an example room, not a connected lighting system. [Third-party notices](THIRD_PARTY_NOTICES.md).</sub>
+The illustrative [README SVG](assets/readme/hero.svg) is source-controlled. An optional pinned [Takumi renderer](scripts/readme-art/generate.mjs) provides an alternate visual and never automatically pushes to `main`.
+
+## Safety and provenance
+
+The native app accepts only private-LAN Bridge hosts and rejects redirects. On first verification it requires the certificate’s Bridge ID to match the local Hue API identity, records the leaf certificate SHA-256, and pins that fingerprint for later requests. A changed certificate fails closed and requires deliberate re-verification on a trusted home network. The Hue application key remains in Keychain. This trust-on-first-use design still requires physical validation across Bridge firmware and certificate generations.
+
+The Scriptable transport still relaxes local Bridge certificate validation, so use trusted Wi-Fi only. Bridge acknowledgement/readback does not prove emitted optical output. Source tests and mocked resources do not replace real iOS, Hue Bridge, accessibility, battery, or competing-controller validation. Restore points and previous Keychain data are preserved through migration.
+
+[MIT license](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Migration](docs/migration.md)
+
+*Unofficial project, not affiliated with or endorsed by Signify or Philips Hue.*

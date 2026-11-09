@@ -1,0 +1,724 @@
+{
+  "schema": 1,
+  "release": "5.3.0",
+  "defaults": {
+    "showA": "eclipse",
+    "showB": "turbine",
+    "paletteA": 0,
+    "paletteB": 1,
+    "morph": 0,
+    "brightness": 60,
+    "speed": 1,
+    "depth": 75,
+    "spread": 1.2,
+    "energy": 65,
+    "tension": 65,
+    "focus": 55,
+    "reverse": false,
+    "gradient": false,
+    "seed": 731,
+    "topology": "ring",
+    "transitionMs": 4500,
+    "ownership": "yield_off",
+    "nativeKind": "palette",
+    "effect": "",
+    "effectSpeed": 0.4,
+    "effectTint": false,
+    "saturation": 100,
+    "ambientFloor": 0,
+    "accentMix": 100,
+    "density": 1,
+    "phaseOffset": 0,
+    "brightnessCurve": 1,
+    "directorSeconds": 52,
+    "customColors": [
+      "#102cba",
+      "#00b9f2",
+      "#36e5d1",
+      "#a4ed51"
+    ],
+    "sequenceIds": [
+      "ion-eclipse",
+      "plasma-turbine",
+      "deep-orbit"
+    ],
+    "sequenceHold": 90,
+    "sequenceOrder": "forward"
+  },
+  "patterns": [
+    {
+      "id": "director",
+      "name": "Director"
+    },
+    {
+      "id": "eclipse",
+      "name": "Ion Eclipse"
+    },
+    {
+      "id": "turbine",
+      "name": "Plasma Turbine"
+    },
+    {
+      "id": "comet",
+      "name": "Afterburner"
+    },
+    {
+      "id": "deep",
+      "name": "Deep Orbit"
+    },
+    {
+      "id": "orbit",
+      "name": "Orbit"
+    },
+    {
+      "id": "helix",
+      "name": "Double helix"
+    },
+    {
+      "id": "reactor",
+      "name": "Reactor"
+    },
+    {
+      "id": "aurora",
+      "name": "Aurora"
+    },
+    {
+      "id": "prism",
+      "name": "Prism"
+    },
+    {
+      "id": "wave",
+      "name": "Wavefront"
+    },
+    {
+      "id": "scanner",
+      "name": "Scanner"
+    },
+    {
+      "id": "binary",
+      "name": "Twin comets"
+    },
+    {
+      "id": "ripples",
+      "name": "Ripple field"
+    },
+    {
+      "id": "pendulum",
+      "name": "Pendulum"
+    },
+    {
+      "id": "vortex",
+      "name": "Vortex"
+    },
+    {
+      "id": "breath",
+      "name": "Breathing room"
+    },
+    {
+      "id": "moire",
+      "name": "Moire"
+    },
+    {
+      "id": "lattice",
+      "name": "Lattice"
+    },
+    {
+      "id": "tide",
+      "name": "Tidal flow"
+    },
+    {
+      "id": "embers",
+      "name": "Embers"
+    },
+    {
+      "id": "nebula",
+      "name": "Nebula"
+    },
+    {
+      "id": "ribbons",
+      "name": "Ribbons"
+    },
+    {
+      "id": "static",
+      "name": "Static atmosphere"
+    }
+  ],
+  "palettes": [
+    {
+      "index": 0,
+      "name": "Ion storm",
+      "colors": [
+        "#102CBA",
+        "#00B9F2",
+        "#36E5D1",
+        "#A4ED51"
+      ]
+    },
+    {
+      "index": 1,
+      "name": "Toxic core",
+      "colors": [
+        "#10399B",
+        "#02BBB8",
+        "#80E63C",
+        "#FA9228"
+      ]
+    },
+    {
+      "index": 2,
+      "name": "Afterburn",
+      "colors": [
+        "#123DA7",
+        "#1484E5",
+        "#09C9E0",
+        "#FF922D"
+      ]
+    },
+    {
+      "index": 3,
+      "name": "Void rift",
+      "colors": [
+        "#1F2B90",
+        "#584DC9",
+        "#188CC9",
+        "#3BDFBD"
+      ]
+    },
+    {
+      "index": 4,
+      "name": "Black ice",
+      "colors": [
+        "#132B66",
+        "#1D53A3",
+        "#0B9CBC",
+        "#4CDAD2"
+      ]
+    },
+    {
+      "index": 5,
+      "name": "Laser grid",
+      "colors": [
+        "#2031BF",
+        "#04BDD6",
+        "#44DC8A",
+        "#A8E44D"
+      ]
+    },
+    {
+      "index": 6,
+      "name": "Arcade mint",
+      "colors": [
+        "#142962",
+        "#008FA8",
+        "#30E5B7",
+        "#B8F266"
+      ]
+    },
+    {
+      "index": 7,
+      "name": "Solar forge",
+      "colors": [
+        "#222D6B",
+        "#B33B20",
+        "#FF7D25",
+        "#FFD173"
+      ]
+    },
+    {
+      "index": 8,
+      "name": "Pacific",
+      "colors": [
+        "#10244B",
+        "#005F87",
+        "#00B5BA",
+        "#7CE7D1"
+      ]
+    },
+    {
+      "index": 9,
+      "name": "Cobalt chrome",
+      "colors": [
+        "#172464",
+        "#225CF2",
+        "#4DAFF1",
+        "#D3ECFF"
+      ]
+    },
+    {
+      "index": 10,
+      "name": "Acid circuit",
+      "colors": [
+        "#162A35",
+        "#148C68",
+        "#78D629",
+        "#E5F285"
+      ]
+    },
+    {
+      "index": 11,
+      "name": "Lava lamp",
+      "colors": [
+        "#281D60",
+        "#773CBE",
+        "#E65932",
+        "#FFC85C"
+      ]
+    },
+    {
+      "index": 12,
+      "name": "Aurora borealis",
+      "colors": [
+        "#162953",
+        "#197D84",
+        "#47D59D",
+        "#9B83E6"
+      ]
+    },
+    {
+      "index": 13,
+      "name": "Desert dusk",
+      "colors": [
+        "#343D65",
+        "#7B6C96",
+        "#C58B66",
+        "#E8BC72"
+      ]
+    },
+    {
+      "index": 14,
+      "name": "Glacier",
+      "colors": [
+        "#183B67",
+        "#267C9B",
+        "#80C9D0",
+        "#D8ECF2"
+      ]
+    },
+    {
+      "index": 15,
+      "name": "Industrial amber",
+      "colors": [
+        "#263C45",
+        "#566C65",
+        "#D69A34",
+        "#EFD58A"
+      ]
+    },
+    {
+      "index": 16,
+      "name": "Ultraviolet",
+      "colors": [
+        "#212565",
+        "#4B40BD",
+        "#9254DB",
+        "#36C6DA"
+      ]
+    },
+    {
+      "index": 17,
+      "name": "Jungle signal",
+      "colors": [
+        "#173E3C",
+        "#147B54",
+        "#55C887",
+        "#D8DD4B"
+      ]
+    },
+    {
+      "index": 18,
+      "name": "Custom four-color",
+      "colors": [
+        "#102CBA",
+        "#00B9F2",
+        "#36E5D1",
+        "#A4ED51"
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "id": "ion-eclipse",
+      "name": "Ion Eclipse",
+      "category": "Space",
+      "description": "A broad cyan crest over deep blue.",
+      "pattern": "eclipse",
+      "palette": 0,
+      "speed": 0.8,
+      "energy": 58,
+      "depth": 65,
+      "focus": 55
+    },
+    {
+      "id": "plasma-turbine",
+      "name": "Plasma Turbine",
+      "category": "Energy",
+      "description": "Counter-rotating teal and lime currents.",
+      "pattern": "turbine",
+      "palette": 1,
+      "speed": 1.1,
+      "energy": 80,
+      "depth": 85,
+      "focus": 60
+    },
+    {
+      "id": "afterburner",
+      "name": "Afterburner",
+      "category": "Energy",
+      "description": "An amber head with a genuinely trailing wake.",
+      "pattern": "comet",
+      "palette": 2,
+      "speed": 1.1,
+      "energy": 80,
+      "depth": 80,
+      "focus": 75
+    },
+    {
+      "id": "deep-orbit",
+      "name": "Deep Orbit",
+      "category": "Chill",
+      "description": "Long indigo tides and quiet highlights.",
+      "pattern": "deep",
+      "palette": 3,
+      "speed": 0.6,
+      "energy": 45,
+      "depth": 55,
+      "focus": 35
+    },
+    {
+      "id": "arcade-drift",
+      "name": "Arcade Drift",
+      "category": "Energy",
+      "description": "Mint ribbons that fold around the room.",
+      "pattern": "ribbons",
+      "palette": 6,
+      "speed": 1,
+      "energy": 70,
+      "depth": 75,
+      "focus": 55
+    },
+    {
+      "id": "solar-forge",
+      "name": "Solar Forge",
+      "category": "Warm",
+      "description": "Slow copper embers, not candle flicker.",
+      "pattern": "embers",
+      "palette": 7,
+      "speed": 0.65,
+      "energy": 70,
+      "depth": 75,
+      "focus": 40
+    },
+    {
+      "id": "pacific-swell",
+      "name": "Pacific Swell",
+      "category": "Chill",
+      "description": "Broad, soft ocean currents.",
+      "pattern": "tide",
+      "palette": 8,
+      "speed": 0.6,
+      "energy": 45,
+      "depth": 65,
+      "focus": 40
+    },
+    {
+      "id": "cobalt-run",
+      "name": "Cobalt Run",
+      "category": "Space",
+      "description": "A focused blue-white scanner.",
+      "pattern": "scanner",
+      "palette": 9,
+      "speed": 1,
+      "energy": 65,
+      "depth": 85,
+      "focus": 75
+    },
+    {
+      "id": "acid-circuit",
+      "name": "Acid Circuit",
+      "category": "Energy",
+      "description": "A lime architectural grid.",
+      "pattern": "lattice",
+      "palette": 10,
+      "speed": 0.9,
+      "energy": 80,
+      "depth": 90,
+      "focus": 60
+    },
+    {
+      "id": "lava-flow",
+      "name": "Lava Flow",
+      "category": "Warm",
+      "description": "Violet and orange clouds moving slowly.",
+      "pattern": "nebula",
+      "palette": 11,
+      "speed": 0.7,
+      "energy": 60,
+      "depth": 65,
+      "focus": 45
+    },
+    {
+      "id": "borealis",
+      "name": "Borealis",
+      "category": "Chill",
+      "description": "Green curtains with cool violet accents.",
+      "pattern": "aurora",
+      "palette": 12,
+      "speed": 0.7,
+      "energy": 55,
+      "depth": 60,
+      "focus": 40
+    },
+    {
+      "id": "desert-station",
+      "name": "Desert Station",
+      "category": "Warm",
+      "description": "A composed warm/cool static field.",
+      "pattern": "static",
+      "palette": 13,
+      "speed": 0.5,
+      "energy": 40,
+      "depth": 30,
+      "focus": 35
+    },
+    {
+      "id": "glacier-breath",
+      "name": "Glacier Breath",
+      "category": "Chill",
+      "description": "A slow synchronized icy breathing envelope.",
+      "pattern": "breath",
+      "palette": 14,
+      "speed": 0.65,
+      "energy": 40,
+      "depth": 50,
+      "focus": 35
+    },
+    {
+      "id": "foundry",
+      "name": "Foundry",
+      "category": "Warm",
+      "description": "A broad amber pendulum, no flashing.",
+      "pattern": "pendulum",
+      "palette": 15,
+      "speed": 0.65,
+      "energy": 60,
+      "depth": 70,
+      "focus": 55
+    },
+    {
+      "id": "ultraviolet-current",
+      "name": "Ultraviolet Current",
+      "category": "Space",
+      "description": "Two opposing blue-violet currents.",
+      "pattern": "helix",
+      "palette": 16,
+      "speed": 0.85,
+      "energy": 65,
+      "depth": 70,
+      "focus": 60
+    },
+    {
+      "id": "jungle-signal",
+      "name": "Jungle Signal",
+      "category": "Organic",
+      "description": "Soft green waves with sparse yellow accents.",
+      "pattern": "ripples",
+      "palette": 17,
+      "speed": 0.75,
+      "energy": 60,
+      "depth": 65,
+      "focus": 50
+    },
+    {
+      "id": "wormhole",
+      "name": "Wormhole",
+      "category": "Space",
+      "description": "Overlapping spirals of blue and teal.",
+      "pattern": "vortex",
+      "palette": 3,
+      "speed": 1.1,
+      "energy": 75,
+      "depth": 85,
+      "focus": 70
+    },
+    {
+      "id": "twin-engines",
+      "name": "Twin Engines",
+      "category": "Energy",
+      "description": "Two heads passing in opposite directions.",
+      "pattern": "binary",
+      "palette": 2,
+      "speed": 0.9,
+      "energy": 80,
+      "depth": 80,
+      "focus": 70
+    },
+    {
+      "id": "black-ice",
+      "name": "Black Ice",
+      "category": "Chill",
+      "description": "A dark blue crest with restrained cyan.",
+      "pattern": "orbit",
+      "palette": 4,
+      "speed": 0.55,
+      "energy": 35,
+      "depth": 65,
+      "focus": 50
+    },
+    {
+      "id": "laser-weave",
+      "name": "Laser Weave",
+      "category": "Energy",
+      "description": "Interference bands, not strobing lasers.",
+      "pattern": "moire",
+      "palette": 5,
+      "speed": 0.85,
+      "energy": 75,
+      "depth": 80,
+      "focus": 60
+    },
+    {
+      "id": "mint-condition",
+      "name": "Mint Condition",
+      "category": "Chill",
+      "description": "Wide mint wavefronts with gentle contrast.",
+      "pattern": "wave",
+      "palette": 6,
+      "speed": 0.7,
+      "energy": 55,
+      "depth": 55,
+      "focus": 40
+    },
+    {
+      "id": "blue-hour",
+      "name": "Blue Hour",
+      "category": "Chill",
+      "description": "Steady cool light with deliberate spatial variation.",
+      "pattern": "static",
+      "palette": 9,
+      "speed": 0.5,
+      "energy": 35,
+      "depth": 35,
+      "focus": 35
+    },
+    {
+      "id": "reactor-hall",
+      "name": "Reactor Hall",
+      "category": "Energy",
+      "description": "Layered pulses with a moving green core.",
+      "pattern": "reactor",
+      "palette": 1,
+      "speed": 0.9,
+      "energy": 80,
+      "depth": 90,
+      "focus": 50
+    },
+    {
+      "id": "event-horizon",
+      "name": "Event Horizon",
+      "category": "Space",
+      "description": "A narrow violet crest with darker rests.",
+      "pattern": "eclipse",
+      "palette": 16,
+      "speed": 0.65,
+      "energy": 45,
+      "depth": 90,
+      "focus": 80
+    },
+    {
+      "id": "tidepool",
+      "name": "Tidepool",
+      "category": "Organic",
+      "description": "Small overlapping turquoise ripples.",
+      "pattern": "ripples",
+      "palette": 8,
+      "speed": 0.6,
+      "energy": 45,
+      "depth": 55,
+      "focus": 40
+    },
+    {
+      "id": "canopy",
+      "name": "Canopy",
+      "category": "Organic",
+      "description": "A drifting, layered green canopy.",
+      "pattern": "nebula",
+      "palette": 17,
+      "speed": 0.65,
+      "energy": 50,
+      "depth": 60,
+      "focus": 40
+    },
+    {
+      "id": "amber-express",
+      "name": "Amber Express",
+      "category": "Warm",
+      "description": "Industrial amber trailing through a cool field.",
+      "pattern": "comet",
+        "palette": 15,
+      "speed": 0.85,
+      "energy": 60,
+      "depth": 75,
+      "focus": 60
+    },
+    {
+      "id": "prismatic",
+      "name": "Prismatic",
+      "category": "Energy",
+      "description": "Broad colored bands wrapping the path.",
+      "pattern": "prism",
+      "palette": 5,
+      "speed": 0.9,
+      "energy": 70,
+      "depth": 80,
+      "focus": 50
+    },
+    {
+      "id": "subzero",
+      "name": "Subzero",
+      "category": "Space",
+      "description": "An icy scanner with a soft edge.",
+      "pattern": "scanner",
+      "palette": 14,
+      "speed": 0.75,
+      "energy": 55,
+      "depth": 70,
+      "focus": 65
+    },
+    {
+      "id": "satellite",
+      "name": "Satellite",
+      "category": "Space",
+      "description": "Two restrained blue/cyan orbiting crests.",
+      "pattern": "binary",
+      "palette": 0,
+      "speed": 0.7,
+      "energy": 55,
+      "depth": 65,
+      "focus": 55
+    },
+    {
+      "id": "midweek",
+      "name": "Midweek",
+      "category": "Chill",
+      "description": "An evolving set with room to talk.",
+      "pattern": "director",
+      "palette": 4,
+      "speed": 0.75,
+      "energy": 55,
+      "depth": 65,
+      "focus": 50
+    },
+    {
+      "id": "control-room",
+      "name": "Control Room",
+      "category": "Chill",
+      "description": "Asteady blue foundation for an easy night.",
+      "pattern": "static",
+      "palette": 0,
+      "speed": 0.5,
+      "energy": 40,
+      "depth": 45,
+      "focus": 40
+    }
+  ]
+}

@@ -36,4 +36,5 @@ const PRESET_LIBRARY = [
   settings:{showA:show,showB:show,paletteA:palette,paletteB:palette,morph:0,speed,energy,depth,focus,
     saturation:100,ambientFloor:0,accentMix:100,density:1,phaseOffset:0,brightnessCurve:1}}));
 function applyLibraryPreset(current,id){const item=PRESET_LIBRARY.find(p=>p.id===id);if(!item)throw new HueError('preset','Unknown built-in preset.');return ENGINE.clean({...current,...item.settings});}
-function cleanUiPrefs(raw){const v=raw||{};return {theme:['system','light','dark'].includes(v.theme)?v.theme:'system',motion:['system','reduce'].includes(v.motion)?v.motion:'system',favorites:Array.isArray(v.favorites)?[...new Set(v.favorites.filter(id=>PRESET_LIBRARY.some(p=>p.id===id)))]:[],continueInBackground:v.continueInBackground===true};}
+/** Retired continueInBackground preference is intentionally ignored: Play is phone-free by default. */
+function cleanUiPrefs(raw){const v=raw||{};return {theme:['system','light','dark'].includes(v.theme)?v.theme:'system',motion:['system','reduce'].includes(v.motion)?v.motion:'system',favorites:Array.isArray(v.favorites)?[...new Set(v.favorites.filter(id=>PRESET_LIBRARY.some(p=>p.id===id)))]:[]};}

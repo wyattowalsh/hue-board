@@ -16,7 +16,7 @@ async def main():
    result=await host(packet);state=result['state'];await page.evaluate('(s)=>window.DECK.report(s)',state);return result
   assert out['writes']==0
   await page.get_by_role('tab',name='Studio',exact=True).click()
-  await page.get_by_role('button',name='Live · phone open',exact=True).click();r=await cycle();r=await cycle(5000);assert r['writes']>=6 and state['mode']=='live'
+  await page.get_by_role('button',name='Live Studio · foreground',exact=True).click();r=await cycle();r=await cycle(5000);assert r['writes']>=6 and state['mode']=='live'
   await page.get_by_role('button',name='Pause / cancel',exact=True).click();r=await cycle();before=r['writes'];assert state['mode']=='paused'
   await page.get_by_role('tab',name='Settings',exact=True).click();await page.get_by_role('button',name='App & recovery',exact=True).click();await page.get_by_label('Interface theme',exact=True).select_option('light');r=await cycle();assert r['writes']==before and state['ui']['theme']=='light'
   await page.get_by_role('tab',name='Scenes',exact=True).click();await page.get_by_role('button',name='Preview Pacific Swell',exact=True).click();await cycle();assert state['settings']['showA']=='tide' and state['mode']=='paused'

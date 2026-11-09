@@ -1,56 +1,37 @@
-const test=require('node:test');
-const assert=require('node:assert/strict');
+const test=require('node:test'),assert=require('node:assert/strict');
 const {env}=require('./helpers.cjs');
 
-test('opt-in never starts a show just by opening a controller',async()=>{
- const e=env({count:2});
- e.ctl.update({ui:{...e.ctl.state().ui,continueInBackground:true}});
- assert.equal(e.ctl.state().ui.continueInBackground,true);
- assert.equal(e.writes().length,0);
- assert.equal(e.ctl.state().native,false);
- await e.ctl.close();
+test('Play on a compatible room chooses native dynamic scene, not foreground REST animation',async()=>{
+  const e=env({count:2});e.ctl.dispatch('background');await e.step();await e.ctl.settled();
+  assert.equal(e.ctl.state().mode,'delegated');
+  assert.equal(e.ctl.state().native,true);
+  assert.equal(e.ctl.state().background.uncertain,false);
+  assert.ok(e.calls.some(x=>x.path.startsWith('scene/')&&x.payload?.recall?.action==='dynamic_palette'));
+  const n=e.writes().length;await e.run(11000);
+  assert.equal(e.writes().length,n);await e.ctl.close();
 });
 
-test('Play in keep-playing mode delegates to Bridge, not foreground REST loop',async()=>{
- const e=env({count:2});
- e.ctl.update({ui:{...e.ctl.state().ui,continueInBackground:true}});
- e.ctl.dispatch('live');await e.step();await e.ctl.settled();
- assert.equal(e.ctl.state().native,true);
- assert.equal(e.ctl.state().mode,'delegated');
- assert.ok(e.calls.some(x=>x.path.startsWith('scene/')&&x.payload?.recall?.action==='dynamic_palette'));
- const n=e.writes().length;
- await e.run(11000);
- assert.equal(e.writes().length,n,'no live REST animation after handoff');
- await e.ctl.close();
- assert.equal(e.calls.filter(x=>x.payload?.recall?.action==='dynamic_palette').length,1);
+test('unsupported dynamic fixtures do not silently fall back to foreground playback',async()=>{
+  const e=env({count:2,lightExtras:{dynamics:{status:'none',status_values:['none']}}});
+  e.ctl.dispatch('background');await e.step();await e.ctl.settled();
+  assert.equal(e.ctl.state().native,false);
+  assert.equal(e.ctl.state().running,false);
+  assert.match(e.ctl.state().error,/no selected color lights/i);
+  assert.equal(e.calls.filter(c=>c.method!=='GET').length,0);
+  await e.ctl.close();
 });
 
-test('enabling while already live queues an immediate Bridge handoff',async()=>{
- const e=env({count:2});await e.start();
- assert.equal(e.ctl.state().mode,'live');
- e.ctl.update({ui:{...e.ctl.state().ui,continueInBackground:true}});
- assert.equal(e.ctl.state().ui.continueInBackground,true);
- await e.step();await e.ctl.settled();
- assert.equal(e.ctl.state().mode,'delegated');
- assert.equal(e.ctl.state().native,true);
- await e.ctl.close();
-});
-
-test('cue sequence is rejected in native-only background mode',async()=>{
- const e=env({count:1});e.ctl.update({ui:{...e.ctl.state().ui,continueInBackground:true}});
- e.ctl.dispatch('startSequence');
- assert.match(e.ctl.state().error,/cue|sequence/i);
- assert.equal(e.writes().length,0);
- await e.ctl.close();
-});
-
-test('unsupported background mode preserves foreground show and refuses silent handoff',async()=>{
- const e=env({count:1});e.group.type='all';
- await e.start();
- assert.equal(e.ctl.state().mode,'live');
- e.ctl.update({ui:{...e.ctl.state().ui,continueInBackground:true}});
- assert.equal(e.ctl.state().ui.continueInBackground,false);
- assert.equal(e.ctl.state().mode,'live');
- assert.equal(e.ctl.state().native,false);
- await e.ctl.close();
+test('Stop Bridge remains available for uncertain handoff records after recall failure',async()=>{
+  let reject=true;
+  const e=env({count:2,apiOverride:async(c,m,p,v,basic)=>{
+    if(reject&&m==='PUT'&&p.startsWith('scene/')&&v?.recall){reject=false;throw new Error('lost receipt');}
+    return basic(c,m,p,v);
+  }});
+  e.ctl.dispatch('background');await e.step();await e.ctl.settled();
+  assert.equal(e.ctl.state().native,false);
+  assert.equal(e.ctl.state().background.uncertain,true);
+  e.ctl.dispatch('stopBridge');await e.step();await e.ctl.settled();
+  assert.equal(e.ctl.state().background.uncertain,false);
+  assert.equal(Object.keys(e.ctl.state().delegated).length,0);
+  await e.ctl.close();
 });
