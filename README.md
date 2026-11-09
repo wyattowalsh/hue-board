@@ -39,6 +39,8 @@ The current native app is a reviewable vertical slice, **not** an App Store rele
 
 For now, use the verified v5.2.0 installer from `main` or inspect the local v5.3 source candidate. The source branch is **not a new installable Scriptable release**.
 
+The currently verified standalone controller is [`dist/hue-board.js`](dist/hue-board.js). The pinned installer checks its immutable commit and SHA-256 before replacing an existing Scriptable file.
+
 The eventual v5.3 Scriptable installation will continue to require trusted Wi-Fi, preserve existing Hue credentials and baselines, and never turn lights on merely by opening the app.
 
 ## Playback and background behavior
