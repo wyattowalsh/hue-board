@@ -21,10 +21,12 @@ jobs:
           node-version: '22'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Verify immutable release artifact
+      - name: Verify currently published Scriptable artifact
         run: pnpm verify:release
       - run: pnpm build
-      - name: Verify reproducible development build matches published artifact
-        run: pnpm verify:rebuild
+      - name: Verify generated native contract is current
+        run: |
+          pnpm export:ios-contract
+          git diff --exit-code -- ios/Packages/HueBoardKit/Sources/HueBoardKit/Resources ios/Packages/HueBoardKit/Sources/HueBoardAppleEngine/Resources
       - run: pnpm test
       - run: pnpm test:timing

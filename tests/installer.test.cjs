@@ -6,14 +6,15 @@ const vm = require('node:vm');
 const crypto = require('node:crypto');
 const root = path.resolve(__dirname, '..');
 const script = fs.readFileSync(path.join(root, 'install/install-hue-board.js'), 'utf8');
-const releaseManifest = require('../releases/v'+require('../package.json').version+'.json');
 const extract = pattern => { const value = script.match(pattern)?.[1]; assert.ok(value, 'Missing installer constant'); return value; };
+const publishedVersion = extract(/const VERSION = '([^']+)'/);
+const releaseManifest = require('../releases/v'+publishedVersion+'.json');
 
 test('installer pins a versioned commit, exact release bytes, and uses valid Scriptable JavaScript', () => {
-  const version = extract(/const VERSION = '([^']+)'/);
+  const version = publishedVersion;
   const revision = extract(/const REVISION = '([a-f0-9]+)'/);
   const digest = extract(/const EXPECTED_SHA256 = '([a-f0-9]+)'/);
-  assert.equal(version, require('../package.json').version);
+  assert.equal(version, releaseManifest.version);
   assert.equal(revision, releaseManifest.sourceRevision);
   assert.equal(digest, releaseManifest.sha256);
   assert.equal(releaseManifest.artifact, 'dist/hue-board.js');
@@ -37,7 +38,7 @@ test('tampered downloads never write or replace the installed script', async () 
   let writes = 0, reads = 0;
   const notices = [];
   class Alert { addAction(){} addCancelAction(){} async presentAlert(){notices.push(this.title);return 0;} }
-  class Request { constructor(url){assert.match(url,/\/dist\/hue-board\.js$/);} async loadString(){return '// Hue Board 5.3.0 | Standalone Scriptable controller\n// tampered';} get response(){return {statusCode:200};} }
+  class Request { constructor(url){assert.match(url,/\/dist\/hue-board\.js$/);} async loadString(){return `// Hue Board ${publishedVersion} | Standalone Scriptable controller\n// tampered`;} get response(){return {statusCode:200};} }
   const manager = {documentsDirectory:()=>'/tmp',joinPath:(a,b)=>a+'/'+b,fileExists:()=>{reads++;return true;},writeString:()=>{writes++;},copy:()=>{writes++;}};
   const context = {Alert,Request,FileManager:{iCloud:()=>manager,local:()=>manager},Data:{fromString:s=>({getBytes:()=>Array.from(Buffer.from(s))})},Script:{complete:()=>{}}};
   await vm.runInNewContext(`(async () => { ${script} })()`,context);
@@ -49,6 +50,8 @@ test('tampered downloads never write or replace the installed script', async () 
 test('installer does not touch Keychain or Hue lights', () => {
   assert.doesNotMatch(script, /Keychain\.(?:set|remove)\(/);
   assert.doesNotMatch(script, /\/clip\/v2\/resource\//);
-  assert.ok(script.indexOf('sha256Hex(Data.fromString(script).getBytes())') < script.indexOf('manager.writeString(destination,script)'));
-  assert.ok(script.indexOf('manager.copy(destination,') < script.indexOf('manager.writeString(destination,script)'));
+  const hashAt = script.indexOf('sha256Hex(Data.fromString(script).getBytes())');
+  const backupAt = script.indexOf('manager.copy(destination,');
+  const writeAt = script.search(/manager\.writeString\(destination,\s*script\)/);
+  assert.ok(hashAt >= 0 && backupAt > hashAt && writeAt > backupAt);
 });

@@ -1,0 +1,16 @@
+'use strict';
+const assert=require('node:assert/strict');
+const crypto=require('node:crypto');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const version=require('../package.json').version;
+const manifestPath=path.join(root,`releases/v${version}.json`);
+assert.ok(fs.existsSync(manifestPath),`No published manifest exists for source version ${version}. Publish the immutable bundle and manifest before running the release-rebuild gate.`);
+const manifest=JSON.parse(fs.readFileSync(manifestPath,'utf8'));
+const bytes=fs.readFileSync(path.join(root,manifest.artifact));
+const digest=crypto.createHash('sha256').update(bytes).digest('hex');
+assert.equal(manifest.version,version);
+assert.ok(bytes.toString('utf8').startsWith(`// Hue Board ${version} | Standalone Scriptable controller`));
+assert.equal(digest,manifest.sha256,'Rebuilt Scriptable bundle differs from the published release artifact');
+console.log(`Verified reproducible Hue Board ${version} rebuild: ${digest}`);
