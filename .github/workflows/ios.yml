@@ -4,20 +4,24 @@ on:
   push:
     paths:
       - ios/**
+      - frontend/**
       - src/engine.js
       - src/presets.js
       - scripts/export-ios-contract.cjs
-      - tests/ios-parity.test.cjs
+      - tests/ios-*.test.cjs
+      - tsconfig.json
       - .github/workflows/ios.yml
       - package.json
       - pnpm-lock.yaml
   pull_request:
     paths:
       - ios/**
+      - frontend/**
       - src/engine.js
       - src/presets.js
       - scripts/export-ios-contract.cjs
-      - tests/ios-parity.test.cjs
+      - tests/ios-*.test.cjs
+      - tsconfig.json
       - .github/workflows/ios.yml
       - package.json
       - pnpm-lock.yaml
@@ -29,10 +33,13 @@ concurrency:
   group: native-ios-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+
 jobs:
-  build:
-    runs-on: macos-26
-    timeout-minutes: 35
+  build-test-archive:
+    runs-on: macos-27
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
@@ -43,27 +50,77 @@ jobs:
           node-version: '22'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm verify:release
+      - run: pnpm build
+      - run: pnpm export:ios-contract
+      - run: pnpm typecheck
       - name: Verify generated native contract
-        run: |
-          pnpm build
-          pnpm export:ios-contract
-          git diff --exit-code -- ios/Packages/HueBoardKit/Sources/HueBoardKit/Resources
-          node --test tests/ios-parity.test.cjs
+        run: >-
+          git diff --exit-code --
+          ios/Packages/HueBoardKit/Sources/HueBoardKit/Resources
+          ios/Packages/HueBoardKit/Sources/HueBoardAppleEngine/Resources
+      - run: node --test tests/ios-*.test.cjs
       - name: Test shared Swift packages
-        run: swift test --package-path ios/Packages/HueBoardKit
+        run: >-
+          swift test --package-path ios/Packages/HueBoardKit
+          -Xswiftc -warnings-as-errors
+          -Xswiftc -strict-concurrency=complete
       - name: Build pinned XcodeGen
         run: |
           git clone --no-checkout https://github.com/yonaskolb/XcodeGen.git /tmp/XcodeGen
-          git -C /tmp/XcodeGen checkout 8445e778451c7e44237b90281bde622d764b0084
+          git -C /tmp/XcodeGen checkout --detach 8445e778451c7e44237b90281bde622d764b0084
           swift build --package-path /tmp/XcodeGen -c release --product xcodegen
       - name: Generate Xcode project
         run: /tmp/XcodeGen/.build/release/xcodegen generate --spec ios/project.yml --project ios
-      - name: Build iOS Simulator target
+      - name: Select available iPhone simulator
+        id: simulator
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, subprocess
+          data=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','-j']))
+          choices=[]
+          for runtime, devices in data['devices'].items():
+              if 'iOS' not in runtime:
+                  continue
+              for device in devices:
+                  if device.get('isAvailable') and device['name'].startswith('iPhone'):
+                      choices.append((runtime, device['name'], device['udid']))
+          if not choices:
+              raise SystemExit('No available iPhone simulator')
+          runtime,name,udid=sorted(choices)[-1]
+          print(f'udid={udid}')
+          print(f'name={name}')
+          print(f'runtime={runtime}')
+          PY
+      - name: Test app and UI targets
         run: >-
           xcodebuild
           -project ios/HueBoard.xcodeproj
           -scheme HueBoard
-          -sdk iphonesimulator
-          -destination 'generic/platform=iOS Simulator'
+          -configuration Debug
+          -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}'
+          -derivedDataPath ios/DerivedData/ci
+          -resultBundlePath ios/DerivedData/HueBoardTests.xcresult
           CODE_SIGNING_ALLOWED=NO
-          build
+          test
+      - name: Archive release configuration without signing
+        run: >-
+          xcodebuild
+          -project ios/HueBoard.xcodeproj
+          -scheme HueBoard
+          -configuration Release
+          -destination 'generic/platform=iOS'
+          -archivePath ios/DerivedData/HueBoard.xcarchive
+          CODE_SIGNING_ALLOWED=NO
+          archive
+      - name: Verify privacy manifest is packaged in archive
+        run: test -f 'ios/DerivedData/HueBoard.xcarchive/Products/Applications/Hue Board.app/PrivacyInfo.xcprivacy'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: native-ios-evidence-${{ github.sha }}
+          path: |
+            ios/DerivedData/HueBoardTests.xcresult
+            ios/DerivedData/HueBoard.xcarchive
+          if-no-files-found: warn
+          retention-days: 14
