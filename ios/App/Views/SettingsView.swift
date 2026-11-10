@@ -74,6 +74,9 @@ struct SettingsView: View {
       }.font(.footnote).foregroundStyle(.secondary)
     }
     .navigationTitle("Settings")
+    .toolbar {
+      ToolbarItem(placement:.confirmationAction){Button("Done"){model.isSettingsPresented=false}}
+    }
     .confirmationDialog("Remove this Bridge from Hue Board?",isPresented:$confirmForget,titleVisibility:.visible){Button("Forget Bridge",role:.destructive){Task{await model.forgetBridge()}}}message:{Text("This removes the Hue application key, certificate pin, and Hue Board scene registry from this device. Active recovery must be restored first.")}
     .confirmationDialog("Permanently discard the saved baseline?",isPresented:$confirmDestructiveReset,titleVisibility:.visible){Button("Discard recovery & forget",role:.destructive){Task{await model.discardRecoveryAndForgetBridge()}}}message:{Text("Hue Board will not restore the affected lights. This permanently deletes the application key, certificate pin, scene registry, and the only saved baseline for this Bridge. Use only if the original Bridge is unreachable or has been replaced.")}
   }

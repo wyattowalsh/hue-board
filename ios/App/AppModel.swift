@@ -7,7 +7,7 @@ import Observation
 @MainActor
 @Observable
 final class AppModel {
-  enum Tab: Hashable { case lights, scenes, live, settings }
+  enum Tab: Hashable { case lights, scenes, live }
   enum PendingDynamicAction: Equatable {
     case bridge(presetID: String)
     case ambient
@@ -42,6 +42,7 @@ final class AppModel {
   var errorMessage: String?
   var isBusy = false
   var isConnectionSheetPresented = false
+  var isSettingsPresented = false
   var hasRestorePoint = false
   var restoreAreaID: HueResourceID?
   var safetySettings: PhysicalLightSafetySettings = .default

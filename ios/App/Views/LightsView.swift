@@ -45,6 +45,7 @@ struct LightsView: View {
     .toolbar {
       ToolbarItem(placement:.topBarTrailing){Button{model.isConnectionSheetPresented=true}label:{Image(systemName:"dot.radiowaves.left.and.right")}.accessibilityLabel("Bridge connection")}
       ToolbarItem(placement:.topBarTrailing){Button{Task{await model.refreshInventory()}}label:{Image(systemName:"arrow.clockwise")}.disabled(!model.isReady||model.isBusy).accessibilityLabel("Refresh Bridge state")}
+      ToolbarItem(placement:.topBarTrailing){Button{model.isSettingsPresented=true}label:{Image(systemName:"gearshape.fill")}.accessibilityLabel("Settings")}
     }
   }
 }

@@ -18,16 +18,16 @@ struct RootView: View {
             NavigationStack { LiveView() }
                 .tabItem { Label("Live", systemImage: "waveform.path") }
                 .tag(AppModel.Tab.live)
-
-            NavigationStack { SettingsView() }
-                .tabItem { Label("Settings", systemImage: "gearshape.fill") }
-                .tag(AppModel.Tab.settings)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlaybackBanner()
         }
         .sheet(isPresented: $model.isConnectionSheetPresented) {
             ConnectionSheet().environment(model)
+        }
+        .sheet(isPresented: $model.isSettingsPresented) {
+            NavigationStack { SettingsView() }
+                .environment(model)
         }
         .alert("Hue Board", isPresented: errorPresented) {
             Button("OK", role: .cancel) { model.errorMessage = nil }
