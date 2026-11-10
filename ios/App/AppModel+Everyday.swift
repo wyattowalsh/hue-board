@@ -27,17 +27,22 @@ extension AppModel {
       }
       return
     }
+    let actions: [HueResourceID: HueLightAction] = Dictionary(
+      uniqueKeysWithValues: area.lights.compactMap { light -> (HueResourceID, HueLightAction)? in
+        guard light.capabilities.power, !light.capabilities.streaming else { return nil }
+        return (light.id, HueLightAction(on: .init(on: on)))
+      }
+    )
     isBusy = true
     defer { isBusy = false }
     do {
-      for light in area.lights where light.capabilities.power && !light.capabilities.streaming {
-        try await client.updateLight(
-          id: light.id,
-          action: HueLightAction(on: .init(on: on)),
-          profile: profile,
-          credential: credential
-        )
-      }
+      try await executeDirectFrame(
+        actions,
+        profile: profile,
+        credential: credential,
+        areaID: area.id,
+        purpose: on ? "everyday-power-on" : "everyday-power-off"
+      )
       try await loadInventory(profile: profile, credential: credential)
       note = on ? "Power-on commands accepted." : "Power-off commands accepted."
     } catch {
@@ -50,8 +55,10 @@ extension AppModel {
     foregroundLiveTask?.cancel()
     foregroundLiveTask = nil
     ContinuedLiveCoordinator.shared.cancel()
+    await stopCoordinatedPlayback(reason: .user)
     isBusy = true
     defer { isBusy = false }
+
     do {
       let journal = try await persistence.loadRestoreJournal()
       let targetIDs: Set<HueResourceID>
@@ -65,38 +72,53 @@ extension AppModel {
       } else {
         targetIDs = Set(area.lights.map(\.id))
       }
-
       guard !targetIDs.isEmpty else {
         throw HueBoardError.unsupported("No lights are available to turn off.")
       }
 
       let byID = Dictionary(uniqueKeysWithValues: area.lights.map { ($0.id, $0) })
+      let eligibleIDs = Set(targetIDs.filter { id in
+        guard let light = byID[id] else { return false }
+        return light.capabilities.power && !light.capabilities.streaming
+      })
+      guard !eligibleIDs.isEmpty else {
+        throw HueBoardError.unsupported(
+          "No recoverable non-streaming lights are currently available for emergency off."
+        )
+      }
+
+      let lease = try await beginDirectControl(
+        profile: profile,
+        credential: credential,
+        areaID: area.id,
+        allowedLightIDs: eligibleIDs,
+        purpose: "emergency-off"
+      )
       var accepted = 0
-      var unresolved: [HueResourceID] = []
-      for id in targetIDs.sorted(by: { $0.rawValue < $1.rawValue }) {
-        guard let light = byID[id], light.capabilities.power, !light.capabilities.streaming else {
-          unresolved.append(id)
-          continue
-        }
+      var unresolved = targetIDs.subtracting(eligibleIDs)
+      var sequence: UInt64 = 0
+      for id in eligibleIDs.sorted(by: { $0.rawValue < $1.rawValue }) {
+        sequence &+= 1
         do {
-          try await client.updateLight(
-            id: id,
-            action: HueLightAction(on: .init(on: false)),
-            profile: profile,
-            credential: credential
+          try await playbackCoordinator.submit(
+            .init(
+              sequence: sequence,
+              actions: [id: HueLightAction(on: .init(on: false))]
+            ),
+            lease: lease
           )
           accepted += 1
         } catch {
-          unresolved.append(id)
+          unresolved.insert(id)
         }
       }
+      await finishDirectControl(lease)
 
       guard accepted > 0 else {
         throw HueBoardError.network(
           "No emergency-off command was accepted. The saved baseline remains available."
         )
       }
-
       if unresolved.isEmpty {
         if journal != nil {
           playback.fail(
@@ -127,21 +149,29 @@ extension AppModel {
       return
     }
     brightness = min(max(value, 1), 100)
-    isBusy = true
-    defer { isBusy = false }
-    do {
-      for light in area.lights where light.capabilities.dimming && !light.capabilities.streaming {
-        try await client.updateLight(
-          id: light.id,
-          action: HueLightAction(
+    let actions: [HueResourceID: HueLightAction] = Dictionary(
+      uniqueKeysWithValues: area.lights.compactMap { light -> (HueResourceID, HueLightAction)? in
+        guard light.capabilities.dimming, !light.capabilities.streaming else { return nil }
+        return (
+          light.id,
+          HueLightAction(
             on: .init(on: true),
             dimming: .init(brightness: min(brightness, light.outputLimit)),
             dynamics: .init(duration: 500)
-          ),
-          profile: profile,
-          credential: credential
+          )
         )
       }
+    )
+    isBusy = true
+    defer { isBusy = false }
+    do {
+      try await executeDirectFrame(
+        actions,
+        profile: profile,
+        credential: credential,
+        areaID: area.id,
+        purpose: "everyday-brightness"
+      )
       note = "Brightness commands accepted. Bridge readback will confirm reported state."
     } catch {
       errorMessage = error.localizedDescription
