@@ -4,13 +4,13 @@ Parent epic: [#20 Ship Hue Board 6.0 as a qualified native iPhone application](h
 
 ## Accepted architecture decisions
 
-The v6 decision gate is complete. The normative records are indexed in [`adr/README.md`](adr/README.md):
+The v6 decision gate is complete. The normative records are indexed in [`decisions/README.md`](decisions/README.md):
 
-- [ADR 0001: native iPhone GA scope](adr/0001-native-iphone-ga-scope.md)
-- [ADR 0002: independent version and schema domains](adr/0002-version-and-schema-domains.md)
-- [ADR 0003: supported platform and hardware matrix](adr/0003-supported-platform-and-hardware-matrix.md)
-- [ADR 0004: Scriptable 5.3 LTS and native parity](adr/0004-scriptable-lts-and-native-parity.md)
-- [ADR 0005: physical-light safety](adr/0005-physical-light-safety.md)
+- [ADR 0001: native iPhone GA scope](decisions/0001-native-ga-scope.md)
+- [ADR 0002: independent version and schema domains](decisions/0002-version-and-schema-model.md)
+- [ADR 0003: supported platform and hardware matrix](decisions/0003-supported-platform-and-hardware-matrix.md)
+- [ADR 0004: Scriptable 5.3 LTS and native parity](decisions/0004-scriptable-lts-and-parity.md)
+- [ADR 0005: physical-light safety](decisions/0005-physical-light-safety.md)
 
 ## Baseline gates
 
