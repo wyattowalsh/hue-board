@@ -13,7 +13,7 @@ extension AppModel {
     selectedAreaID = id
     do {
       try await loadRecoveryState()
-      if let profile { await persistence.saveSelectedAreaID(id, bridgeID: profile.bridgeID) }
+      if let profile { try await persistence.saveSelectedAreaID(id, bridgeID: profile.bridgeID) }
     } catch {
       selectedAreaID = previous
       errorMessage = "Could not review restore state for the selected area: \(error.localizedDescription)"
