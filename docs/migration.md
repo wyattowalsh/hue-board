@@ -12,7 +12,27 @@ To upgrade:
 4. Review any recovery/restore point **before** starting a new show or restoring. Older snapshots may predate changes from another app.
 5. Keep the earlier script for rollback. Do not delete old Keychain entries until you have independently confirmed the new version works.
 
-Mix imports accept the previous schema-3 app identifier in addition to `hue-board`. Newly exported mixes use `hue-board` and remain schema 3. The migration does not send a lighting command when the app opens.
+## Scene and mix documents
+
+New exports use the scope-free `hue-board.scene` schema 2 format. The document describes lighting intent only and cannot carry a Bridge host, application key, room/zone ID, fixture ID, or implicit physical target. The user selects the active room or zone when applying or playing the imported look.
+
+Hue Board continues to import legacy Scriptable schema-3 mixes from both the `hue-board` and `BOYZ.EXE` app identifiers. Legacy values are normalized through the deterministic engine bounds and returned with a migration warning. Importing or previewing a document does not start lights.
+
+Schema 2 imports:
+
+- require a supported engine ABI;
+- require a complete deterministic settings payload;
+- reject unknown top-level, source, or setting fields;
+- reject unsupported patterns, palettes, ranges, modes, colors, and sequence identifiers;
+- reject an embedded physical scope or credential-shaped metadata;
+- preserve Scriptable-only settings for round-trip compatibility even when the current native engine does not use each setting;
+- produce a deterministic identifier when migrating the same legacy logical settings repeatedly.
+
+The canonical schema contract and security boundary are documented in [`docs/v6/scene-document-schema2.md`](v6/scene-document-schema2.md).
+
+## Native persistence migration
+
+Native schema 2 uses integrity-checked state and separately durable recovery records. The migration path preserves legacy data as a rollback source, quarantines malformed records rather than replacing them with defaults, and keeps Bridge-specific state isolated. Native migration and rollback remain subject to the exact Xcode/device qualification tracked in issue #4.
 
 The old Keychain identifiers appear **only** in `src/legacy.js` and tests intentionally exercising backwards compatibility. Changing them without a planned migration would break saved settings or force re-pairing.
 
