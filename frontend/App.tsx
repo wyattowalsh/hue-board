@@ -17,7 +17,7 @@ export default function App(){
  React.useLayoutEffect(()=>{window.DECK_BOOT.ready=true;const boot=document.getElementById('boot');if(boot)boot.hidden=true},[]);
  React.useEffect(()=>{setFocus(META.lights[0]?.id||'')},[scopeId]);
  function selectTab(id:Tab){setTab(id);window.scrollTo({top:0,behavior:'auto'})}
- function tabKeys(event:React.KeyboardEvent<HTMLButtonElement>,i:number){let n=i;if(event.key==='ArrowRight')n=(i+1)%tabs.length;else if(event.key==='ArrowLeft')n=(i+tabs.length-1)%tabs.length;else if(event.key==='Home')n=0;else if(event.key==='End')n=tabs.length-1;else return;event.preventDefault();selectTab(tabs[n][0]);document.getElementById('tab-'+tabs[n][0])?.focus()}
+ function tabKeys(event:React.KeyboardEvent<HTMLButtonElement>,i:number){let n=i;if(event.key==='ArrowRight')n=(i+1)%tabs.length;else if(event.key==='ArrowLeft')n=(i+tabs.length-1)%tabs.length;else if(event.key==='Home')n=0;else if(event.key==='End')n=tabs.length-1;else return;const next=tabs[n];if(!next)return;event.preventDefault();selectTab(next[0]);document.getElementById('tab-'+next[0])?.focus()}
  const summary=state.background?.uncertain?'Bridge handoff unconfirmed':state.mode==='live'?'Live Studio · phone open':state.native?'Bridge · phone-free':state.mode==='adjusting'?'Applying lighting':state.busy?'Working':idle?'Controller idle':'Ready';
  return <><main className="app" data-surface={tab}>
   <header className="app-header"><div><h1 className="wordmark">Hue<span> Board</span></h1><p className="app-subtitle">Everyday light. Extraordinary nights.</p></div><div className="topbar-status"><div>{summary}</div><p className="mt-1 text-muted-foreground">{ui.theme==='system'?'System · ':''}{theme}</p></div></header>

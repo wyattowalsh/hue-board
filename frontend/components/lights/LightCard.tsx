@@ -7,7 +7,9 @@ import {CommitRange} from './CommitRange';
 
 export const PowerIcon=()=> <svg data-icon="inline-start" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 3v9M7.2 5.8a8 8 0 1 0 9.6 0" strokeLinecap="round"/></svg>;
 export function LightCard({id,state,layout,locked}:{id:string;state:State;layout:Layout;locked:boolean}){
- const light=META.lights.find(l=>l.id===id)!,c=state.capabilities?.[id]||light.capabilities,p=layout.placements[id],r=state.telemetry?.data?.[id];
+ const light=META.lights.find(l=>l.id===id),p=layout.placements[id];
+ if(!light||!p)return null;
+ const c=state.capabilities?.[id]||light.capabilities,r=state.telemetry?.data?.[id];
  const [expanded,setExpanded]=React.useState(false),[color,setColor]=React.useState('#00bddd');
  const age=r?.fetchedAt==null?null:T.age(r.fetchedAt,Date.now()),stale=age==null||age>6;
  const streaming=c.streaming||r?.mode==='streaming',disabled=locked||streaming;

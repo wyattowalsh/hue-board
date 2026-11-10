@@ -10,7 +10,7 @@ export function LightsPanel({state,layout,ui,onLooks}:{state:State;layout:Layout
  const ids=scope==='selected'?layout.selected:layout.order,locked=!!state.navigation?.switching;
  const lights=META.lights,targets=lights.filter(l=>ids.includes(l.id)),dimmers=targets.filter(l=>l.capabilities.dimming),whites=targets.filter(l=>l.capabilities.temperature),colors=targets.filter(l=>l.capabilities.color);
  const read=state.telemetry?.data||{},on=lights.filter(l=>read[l.id]?.on===true).length,unknown=lights.filter(l=>read[l.id]?.on==null).length;
- const capped=dimmers.filter(l=>layout.placements[l.id].ceiling<100||layout.placements[l.id].trim<1);
+ const capped=dimmers.filter(l=>{const placement=layout.placements[l.id];return !!placement&&(placement.ceiling<100||placement.trim<1)});
  const values=dimmers.map(l=>read[l.id]?.brightness).filter((v):v is number=>typeof v==='number');const average=values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length):50;
  const send=(change:Record<string,unknown>,subset=ids)=>deck.send({name:'manual',payload:{ids:subset,...change}});
  const visible=lights.filter(l=>l.name.toLowerCase().includes(search.toLowerCase())&&(filter==='all'||filter==='on'&&read[l.id]?.on===true||filter==='selected'&&layout.selected.includes(l.id)));

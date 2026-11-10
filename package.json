@@ -21,6 +21,8 @@
     "check": "pnpm verify:release && pnpm build && pnpm export:ios-contract && pnpm typecheck && pnpm test && pnpm test:timing"
   },
   "devDependencies": {
+    "@types/react": "18.2.79",
+    "@types/react-dom": "18.2.25",
     "tailwindcss": "4.1.10",
     "typescript": "5.8.3"
   },

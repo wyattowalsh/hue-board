@@ -5,7 +5,7 @@ import {Badge,ToggleGroup,Select,Alert,Fold} from './ui';
 export function MapPreview({state,layout,settings,roomMode,focusId,onFocus}:{state:State;layout:Layout;settings:Settings;roomMode:boolean;focusId:string;onFocus:(id:string)=>void}){
  const [source,setSource]=React.useState('reported'),now=useNow(),svg=React.useRef<SVGSVGElement>(null);const moving=React.useRef<string|null>(null);
  const lamp=META.lights.find(l=>l.id===focusId),reported=state.telemetry?.data?.[focusId];
- function move(id:string,x:number,y:number){deck.layout({...layout,placements:{...layout.placements,[id]:{...layout.placements[id],x:Math.min(.96,Math.max(.04,x)),y:Math.min(.94,Math.max(.06,y))}}})}
+ function move(id:string,x:number,y:number){const current=layout.placements[id];if(!current)return;deck.layout({...layout,placements:{...layout.placements,[id]:{...current,x:Math.min(.96,Math.max(.04,x)),y:Math.min(.94,Math.max(.06,y))}}})}
  function drag(e:React.PointerEvent<SVGSVGElement>){if(!moving.current||!svg.current)return;const r=svg.current.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*360,y=(e.clientY-r.top)/r.height*230;move(moving.current,(x-24)/312,(y-16)/198)}
  const fresh=state.telemetry?.lastRead!=null&&now-state.telemetry.lastRead<=6000;
  return <div className="flex flex-col gap-3">
@@ -15,7 +15,7 @@ export function MapPreview({state,layout,settings,roomMode,focusId,onFocus}:{sta
  <svg ref={svg} className={roomMode?"room-map":"room-map compact-map"} viewBox="0 0 360 230" role="group" aria-label="Bulb placement and state" onPointerMove={drag} onPointerUp={()=>moving.current=null} onPointerCancel={()=>moving.current=null}>
  <path className="map-grid" d="M24 54H336M24 94H336M24 134H336M24 174H336M76 16V214M128 16V214M180 16V214M232 16V214M284 16V214"/>
  <rect x="24" y="16" width="312" height="198" rx="16" fill="none" stroke="var(--grid)"/>
- {layout.order.map((id,index)=>{const p=layout.placements[id],light=META.lights.find(l=>l.id===id);let row:unknown=state.telemetry?.data?.[id];const target=state.telemetry?.targets?.[id];
+ {layout.order.map((id,index)=>{const p=layout.placements[id],light=META.lights.find(l=>l.id===id);if(!p)return null;let row:unknown=state.telemetry?.data?.[id];const target=state.telemetry?.targets?.[id];
   if(source==='target')row=target&&target.kind!=='native'&&target.action?T.normalize({id,...target.action},target.acceptedAt):null;
   // A color target without an on/off field leaves power unchanged. Render its requested color, not a fabricated off state.
   const targetRow=row as {on?:boolean|null}|null;
@@ -30,7 +30,7 @@ export function MapPreview({state,layout,settings,roomMode,focusId,onFocus}:{sta
   return <g key={id}>
    {geometry.length>1?<polyline points={geometry.map(v=>`${24+v.x*312},${16+v.y*198}`).join(' ')} fill="none" stroke="var(--muted-foreground)" opacity=".35" strokeWidth="2"/>:null}
    <g className="map-bulb" role="button" tabIndex={0} aria-label={`${light?.name}. ${source==='reported'?T.stateText(row):source==='target'?T.targetText(target,now):'Design simulation'}`} aria-pressed={selected}
-     onClick={()=>onFocus(id)} onPointerDown={e=>{onFocus(id);if(roomMode){e.preventDefault();moving.current=id;svg.current?.setPointerCapture(e.pointerId)}}}
+     onClick={()=>onFocus(id)} onPointerDown={e=>{onFocus(id);if(roomMode){e.preventDefault();moving.current=id;svg.current?.setPointerCapture(e.pointerId)}}
      onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onFocus(id)}if(roomMode&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();move(id,p.x+(e.key==='ArrowRight'?.02:e.key==='ArrowLeft'?-.02:0),p.y+(e.key==='ArrowDown'?.02:e.key==='ArrowUp'?-.02:0))}}}>
      <circle className="hit" cx={x} cy={y} r="22" fill="transparent" stroke={selected?'var(--primary)':'transparent'} strokeWidth="1.5"/>
      <circle cx={x} cy={y} r={on?13+level*3:12} fill={color} opacity={stale?.35:on?.45+.55*level:.5} stroke="var(--lamp-edge)" strokeDasharray={stale?'3 3':undefined}/>
