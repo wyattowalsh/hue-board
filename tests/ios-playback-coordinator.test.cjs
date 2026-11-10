@@ -27,3 +27,24 @@ test('preview transport has no Bridge dependency or physical-write capability', 
   assert.match(preview, /capturedFrames/);
   assert.doesNotMatch(preview, /HueBridgeClient|URLSession|updateLight|createScene|recallScene/);
 });
+
+
+test('native app physical playback and everyday paths use transports instead of direct Bridge mutations', () => {
+  const appRoot = path.join(root, 'ios/App');
+  const files = fs.readdirSync(appRoot)
+    .filter(name => name.endsWith('.swift'))
+    .map(name => [name, fs.readFileSync(path.join(appRoot, name), 'utf8')]);
+  const joined = files.map(([name, source]) => `// ${name}\n${source}`).join('\n');
+
+  for (const forbidden of [
+    /client\.updateLight\s*\(/,
+    /client\.createScene\s*\(/,
+    /client\.updateScene\s*\(/,
+    /client\.recallScene\s*\(/,
+  ]) assert.doesNotMatch(joined, forbidden);
+
+  assert.match(read('ios/App/AppModel.swift'), /playbackCoordinator = PlaybackCoordinator\(\)/);
+  assert.match(read('ios/App/AppModel+BridgePlayback.swift'), /BridgeSceneTransport/);
+  assert.match(read('ios/App/AppModel+Live.swift'), /RestAmbientTransport/);
+  assert.match(read('ios/App/AppModel+Everyday.swift'), /beginDirectControl|executeDirectFrame/);
+});
