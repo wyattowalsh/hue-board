@@ -27,12 +27,14 @@ test('native persistence v2 is versioned, integrity checked, backed up, and quar
 
 test('native app propagates persistence failures instead of silently discarding them', () => {
   const bridge = read('ios/App/AppModel+BridgePlayback.swift');
+  const bridgeTransport = read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/BridgeSceneTransport.swift');
   const connection = read('ios/App/AppModel+Connection.swift');
   const everyday = read('ios/App/AppModel+Everyday.swift');
   const events = read('ios/App/AppModel+Events.swift');
 
-  assert.match(bridge, /try await persistence\.sceneID/);
-  assert.match(bridge, /try await persistence\.saveSceneID/);
+  assert.match(bridge, /BridgeSceneTransport/);
+  assert.match(bridgeTransport, /try await persistence\.sceneID/);
+  assert.match(bridgeTransport, /try await persistence\.saveSceneID/);
   assert.match(connection, /try await persistence\.loadSelectedAreaID/);
   assert.match(connection, /discardRecovery: discardRecovery/);
   assert.match(everyday, /try await persistence\.saveSelectedAreaID/);
