@@ -6,91 +6,72 @@ import HueBoardNativeCore
 extension AppModel {
   func play(_ preset: HuePreset) async {
     guard canPlayScene else { return }
-    guard let profile = self.profile else { return }
-    guard let credential = self.credential else { return }
-    guard let area = selectedArea else { return }
+    guard let profile, let credential, let area = selectedArea else { return }
     isBusy = true
     playback.beginBridge(presetID: preset.id)
-    var sceneID: HueResourceID?
-    var sceneMutationAttempted = false
-    var recallAttempted = false
+    let replacedExistingPlayback = activePlaybackLease != nil
     defer { isBusy = false }
+
+    await stopCoordinatedPlayback(reason: .replaced)
+    let transport = BridgeSceneTransport(
+      client: client,
+      persistence: persistence,
+      profile: profile,
+      credential: credential,
+      contract: contract,
+      preset: preset,
+      brightness: brightness
+    )
+    let request = LightingPlaybackRequest(
+      scope: .init(bridgeID: profile.bridgeID, areaID: area.id),
+      transport: .bridgeScene,
+      presetID: preset.id
+    )
+
     do {
-      let freshAreas: [HueArea] = try await client.inventory(
-        profile: profile, credential: credential)
-      guard let freshArea = freshAreas.first(where: { $0.id == area.id }) else {
-        throw HueBoardError.missingResource("The selected area is no longer available.")
-      }
-      let draft = try HueSceneBuilder.build(
-        area: freshArea,
-        preset: preset,
-        contract: contract,
-        brightness: brightness
-      )
+      let lease = try await playbackCoordinator.begin(request, using: transport)
+      activePlaybackLease = lease
+      hasRestorePoint = true
+      restoreAreaID = area.id
 
-      sceneID = try await persistence.sceneID(bridgeID: profile.bridgeID, areaID: area.id)
-      if let existing = sceneID {
-        if let scene = try await client.sceneIfPresent(
-          id: existing, profile: profile, credential: credential),
-          scene.group?.resourceID == area.id,
-          scene.group?.resourceType == area.kind.rawValue
-        {
-          // The resource identity is valid. Mutation happens only after baseline capture.
-        } else {
-          try await persistence.saveSceneID(nil, bridgeID: profile.bridgeID, areaID: area.id)
-          sceneID = nil
-        }
-      }
-
-      // Capture every light that the next scene may touch before creating, updating,
-      // or recalling a Bridge resource. Updating an already-active scene may affect
-      // physical output on some firmware, so it is not treated as an inert operation.
-      try await ensureRestoreJournal(
-        profile: profile,
-        area: freshArea,
-        touchedIDs: Set(draft.animatedLightIDs)
-      )
-
-      if let existing = sceneID {
-        sceneMutationAttempted = true
-        try await client.updateScene(
-          id: existing,
-          scene: draft.update,
-          profile: profile,
-          credential: credential
+      switch await transport.outcome() {
+      case .accepted(let sceneID):
+        playback.markBridgeRequestPending(sceneID: sceneID)
+        playback.markBridgeAccepted(sceneID: sceneID)
+        selectedPresetID = preset.id
+        note =
+          "\(preset.name) was accepted by the Bridge and continues independently after you leave the app."
+      case .uncertain(let sceneID, let message):
+        if let sceneID { playback.markBridgeRequestPending(sceneID: sceneID) }
+        playback.markUncertain(message)
+        note = message
+        errorMessage = message
+      case .prepared, .idle:
+        playback.markUncertain(
+          "Bridge playback returned without a final accepted or uncertain outcome. Stop and restore before retrying."
         )
-      } else {
-        sceneMutationAttempted = true
-        sceneID = try await client.createScene(
-          draft.create,
-          profile: profile,
-          credential: credential
-        )
-        try await persistence.saveSceneID(sceneID, bridgeID: profile.bridgeID, areaID: area.id)
+        note = playback.snapshot.message
+        errorMessage = playback.snapshot.message
       }
-      guard let sceneID else { throw HueBoardError.invalidResponse("Scene identifier is missing.") }
-
-      playback.markBridgeRequestPending(sceneID: sceneID)
-      recallAttempted = true
-      try await client.recallScene(id: sceneID, profile: profile, credential: credential)
-      playback.markBridgeAccepted(sceneID: sceneID)
-      selectedPresetID = preset.id
-      note =
-        "\(preset.name) was accepted by the Bridge and continues independently after you leave the app."
     } catch {
-      if recallAttempted {
+      activePlaybackLease = nil
+      if let journal = try? await persistence.loadRestoreJournal(),
+         journal.bridgeID == profile.bridgeID,
+         journal.areaID == area.id
+      {
+        hasRestorePoint = true
+        restoreAreaID = area.id
+      }
+      if replacedExistingPlayback || hasRestorePoint {
         playback.markUncertain(
-          "Bridge scene recall is uncertain: \(error.localizedDescription) Stop and restore before retrying."
-        )
-      } else if sceneMutationAttempted {
-        playback.markUncertain(
-          "Bridge scene preparation is uncertain: \(error.localizedDescription) No recall was confirmed; stop and restore before retrying."
+          "Could not prepare the new Bridge scene: \(error.localizedDescription) Previous output may still be active; stop and restore before retrying."
         )
       } else {
         playback.stop(
           "Could not prepare Bridge playback: \(error.localizedDescription) No scene mutation or recall was sent."
         )
       }
+      note = playback.snapshot.message
       errorMessage = playback.snapshot.message
     }
   }
