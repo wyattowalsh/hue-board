@@ -13,7 +13,8 @@ final class HueBoardUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["Lights"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.tabBars.buttons["Scenes"].exists)
         XCTAssertTrue(app.tabBars.buttons["Live"].exists)
-        XCTAssertTrue(app.tabBars.buttons["Settings"].exists)
+        XCTAssertFalse(app.tabBars.buttons["Settings"].exists)
+        XCTAssertTrue(app.buttons["Settings"].exists)
         XCTAssertFalse(app.buttons["Stop & restore"].exists)
     }
 }

@@ -75,6 +75,14 @@ struct LiveView: View {
             }
         }
         .navigationTitle("Live")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { model.isSettingsPresented = true } label: {
+                    Image(systemName: "gearshape.fill")
+                }
+                .accessibilityLabel("Settings")
+            }
+        }
     }
 
     private var durationText: String {

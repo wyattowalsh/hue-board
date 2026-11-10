@@ -36,6 +36,10 @@ struct ScenesView: View {
           }.padding()
         }
       }
-    }.navigationTitle("Scenes")
+    }
+    .navigationTitle("Scenes")
+    .toolbar {
+      ToolbarItem(placement:.topBarTrailing){Button{model.isSettingsPresented=true}label:{Image(systemName:"gearshape.fill")}.accessibilityLabel("Settings")}
+    }
   }
 }
