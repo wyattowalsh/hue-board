@@ -12,14 +12,27 @@ test('physical-device helper is syntactically valid and fails closed', () => {
   const scriptPath = path.join(root, 'ios/scripts/device-run.sh');
   const script = read('ios/scripts/device-run.sh');
   const syntax = spawnSync('bash', ['-n', scriptPath], { encoding: 'utf8' });
+  const help = spawnSync('bash', [scriptPath, 'help'], { encoding: 'utf8' });
+  const nonMac = spawnSync('bash', [scriptPath, 'preflight'], { encoding: 'utf8' });
 
   assert.equal(syntax.status, 0, syntax.stderr || syntax.stdout);
+  assert.equal(help.status, 0, help.stderr || help.stdout);
+  assert.match(help.stdout, /device-run/);
+  if (process.platform !== 'darwin') {
+    assert.notEqual(nonMac.status, 0);
+    assert.match(nonMac.stderr, /require macOS/);
+  }
+
   assert.match(script, /^set -Eeuo pipefail$/m);
   assert.match(script, /Xcode 26 or newer is required/);
   assert.match(script, /corepack pnpm install --frozen-lockfile/);
   assert.match(script, /corepack pnpm verify:release/);
+  assert.match(script, /corepack pnpm test\n/);
+  assert.match(script, /corepack pnpm test:timing/);
+  assert.match(script, /swift test --package-path/);
   assert.match(script, /git diff --exit-code --/);
   assert.match(script, /8445e778451c7e44237b90281bde622d764b0084/);
+  assert.match(script, /swift build[^\n]+>&2/);
   assert.match(script, /-allowProvisioningUpdates/);
   assert.match(script, /-allowProvisioningDeviceRegistration/);
   assert.match(script, /devicectl device install app/);
