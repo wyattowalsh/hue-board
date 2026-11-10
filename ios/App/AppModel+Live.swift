@@ -8,6 +8,7 @@ extension AppModel {
     guard canStartLive, let profile, let credential, let area = selectedArea,
       let preset = selectedPreset
     else { return }
+    guard !requiresDynamicLightConsent(for: .ambient) else { return }
     isBusy = true
     defer { isBusy = false }
     var lease: PlaybackWriterLease?
@@ -41,7 +42,8 @@ extension AppModel {
 
       let runner = NativeLiveRunner(engine: engine)
       let duration = liveDuration
-      let brightness = brightness
+      let brightness = effectiveDynamicBrightness
+      let safetySettings = safetySettings
       let descriptor = LiveSessionDescriptor(
         profile: profile,
         area: freshArea,
@@ -61,6 +63,7 @@ extension AppModel {
             preset: preset,
             brightness: brightness,
             duration: duration,
+            safetySettings: safetySettings,
             submit: { frame in
               try await playbackCoordinator.submit(frame, lease: ownedLease)
             }
@@ -240,7 +243,6 @@ extension AppModel {
     }
   }
 }
-
 
 private final class WeakAppModelReference: @unchecked Sendable {
   weak var value: AppModel?

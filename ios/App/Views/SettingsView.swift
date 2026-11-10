@@ -23,6 +23,46 @@ struct SettingsView: View {
           }
         } else {Button("Connect Bridge"){model.isConnectionSheetPresented=true}}
       }
+      Section("Physical-light safety") {
+        Toggle(
+          "Reduce Light Motion",
+          isOn: Binding(
+            get: { model.safetySettings.reduceLightMotion },
+            set: { value in Task { await model.setReduceLightMotion(value) } }
+          )
+        )
+        Text(
+          "Uses slower Ambient Live transitions and bounds engine speed, energy, depth, effect speed, and phase movement. Bridge-owned scenes may still animate according to Bridge capabilities."
+        )
+        .font(.caption)
+        .foregroundStyle(.secondary)
+
+        VStack(alignment: .leading, spacing: 8) {
+          HStack {
+            Text("Maximum dynamic brightness")
+            Spacer()
+            Text("\(Int(model.safetySettings.maximumDynamicBrightness))%")
+              .monospacedDigit()
+          }
+          Slider(
+            value: Binding(
+              get: { model.safetySettings.maximumDynamicBrightness },
+              set: { value in Task { await model.setMaximumDynamicBrightness(value) } }
+            ),
+            in: 10...100,
+            step: 5
+          )
+        }
+        Button("Show dynamic-light warning again") {
+          Task { await model.showDynamicLightSafetyAgain() }
+        }
+        Text(
+          "These controls reduce motion and output by product policy; they are not a medical guarantee. Stop dynamic output immediately if anyone feels discomfort."
+        )
+        .font(.caption)
+        .foregroundStyle(.secondary)
+      }
+
       Section("Security"){
         Text("The native client accepts only private LAN IPv4 or trusted .local hosts, rejects redirects, verifies the certificate Bridge ID, and pins the leaf SHA-256 after first contact. The application key remains in Keychain.")
         Text("First contact is trust on first use. Verify the physical Bridge on a trusted home network. Certificate rotation or Bridge replacement requires deliberate re-verification.")

@@ -7,6 +7,7 @@ extension AppModel {
     func bootstrap() async {
         guard connectionState == .disconnected else { return }
         do {
+            safetySettings = await safetyStore.load()
             guard let savedProfile = try await persistence.loadProfile() else {
                 isConnectionSheetPresented = true
                 return

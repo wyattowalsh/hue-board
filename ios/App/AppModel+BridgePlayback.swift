@@ -6,6 +6,7 @@ import HueBoardNativeCore
 extension AppModel {
   func play(_ preset: HuePreset) async {
     guard canPlayScene else { return }
+    guard !requiresDynamicLightConsent(for: .bridge(presetID: preset.id)) else { return }
     guard let profile, let credential, let area = selectedArea else { return }
     isBusy = true
     playback.beginBridge(presetID: preset.id)
@@ -20,7 +21,7 @@ extension AppModel {
       credential: credential,
       contract: contract,
       preset: preset,
-      brightness: brightness
+      brightness: effectiveDynamicBrightness
     )
     let request = LightingPlaybackRequest(
       scope: .init(bridgeID: profile.bridgeID, areaID: area.id),
