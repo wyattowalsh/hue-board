@@ -23,7 +23,8 @@ test('native recovery journal expands without replacing prior baselines', () => 
 test('emergency off reports incomplete coverage and retains recovery', () => {
   const everyday = read('ios/App/AppModel+Everyday.swift');
   assert.match(everyday, /targetIDs = journal\.capturedLightIDs/);
-  assert.match(everyday, /var unresolved: \[HueResourceID\] = \[\]/);
+  assert.match(everyday, /var unresolved = targetIDs\.subtracting\(eligibleIDs\)/);
+  assert.match(everyday, /unresolved\.insert\(id\)/);
   assert.match(everyday, /Emergency off reached/);
   assert.match(everyday, /saved baseline is retained/);
   assert.doesNotMatch(everyday, /saveRestoreJournal\(nil\)/);

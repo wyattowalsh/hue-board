@@ -32,7 +32,7 @@ extension AppModel {
             credential = savedCredential
             try await loadInventory(profile: verifiedProfile, credential: savedCredential)
             connectionState = .ready
-            note = "Connected over pinned HTTPS. Play delegates to the Bridge; Native Live is explicit and bounded."
+            note = "Connected over pinned HTTPS. Play delegates to the Bridge; Ambient Live is explicit and bounded."
             startEventMonitoring()
         } catch {
             stopEventMonitoring()
@@ -62,7 +62,6 @@ extension AppModel {
             }
 
             var merged: [String: HueBridgeCandidate] = [:]
-            // Insert broker results first so a directly resolved local candidate wins.
             for candidate in cloudValues + localValues {
                 let identity = HueBridgeTLSIdentity.normalizeBridgeID(candidate.id)
                     ?? "\(candidate.host):\(candidate.port)"
@@ -76,9 +75,7 @@ extension AppModel {
             if discoveredBridges.isEmpty {
                 note = "No Bridges were discovered by Bonjour or the Hue broker. Enter a private LAN address manually."
             } else {
-                let localCount = localValues.count
-                let brokerCount = cloudValues.count
-                note = "Found \(discoveredBridges.count) Bridge candidate(s): \(localCount) local Bonjour result(s), \(brokerCount) broker result(s). Verify one before pairing."
+                note = "Found \(discoveredBridges.count) Bridge candidate(s): \(localValues.count) local Bonjour result(s), \(cloudValues.count) broker result(s). Verify one before pairing."
             }
         } catch {
             connectionState = .disconnected
@@ -155,8 +152,6 @@ extension AppModel {
         await removeBridge(profile, discardRecovery: false)
     }
 
-    /// Last-resort escape for a replaced or permanently unreachable Bridge.
-    /// The UI must obtain explicit confirmation because this deletes the only restore baseline.
     func discardRecoveryAndForgetBridge() async {
         guard let profile, hasRestorePoint, !isBusy else {
             errorMessage = "A saved recovery baseline is required for destructive reset."
@@ -171,24 +166,19 @@ extension AppModel {
         foregroundLiveTask?.cancel()
         foregroundLiveTask = nil
         ContinuedLiveCoordinator.shared.cancel()
+        await stopCoordinatedPlayback(reason: .user)
         defer { isBusy = false }
 
         var credentialRemoved = false
         do {
             if !discardRecovery, try await persistence.loadRestoreJournal() != nil {
-                throw HueBoardError.unsupported(
-                    "Restore the saved baseline before removing this Bridge."
-                )
+                throw HueBoardError.unsupported("Restore the saved baseline before removing this Bridge.")
             }
             try keychain.removeCredential(bridgeID: profile.bridgeID)
             credentialRemoved = true
             credential = nil
             connectionState = .disconnected
-
-            try await persistence.clearBridgeState(
-                bridgeID: profile.bridgeID,
-                discardRecovery: discardRecovery
-            )
+            try await persistence.clearBridgeState(bridgeID: profile.bridgeID, discardRecovery: discardRecovery)
             resetDisconnectedState()
             note = discardRecovery
                 ? "Bridge credentials and the unrecoverable restore baseline were deleted from this device."
@@ -221,6 +211,7 @@ extension AppModel {
         liveProgress = 0
         hasRestorePoint = false
         restoreAreaID = nil
+        activePlaybackLease = nil
     }
 
     func loadInventory(profile: BridgeProfile, credential: HueBridgeCredential) async throws {

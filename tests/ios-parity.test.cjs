@@ -54,18 +54,18 @@ test('native app source preserves no-write-on-open and complete restore gates',(
   const connection=read('ios/App/AppModel+Connection.swift');
   const recovery=read('ios/App/AppModel+Recovery.swift');
   const everyday=read('ios/App/AppModel+Everyday.swift');
-  const bridgePlayback=read('ios/App/AppModel+BridgePlayback.swift');
+  const bridgeTransport=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/BridgeSceneTransport.swift');
   const journal=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/RestoreJournal+Capture.swift');
   const lookup=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/HueBridgeClient+SceneLookup.swift');
   const bootstrap=connection.slice(connection.indexOf('func bootstrap()'),connection.indexOf('func discoverBridges()'));
   assert.doesNotMatch(bootstrap,/updateLight\(|recallScene\(|createScene\(|updateScene\(/);
-  assert.match(model,/scene\.group\?\.resourceID == area\.id/);
+  assert.match(bridgeTransport,/scene\?\.group\?\.resourceID != area\.id/);
   assert.match(model,/Stop and restore the current area before switching/);
-  assert.match(model,/ensureRestoreJournal/);
+  assert.match(bridgeTransport,/ensureRestoreJournal/);
   assert.match(model,/markBridgeRequestPending/);
   assert.match(model,/markUncertain/);
   assert.match(model,/requiresRecovery/);
-  assert.match(model,/recallAttempted/);
+  assert.match(bridgeTransport,/recallAttempted/);
   assert.match(model,/No scene mutation or recall was sent/);
   assert.match(model,/func turnOffNow\(\)/);
   assert.match(model,/ContinuedLiveCoordinator\.shared\.cancel\(\)/);
@@ -76,10 +76,10 @@ test('native app source preserves no-write-on-open and complete restore gates',(
   assert.match(everyday,/targetIDs = journal\.capturedLightIDs/);
   assert.match(everyday,/No emergency-off command was accepted/);
   assert.match(lookup,/message\.contains\("HTTP 404"\)/);
-  const captureIndex=bridgePlayback.indexOf('try await ensureRestoreJournal(');
-  const updateIndex=bridgePlayback.indexOf('try await client.updateScene(');
-  const createIndex=bridgePlayback.indexOf('sceneID = try await client.createScene(');
-  const recallIndex=bridgePlayback.indexOf('try await client.recallScene(');
+  const captureIndex=bridgeTransport.indexOf('try await ensureRestoreJournal(');
+  const updateIndex=bridgeTransport.indexOf('try await client.updateScene(');
+  const createIndex=bridgeTransport.indexOf('sceneID = try await client.createScene(');
+  const recallIndex=bridgeTransport.indexOf('try await client.recallScene(');
   assert.ok(captureIndex>=0&&updateIndex>captureIndex&&createIndex>captureIndex&&recallIndex>captureIndex);
 });
 
@@ -154,5 +154,9 @@ test('native project includes exact engine and explicit continued-processing con
   const runner=read('ios/App/Services/NativeLiveRunner.swift');
   assert.match(runner,/minimumCycleSeconds/);
   assert.match(runner,/Task\.sleep\(\s*for:/);
-  assert.match(runner,/Hue Entertainment transport/);
+  const transports=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/HueLightFrameTransports.swift');
+  assert.match(runner,/LightingFrame\(sequence:/);
+  assert.match(runner,/submit: @escaping @Sendable/);
+  assert.match(transports,/actor RestAmbientTransport/);
+  assert.match(transports,/supportsHighRateFrames: false/);
 });

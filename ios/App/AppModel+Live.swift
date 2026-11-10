@@ -10,6 +10,8 @@ extension AppModel {
     else { return }
     isBusy = true
     defer { isBusy = false }
+    var lease: PlaybackWriterLease?
+
     do {
       let freshAreas = try await client.inventory(profile: profile, credential: credential)
       guard let freshArea = freshAreas.first(where: { $0.id == area.id }) else {
@@ -21,7 +23,23 @@ extension AppModel {
         }.map(\.id))
       try await ensureRestoreJournal(profile: profile, area: freshArea, touchedIDs: touched)
 
-      let runner = NativeLiveRunner(client: client, engine: engine)
+      let transport = RestAmbientTransport(
+        client: client,
+        profile: profile,
+        credential: credential,
+        allowedLightIDs: touched
+      )
+      let request = LightingPlaybackRequest(
+        scope: .init(bridgeID: profile.bridgeID, areaID: freshArea.id),
+        transport: .restAmbient,
+        presetID: preset.id,
+        duration: liveDuration
+      )
+      let ownedLease = try await playbackCoordinator.begin(request, using: transport)
+      lease = ownedLease
+      activePlaybackLease = ownedLease
+
+      let runner = NativeLiveRunner(engine: engine)
       let duration = liveDuration
       let brightness = brightness
       let descriptor = LiveSessionDescriptor(
@@ -34,16 +52,20 @@ extension AppModel {
       try await persistence.saveLiveDescriptor(descriptor)
 
       let persistence = persistence
-      let work: ContinuedLiveCoordinator.Work = { [weak self, persistence] update in
+      let playbackCoordinator = playbackCoordinator
+      let model = WeakAppModelReference(self)
+      let work: ContinuedLiveCoordinator.Work = { [model, persistence] update in
         do {
           try await runner.run(
-            profile: profile,
-            credential: credential,
             area: freshArea,
             preset: preset,
             brightness: brightness,
-            duration: duration
+            duration: duration,
+            submit: { frame in
+              try await playbackCoordinator.submit(frame, lease: ownedLease)
+            }
           ) { progress in
+            guard await playbackCoordinator.isCurrent(ownedLease) else { return }
             update(
               progress.fraction,
               "\(Int(progress.fraction * 100))% · \(Int(progress.remaining))s remaining"
@@ -53,49 +75,61 @@ extension AppModel {
                 sessionID: descriptor.id,
                 state: .running,
                 progress: progress.fraction,
-                message: "Native Live · \(Int(progress.fraction * 100))%",
+                message: "Ambient Live · \(Int(progress.fraction * 100))%",
                 updatedAt: Date()
               )
             )
             await MainActor.run {
-              self?.liveProgress = progress.fraction
-              self?.playback.updateLiveProgress(progress.fraction)
-              self?.note = "Native Live · \(Int(progress.fraction * 100))%"
+              guard model.value?.activePlaybackLease == ownedLease else { return }
+              model.value?.liveProgress = progress.fraction
+              model.value?.playback.updateLiveProgress(progress.fraction)
+              model.value?.note = "Ambient Live · \(Int(progress.fraction * 100))%"
             }
           }
+          try await playbackCoordinator.finish(ownedLease)
           try? await persistence.saveLiveStatus(
             .init(
               sessionID: descriptor.id,
               state: .completed,
               progress: 1,
-              message: "Native Live completed.",
+              message: "Ambient Live completed.",
               updatedAt: Date()
             )
           )
           await MainActor.run {
-            self?.playback.finishLive()
-            self?.note = "Native Live finished. Restore the saved baseline when ready."
+            guard model.value?.activePlaybackLease == ownedLease else { return }
+            model.value?.activePlaybackLease = nil
+            model.value?.playback.finishLive()
+            model.value?.note = "Ambient Live finished. Restore the saved baseline when ready."
           }
         } catch is CancellationError {
-          let progress = await MainActor.run { self?.liveProgress ?? 0 }
+          if await playbackCoordinator.isCurrent(ownedLease) {
+            _ = await playbackCoordinator.stopCurrent(reason: .cancelled)
+          }
+          let progress = await MainActor.run { model.value?.liveProgress ?? 0 }
           try? await persistence.saveLiveStatus(
             .init(
               sessionID: descriptor.id,
               state: .cancelled,
               progress: progress,
-              message: "Native Live was cancelled.",
+              message: "Ambient Live was cancelled.",
               updatedAt: Date()
             )
           )
           await MainActor.run {
-            guard let self, self.isLiveRunning else { return }
-            self.playback.fail(
-              "Native Live was cancelled by iOS. Restore the saved baseline before retrying.")
-            self.note = self.playback.snapshot.message
+            guard let model = model.value, model.activePlaybackLease == ownedLease else { return }
+            model.activePlaybackLease = nil
+            model.playback.fail(
+              "Ambient Live was cancelled by iOS. Restore the saved baseline before retrying."
+            )
+            model.note = model.playback.snapshot.message
           }
           throw CancellationError()
         } catch {
-          let progress = await MainActor.run { self?.liveProgress ?? 0 }
+          if await playbackCoordinator.isCurrent(ownedLease) {
+            _ = await playbackCoordinator.stopCurrent(reason: .failed)
+          }
+          let progress = await MainActor.run { model.value?.liveProgress ?? 0 }
           try? await persistence.saveLiveStatus(
             .init(
               sessionID: descriptor.id,
@@ -106,8 +140,10 @@ extension AppModel {
             )
           )
           await MainActor.run {
-            self?.playback.fail(error.localizedDescription)
-            self?.errorMessage = error.localizedDescription
+            guard model.value?.activePlaybackLease == ownedLease else { return }
+            model.value?.activePlaybackLease = nil
+            model.value?.playback.fail(error.localizedDescription)
+            model.value?.errorMessage = error.localizedDescription
           }
           throw error
         }
@@ -117,11 +153,11 @@ extension AppModel {
         do {
           _ = playback.beginLive(presetID: preset.id, duration: duration, continued: true)
           try ContinuedLiveCoordinator.shared.submit(
-            title: "Hue Board Native Live",
+            title: "Hue Board Ambient Live",
             subtitle: preset.name,
             work: work
           )
-          note = "Native Live requested system continued processing. iOS can cancel or expire it."
+          note = "Ambient Live requested system continued processing. iOS can cancel or expire it."
         } catch {
           _ = playback.beginLive(presetID: preset.id, duration: duration, continued: false)
           startForegroundLive(work: work, reason: error.localizedDescription)
@@ -131,6 +167,10 @@ extension AppModel {
         startForegroundLive(work: work, reason: "iOS 26 is required for continued processing.")
       }
     } catch {
+      if let lease, await playbackCoordinator.isCurrent(lease) {
+        _ = await playbackCoordinator.stopCurrent(reason: .failed)
+      }
+      activePlaybackLease = nil
       playback.fail(error.localizedDescription)
       errorMessage = error.localizedDescription
     }
@@ -143,7 +183,9 @@ extension AppModel {
     foregroundLiveTask?.cancel()
     foregroundLiveTask = nil
     ContinuedLiveCoordinator.shared.cancel()
+    await stopCoordinatedPlayback(reason: .recovery)
     defer { isBusy = false }
+
     do {
       guard let journal = try await persistence.loadRestoreJournal() else {
         playback.stop("No saved restore point was available.")
@@ -154,19 +196,30 @@ extension AppModel {
       guard journal.bridgeID == profile.bridgeID else {
         throw HueBoardError.invalidResponse("Saved restore state belongs to a different Bridge.")
       }
+
+      let lease = try await beginDirectControl(
+        profile: profile,
+        credential: credential,
+        areaID: journal.areaID,
+        allowedLightIDs: journal.capturedLightIDs,
+        purpose: "restore-baseline"
+      )
       var failures: [HueResourceID] = []
-      for snapshot in journal.snapshots {
+      for (index, snapshot) in journal.snapshots.enumerated() {
         do {
-          try await client.updateLight(
-            id: snapshot.lightID,
-            action: snapshot.action,
-            profile: profile,
-            credential: credential
+          try await playbackCoordinator.submit(
+            .init(
+              sequence: UInt64(index + 1),
+              actions: [snapshot.lightID: snapshot.action]
+            ),
+            lease: lease
           )
         } catch {
           failures.append(snapshot.lightID)
         }
       }
+      await finishDirectControl(lease)
+
       if failures.isEmpty {
         try await persistence.saveRestoreJournal(nil)
         try await persistence.saveLiveDescriptor(nil)
@@ -185,5 +238,14 @@ extension AppModel {
       playback.fail(error.localizedDescription)
       errorMessage = error.localizedDescription
     }
+  }
+}
+
+
+private final class WeakAppModelReference: @unchecked Sendable {
+  weak var value: AppModel?
+
+  init(_ value: AppModel) {
+    self.value = value
   }
 }

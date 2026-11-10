@@ -12,6 +12,7 @@ public struct LightingScope: Codable, Equatable, Hashable, Sendable {
 
 public enum LightingTransportKind: String, Codable, CaseIterable, Sendable {
     case preview
+    case directControl
     case bridgeScene
     case restAmbient
     case entertainment

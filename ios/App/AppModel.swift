@@ -47,8 +47,10 @@ final class AppModel {
   @ObservationIgnored nonisolated let client = HueBridgeClient()
   @ObservationIgnored nonisolated let eventClient = HueEventStreamClient()
   @ObservationIgnored nonisolated let persistence = AppPersistence.shared
+  @ObservationIgnored nonisolated let playbackCoordinator = PlaybackCoordinator()
   @ObservationIgnored nonisolated let localDiscovery = HueLocalDiscovery()
   @ObservationIgnored let keychain = KeychainVault()
+  @ObservationIgnored var activePlaybackLease: PlaybackWriterLease?
   @ObservationIgnored var foregroundLiveTask: Task<Void, Never>?
   @ObservationIgnored var eventTask: Task<Void, Never>?
   @ObservationIgnored var eventRefreshTask: Task<Void, Never>?
