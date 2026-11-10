@@ -28,7 +28,7 @@ extension AppModel {
         brightness: brightness
       )
 
-      sceneID = await persistence.sceneID(bridgeID: profile.bridgeID, areaID: area.id)
+      sceneID = try await persistence.sceneID(bridgeID: profile.bridgeID, areaID: area.id)
       if let existing = sceneID {
         if let scene = try await client.sceneIfPresent(
           id: existing, profile: profile, credential: credential),
@@ -37,7 +37,7 @@ extension AppModel {
         {
           // The resource identity is valid. Mutation happens only after baseline capture.
         } else {
-          await persistence.saveSceneID(nil, bridgeID: profile.bridgeID, areaID: area.id)
+          try await persistence.saveSceneID(nil, bridgeID: profile.bridgeID, areaID: area.id)
           sceneID = nil
         }
       }
@@ -66,7 +66,7 @@ extension AppModel {
           profile: profile,
           credential: credential
         )
-        await persistence.saveSceneID(sceneID, bridgeID: profile.bridgeID, areaID: area.id)
+        try await persistence.saveSceneID(sceneID, bridgeID: profile.bridgeID, areaID: area.id)
       }
       guard let sceneID else { throw HueBoardError.invalidResponse("Scene identifier is missing.") }
 

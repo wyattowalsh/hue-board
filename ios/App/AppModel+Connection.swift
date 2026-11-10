@@ -185,7 +185,10 @@ extension AppModel {
             credential = nil
             connectionState = .disconnected
 
-            try await persistence.clearBridgeState(bridgeID: profile.bridgeID)
+            try await persistence.clearBridgeState(
+                bridgeID: profile.bridgeID,
+                discardRecovery: discardRecovery
+            )
             resetDisconnectedState()
             note = discardRecovery
                 ? "Bridge credentials and the unrecoverable restore baseline were deleted from this device."
@@ -223,12 +226,12 @@ extension AppModel {
     func loadInventory(profile: BridgeProfile, credential: HueBridgeCredential) async throws {
         let values = try await client.inventory(profile: profile, credential: credential)
         areas = values
-        let saved = await persistence.loadSelectedAreaID(bridgeID: profile.bridgeID)
+        let saved = try await persistence.loadSelectedAreaID(bridgeID: profile.bridgeID)
         if let saved, values.contains(where: { $0.id == saved }) {
             selectedAreaID = saved
         } else {
             selectedAreaID = values.first?.id
-            await persistence.saveSelectedAreaID(selectedAreaID, bridgeID: profile.bridgeID)
+            try await persistence.saveSelectedAreaID(selectedAreaID, bridgeID: profile.bridgeID)
         }
         try await loadRecoveryState()
     }

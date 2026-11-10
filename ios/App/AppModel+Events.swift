@@ -175,7 +175,7 @@ extension AppModel {
         self.areas = values
         if !values.contains(where: { $0.id == self.selectedAreaID }) {
           self.selectedAreaID = values.first?.id
-          await self.persistence.saveSelectedAreaID(
+          try await self.persistence.saveSelectedAreaID(
             self.selectedAreaID,
             bridgeID: profile.bridgeID
           )
