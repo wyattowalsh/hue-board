@@ -2,6 +2,16 @@
 
 Parent epic: [#20 Ship Hue Board 6.0 as a qualified native iPhone application](https://github.com/wyattowalsh/hue-board/issues/20)
 
+## Accepted architecture decisions
+
+The v6 decision gate is complete. The normative records are indexed in [`adr/README.md`](adr/README.md):
+
+- [ADR 0001: native iPhone GA scope](adr/0001-native-iphone-ga-scope.md)
+- [ADR 0002: independent version and schema domains](adr/0002-version-and-schema-domains.md)
+- [ADR 0003: supported platform and hardware matrix](adr/0003-supported-platform-and-hardware-matrix.md)
+- [ADR 0004: Scriptable 5.3 LTS and native parity](adr/0004-scriptable-lts-and-native-parity.md)
+- [ADR 0005: physical-light safety](adr/0005-physical-light-safety.md)
+
 ## Baseline gates
 
 | Issue | Gate | Role |
@@ -12,16 +22,16 @@ Parent epic: [#20 Ship Hue Board 6.0 as a qualified native iPhone application](h
 
 ## Native 6.0 work packages
 
-| Issue | Work package | Primary dependency |
-|---|---|---|
-| [#11](https://github.com/wyattowalsh/hue-board/issues/11) | Scope, versioning, support, parity and physical-light safety ADRs | #4, #5 |
-| [#12](https://github.com/wyattowalsh/hue-board/issues/12) | Authoritative release toolchain and CI | #8, #11 |
-| [#13](https://github.com/wyattowalsh/hue-board/issues/13) | Persistence schema 2 and migration safety | #5, #11 |
-| [#14](https://github.com/wyattowalsh/hue-board/issues/14) | Single-writer ownership and transport boundaries | #11, #13 |
-| [#15](https://github.com/wyattowalsh/hue-board/issues/15) | Bounded native product UX | #11, #13, #14 |
-| [#16](https://github.com/wyattowalsh/hue-board/issues/16) | App-test and fake-Bridge infrastructure | #12, #13, #14 |
-| [#17](https://github.com/wyattowalsh/hue-board/issues/17) | Security, privacy, accessibility and physical-light safety | #11, #12, #15, #16 |
-| [#18](https://github.com/wyattowalsh/hue-board/issues/18) | Hardware matrix, TestFlight, evidence and App Store rollout | #4, #12, #15, #16, #17 |
+| Issue | Status | Work package | Primary dependency |
+|---|---|---|---|
+| [#11](https://github.com/wyattowalsh/hue-board/issues/11) | **Complete** | Scope, versioning, support, parity and physical-light safety ADRs | #4, #5 evidence still constrains support claims |
+| [#12](https://github.com/wyattowalsh/hue-board/issues/12) | Open | Authoritative release toolchain and CI | #8, #11 |
+| [#13](https://github.com/wyattowalsh/hue-board/issues/13) | Open | Persistence schema 2 and migration safety | #5, #11 |
+| [#14](https://github.com/wyattowalsh/hue-board/issues/14) | Open | Single-writer ownership and transport boundaries | #11, #13 |
+| [#15](https://github.com/wyattowalsh/hue-board/issues/15) | Open | Bounded native product UX | #11, #13, #14 |
+| [#16](https://github.com/wyattowalsh/hue-board/issues/16) | Open | App-test and fake-Bridge infrastructure | #12, #13, #14 |
+| [#17](https://github.com/wyattowalsh/hue-board/issues/17) | Open | Security, privacy, accessibility and physical-light safety | #11, #12, #15, #16 |
+| [#18](https://github.com/wyattowalsh/hue-board/issues/18) | Open | Hardware matrix, TestFlight, evidence and App Store rollout | #4, #12, #15, #16, #17 |
 
 ## Conditional follow-on releases
 
@@ -35,9 +45,9 @@ Parent epic: [#20 Ship Hue Board 6.0 as a qualified native iPhone application](h
 ```mermaid
 flowchart TD
   I8[#8 Hosted CI] --> I12[#12 Toolchain/CI]
-  I5[#5 Scriptable 5.3] --> I11[#11 ADRs]
-  I4[#4 Physical baseline] --> I11
-  I11 --> I13[#13 Migration]
+  I5[#5 Scriptable 5.3] --> I13[#13 Migration]
+  I4[#4 Physical baseline] --> I12
+  I11[#11 ADRs complete] --> I13
   I11 --> I12
   I13 --> I14[#14 Ownership/transports]
   I14 --> I15[#15 Native UX]
