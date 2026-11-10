@@ -21,6 +21,7 @@ actor NativeLiveRunner {
     preset: HuePreset,
     brightness: Double,
     duration: TimeInterval,
+    safetySettings: PhysicalLightSafetySettings,
     submit: @escaping @Sendable (LightingFrame) async throws -> Void,
     progress: @escaping @Sendable (NativeLiveProgress) async -> Void
   ) async throws {
@@ -41,10 +42,16 @@ actor NativeLiveRunner {
     running = true
     defer { running = false }
 
-    let settings = HueEngineSettings.from(preset: preset, brightness: brightness)
+    let settings = PhysicalLightSafetyPolicy.adjustedEngineSettings(
+      HueEngineSettings.from(preset: preset, brightness: brightness),
+      safety: safetySettings
+    )
     let clock = ContinuousClock()
     let started = clock.now
-    let transition = max(4_500, lights.count * 550)
+    let transition = PhysicalLightSafetyPolicy.restTransitionMilliseconds(
+      lightCount: lights.count,
+      settings: safetySettings
+    )
     let minimumCycleSeconds = Double(transition) / 1_000
     var writes = 0
     var sequence: UInt64 = 0

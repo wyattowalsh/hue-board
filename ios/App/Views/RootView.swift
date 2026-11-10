@@ -34,6 +34,22 @@ struct RootView: View {
         } message: {
             Text(model.errorMessage ?? "Unknown error")
         }
+        .confirmationDialog(
+            "Dynamic light safety",
+            isPresented: $model.isDynamicLightSafetyPresented,
+            titleVisibility: .visible
+        ) {
+            Button("Continue") {
+                Task { await model.confirmDynamicLightSafety() }
+            }
+            Button("Cancel", role: .cancel) {
+                model.cancelDynamicLightSafety()
+            }
+        } message: {
+            Text(
+                "Dynamic lighting can be uncomfortable or unsafe for some people. Start at a low brightness, avoid looking directly at lamps, stop immediately if you feel discomfort, and keep Turn off now available. Reduce Light Motion is available in Settings."
+            )
+        }
         .task {
             guard ProcessInfo.processInfo.environment["HUE_BOARD_UI_TEST_MODE"] != "1" else {
                 return

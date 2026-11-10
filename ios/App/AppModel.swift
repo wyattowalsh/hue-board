@@ -8,6 +8,10 @@ import Observation
 @Observable
 final class AppModel {
   enum Tab: Hashable { case lights, scenes, live, settings }
+  enum PendingDynamicAction: Equatable {
+    case bridge(presetID: String)
+    case ambient
+  }
   enum ConnectionState: Equatable {
     case disconnected
     case discovering
@@ -40,6 +44,9 @@ final class AppModel {
   var isConnectionSheetPresented = false
   var hasRestorePoint = false
   var restoreAreaID: HueResourceID?
+  var safetySettings: PhysicalLightSafetySettings = .default
+  var pendingDynamicAction: PendingDynamicAction?
+  var isDynamicLightSafetyPresented = false
 
   let contract: HueBoardContract
   let engine: JavaScriptHueEngine
@@ -47,6 +54,7 @@ final class AppModel {
   @ObservationIgnored nonisolated let client = HueBridgeClient()
   @ObservationIgnored nonisolated let eventClient = HueEventStreamClient()
   @ObservationIgnored nonisolated let persistence = AppPersistence.shared
+  @ObservationIgnored nonisolated let safetyStore = PhysicalLightSafetyStore.shared
   @ObservationIgnored nonisolated let playbackCoordinator = PlaybackCoordinator()
   @ObservationIgnored nonisolated let localDiscovery = HueLocalDiscovery()
   @ObservationIgnored let keychain = KeychainVault()
@@ -106,5 +114,11 @@ final class AppModel {
   }
   var canForgetBridge: Bool {
     profile != nil && !hasRestorePoint && !isLiveRunning && !isBusy
+  }
+  var effectiveDynamicBrightness: Double {
+    PhysicalLightSafetyPolicy.clampedBrightness(
+      brightness,
+      settings: safetySettings
+    )
   }
 }
