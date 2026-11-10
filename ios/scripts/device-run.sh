@@ -25,7 +25,7 @@ Usage: bash ios/scripts/device-run.sh <command>
 
 Commands:
   preflight        Inspect macOS, Xcode, SDK, signing identities, and connected devices.
-  prepare          Verify source inputs, build generated assets, and generate the Xcode project.
+  prepare          Run source tests and generate the Xcode project.
   list             Prepare the project and list Xcode/devicectl destinations.
   simulator-build Build the unsigned generic iOS Simulator target.
   device-build     Build a signed Debug app for HUE_BOARD_DEVICE_ID.
@@ -61,16 +61,23 @@ require_macos_and_xcode() {
   need xcrun
   need corepack
   need swift
+  need security
 
-  local version major
+  local version major developer_dir
   version="$(with_xcode xcodebuild -version | awk 'NR == 1 { print $2 }')"
   major="${version%%.*}"
   [[ "${major}" =~ ^[0-9]+$ ]] || die "Could not parse the Xcode version: ${version}"
   (( major >= 26 )) || die "Xcode 26 or newer is required; active version is ${version}."
 
+  if [[ -n "${XCODE_APP}" ]]; then
+    developer_dir="${XCODE_APP%/}/Contents/Developer"
+  else
+    developer_dir="$(xcode-select -p)"
+  fi
+
   log "Apple toolchain"
   with_xcode xcodebuild -version
-  printf 'Developer directory: %s\n' "$(with_xcode xcode-select -p 2>/dev/null || true)"
+  printf 'Developer directory: %s\n' "${developer_dir}"
   printf 'iPhoneOS SDK: %s\n' "$(with_xcode xcrun --sdk iphoneos --show-sdk-version)"
 }
 
@@ -100,12 +107,12 @@ xcodegen_binary() {
   binary="${source}/.build/release/xcodegen"
 
   if [[ ! -x "${binary}" ]]; then
-    log "Building pinned XcodeGen ${XCODEGEN_COMMIT}"
+    log "Building pinned XcodeGen ${XCODEGEN_COMMIT}" >&2
     mkdir -p "${cache_root}"
     rm -rf "${source}"
-    git clone --no-checkout https://github.com/yonaskolb/XcodeGen.git "${source}"
-    git -C "${source}" checkout --detach "${XCODEGEN_COMMIT}"
-    with_xcode swift build --package-path "${source}" -c release --product xcodegen
+    git clone --no-checkout https://github.com/yonaskolb/XcodeGen.git "${source}" >&2
+    git -C "${source}" checkout --detach "${XCODEGEN_COMMIT}" >&2
+    with_xcode swift build --package-path "${source}" -c release --product xcodegen >&2
   fi
 
   printf '%s\n' "${binary}"
@@ -133,6 +140,13 @@ prepare_source() {
   git diff --exit-code -- \
     ios/Packages/HueBoardKit/Sources/HueBoardKit/Resources \
     ios/Packages/HueBoardKit/Sources/HueBoardAppleEngine/Resources
+
+  log "Running source and timing regression suites"
+  corepack pnpm test
+  corepack pnpm test:timing
+
+  log "Running shared Swift package tests"
+  with_xcode swift test --package-path "${IOS_DIR}/Packages/HueBoardKit"
 
   local generator
   generator="$(xcodegen_binary)"
