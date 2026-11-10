@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-readonly IOS_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
-readonly ROOT_DIR="$(cd -- "${IOS_DIR}/.." && pwd)"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
+IOS_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
+readonly IOS_DIR
+ROOT_DIR="$(cd -- "${IOS_DIR}/.." && pwd)"
+readonly ROOT_DIR
 readonly PROJECT_PATH="${IOS_DIR}/HueBoard.xcodeproj"
 readonly SCHEME="HueBoard"
 readonly XCODEGEN_COMMIT="8445e778451c7e44237b90281bde622d764b0084"
@@ -186,6 +189,7 @@ require_device_configuration() {
 device_build() {
   prepare_source
   require_device_configuration
+  mkdir -p "${DERIVED_DATA}"
   rm -rf "${RESULT_BUNDLE}"
 
   log "Building signed Debug app for the selected iPhone"
