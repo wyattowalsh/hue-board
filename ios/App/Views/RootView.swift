@@ -27,8 +27,7 @@ struct RootView: View {
             PlaybackBanner()
         }
         .sheet(isPresented: $model.isConnectionSheetPresented) {
-            ConnectionSheet()
-                .environment(model)
+            ConnectionSheet().environment(model)
         }
         .alert("Hue Board", isPresented: errorPresented) {
             Button("OK", role: .cancel) { model.errorMessage = nil }
@@ -44,7 +43,7 @@ struct RootView: View {
             case .active:
                 model.startEventMonitoring()
             case .background:
-                // Native Live's explicit continued-processing task is separate.
+                // Ambient Live's explicit continued-processing task is separate.
                 // Passive readback should not consume background execution time.
                 model.stopEventMonitoring()
             case .inactive:
@@ -56,9 +55,6 @@ struct RootView: View {
     }
 
     private var errorPresented: Binding<Bool> {
-        Binding(
-            get: { model.errorMessage != nil },
-            set: { if !$0 { model.errorMessage = nil } }
-        )
+        Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })
     }
 }
