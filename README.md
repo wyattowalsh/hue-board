@@ -10,7 +10,7 @@
   <a href="#playback-and-background-behavior">Playback</a> ·
   <a href="docs/architecture.md">Architecture</a> ·
   <a href="docs/audit-2026-11-08.md">Audit</a> ·
-  <a href="docs/v6-plan.md">Roadmap</a> ·
+  <a href="docs/v6/README.md">V6 Program</a> ·
   <a href="LICENSE">MIT</a>
 </p>
 
@@ -80,7 +80,7 @@ make project
 make build
 ```
 
-Source lives in `src/`, `frontend/`, and `ios/`; `dist/` is a generated Scriptable distribution, not an implementation-edit surface. See [architecture](docs/architecture.md), the [engineering audit](docs/audit-2026-11-08.md), and the [native iOS guide](ios/README.md).
+Source lives in `src/`, `frontend/`, and `ios/`; `dist/` is a generated Scriptable distribution, not an implementation-edit surface. See [architecture](docs/architecture.md), the [engineering audit](docs/audit-2026-11-08.md), the [native iOS guide](ios/README.md), and the canonical [Hue Board 6 finalization program](docs/v6/README.md).
 
 The illustrative [README SVG](assets/readme/hero.svg) is source-controlled. An optional pinned [Takumi renderer](scripts/readme-art/generate.mjs) provides an alternate visual and never automatically pushes to `main`.
 
