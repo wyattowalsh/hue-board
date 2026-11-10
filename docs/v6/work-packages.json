@@ -1,0 +1,140 @@
+{
+  "program": "Hue Board",
+  "baseline_commit": "c82ac4d44a0e7c0dbda91145377b7a1c0cab90f3",
+  "canonical_release_strategy": {
+    "5.3.0": "Scriptable LTS",
+    "6.0.0": "native iPhone GA core",
+    "6.1.0": "conditional Entertainment Live",
+    "6.2.0": "conditional Sound"
+  },
+  "work_packages": [
+    {
+      "id": "BASELINE",
+      "release": "5.3/6.0",
+      "priority": "P0",
+      "title": "Close hosted CI, Scriptable 5.3, and physical baseline",
+      "depends_on": [],
+      "existing_issues": [4, 5, 8],
+      "deliverables": ["runner-backed hosted checks", "protected main", "immutable Scriptable 5.3 release", "signed iPhone install", "real Hue A-F baseline"],
+      "exit": "Hosted Verify and Native iOS are genuinely green; Scriptable 5.3 is rollback-tested; real iPhone and Bridge baseline passes."
+    },
+    {
+      "id": "DECISIONS",
+      "release": "6.0",
+      "priority": "P0",
+      "title": "Approve scope, version, support, parity, and safety ADRs",
+      "depends_on": ["BASELINE"],
+      "deliverables": ["v6.0 scope ADR", "version/schema ADR", "support matrix ADR", "Scriptable LTS/parity ADR", "physical-light safety policy"],
+      "exit": "No storage, transport, support, distribution, compatibility, or safety decision remains implicit."
+    },
+    {
+      "id": "TOOLCHAIN",
+      "release": "6.0",
+      "priority": "P0",
+      "title": "Make the release toolchain and CI authoritative",
+      "depends_on": ["BASELINE", "DECISIONS"],
+      "deliverables": ["current Xcode/Swift release lane", "app/UI test targets", "archive validation", "strict TypeScript", "format/lint/static gates", "dependency/license/secret scanning"],
+      "exit": "The exact app target builds, tests, archives, and produces machine-readable evidence in hosted CI."
+    },
+    {
+      "id": "MIGRATION",
+      "release": "6.0",
+      "priority": "P0",
+      "title": "Implement persistence schema 2 and safe migration",
+      "depends_on": ["DECISIONS"],
+      "deliverables": ["persistence inventory", "state envelope", "migration registry", "backup", "quarantine", "rollback", "durable recovery journal", "multi-profile model", "scene schema 2"],
+      "exit": "Historical states migrate idempotently or quarantine without data/recovery loss, and rollback is proven."
+    },
+    {
+      "id": "OWNERSHIP",
+      "release": "6.0",
+      "priority": "P0",
+      "title": "Centralize physical write ownership and transports",
+      "depends_on": ["DECISIONS", "MIGRATION"],
+      "deliverables": ["PlaybackCoordinator", "writer epochs", "operation IDs", "LightingTransport", "NullPreviewTransport", "BridgeSceneTransport", "RestAmbientTransport", "typed error state"],
+      "exit": "All writes pass one owner; stale responses cannot mutate current state; preview cannot write."
+    },
+    {
+      "id": "NATIVE_UX",
+      "release": "6.0",
+      "priority": "P0",
+      "title": "Finish the bounded native product",
+      "depends_on": ["OWNERSHIP"],
+      "deliverables": ["SceneDraft/ActivePlayback separation", "Lights and Scenes navigation", "conditional Now Playing/recovery", "Ambient Live naming", "favorites", "saved looks", "import/export", "capability inspector", "safe App Intents"],
+      "exit": "Every advertised feature works on the supported physical matrix and deferred features have no placeholders."
+    },
+    {
+      "id": "QA_INFRA",
+      "release": "6.0",
+      "priority": "P0",
+      "title": "Build deterministic app and Bridge test infrastructure",
+      "depends_on": ["TOOLCHAIN", "OWNERSHIP", "MIGRATION"],
+      "deliverables": ["FakeHueBridge REST/SSE", "TLS fixtures", "network chaos", "launch/no-write UI tests", "recovery crash/relaunch tests", "migration matrix", "accessibility automation"],
+      "exit": "xcodebuild test passes and supported failure modes are reproducible before hardware testing."
+    },
+    {
+      "id": "SECURITY_SAFETY",
+      "release": "6.0",
+      "priority": "P0",
+      "title": "Complete security, privacy, accessibility, and physical-light safety",
+      "depends_on": ["NATIVE_UX", "QA_INFRA"],
+      "deliverables": ["threat model", "PrivacyInfo.xcprivacy", "privacy report", "redacted diagnostics", "first-use warning", "emergency stop", "Reduce Light Motion", "scene safety validation", "legal/store review"],
+      "exit": "No secret/home identifier leaks; dynamic output is informed, bounded, stoppable, accessible, and accurately disclosed."
+    },
+    {
+      "id": "HARDWARE",
+      "release": "6.0",
+      "priority": "P0",
+      "title": "Qualify the supported physical matrix",
+      "depends_on": ["NATIVE_UX", "QA_INFRA", "SECURITY_SAFETY", "TOOLCHAIN"],
+      "deliverables": ["OS/device matrix", "Bridge/firmware matrix", "fixture matrix", "lifecycle matrix", "battery/thermal report", "physical observation videos"],
+      "exit": "All advertised configurations pass on exact release-candidate builds with zero P0/P1."
+    },
+    {
+      "id": "DISTRIBUTION",
+      "release": "6.0",
+      "priority": "P0",
+      "title": "Ship TestFlight and v6.0",
+      "depends_on": ["HARDWARE"],
+      "deliverables": ["App Store record", "metadata/privacy/export compliance", "internal TestFlight", "external TestFlight", "release evidence bundle", "rollback", "RC", "phased release"],
+      "exit": "Signed v6.0.0, zero P0/P1, evidence-bound archive, proven migration/rollback, healthy phased rollout."
+    },
+    {
+      "id": "ENT_LEGAL",
+      "release": "6.1",
+      "priority": "P0",
+      "title": "Resolve Entertainment EDK legal and technical feasibility",
+      "depends_on": ["DISTRIBUTION"],
+      "existing_issues": [6],
+      "deliverables": ["redistribution decision", "App Store distribution decision", "prototype", "go/no-go ADR"],
+      "exit": "A supported, permitted integration path exists or Entertainment is deferred."
+    },
+    {
+      "id": "ENT_TRANSPORT",
+      "release": "6.1",
+      "priority": "P0",
+      "title": "Implement and qualify Entertainment Live",
+      "depends_on": ["ENT_LEGAL", "OWNERSHIP"],
+      "deliverables": ["EntertainmentTransport", "channel/segment mapping", "monotonic scheduler", "backpressure", "stream ownership", "physical cadence/latency/battery/thermal qualification"],
+      "exit": "No silent fallback or REST/stream fight; measured supported matrix; zero P0/P1."
+    },
+    {
+      "id": "SOUND_CORE",
+      "release": "6.2",
+      "priority": "P1",
+      "title": "Implement deterministic audio feature and modulation core",
+      "depends_on": ["ENT_TRANSPORT"],
+      "deliverables": ["allocation-free feature core", "recorded fixtures", "silence/clipping/confidence", "deterministic modulation"],
+      "exit": "Features and modulation are deterministic and preserve fixture/safety limits."
+    },
+    {
+      "id": "SOUND_PRODUCT",
+      "release": "6.2",
+      "priority": "P1",
+      "title": "Ship microphone and local-file Sound",
+      "depends_on": ["SOUND_CORE"],
+      "deliverables": ["microphone adapter", "local-file adapter", "minimal Sound UI", "permission/route/interruption handling", "privacy and hardware qualification"],
+      "exit": "Capture is explicit and visible, raw audio is not stored by default, silence does not fake activity, restore remains correct."
+    }
+  ]
+}
