@@ -35,6 +35,9 @@ struct RootView: View {
             Text(model.errorMessage ?? "Unknown error")
         }
         .task {
+            guard ProcessInfo.processInfo.environment["HUE_BOARD_UI_TEST_MODE"] != "1" else {
+                return
+            }
             await model.bootstrap()
             if scenePhase == .active { model.startEventMonitoring() }
         }

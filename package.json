@@ -16,7 +16,9 @@
     "test:e2e:everyday": "node tests/everyday_host.cjs --demo && python tests/v5_controller_e2e.py",
     "verify:release": "node scripts/check-published-bundle.cjs",
     "verify:rebuild": "node scripts/check-rebuilt-bundle.cjs",
-    "export:ios-contract": "node scripts/export-ios-contract.cjs"
+    "export:ios-contract": "node scripts/export-ios-contract.cjs",
+    "typecheck": "tsc --noEmit",
+    "check": "pnpm verify:release && pnpm build && pnpm export:ios-contract && pnpm typecheck && pnpm test && pnpm test:timing"
   },
   "devDependencies": {
     "tailwindcss": "4.1.10",

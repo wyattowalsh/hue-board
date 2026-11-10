@@ -37,8 +37,41 @@ targets:
       - package: HueBoardKit
         product: HueBoardAppleEngine
     scheme:
-      testTargets: []
-      gatherCoverageData: false
+      testTargets:
+        - HueBoardAppTests
+        - HueBoardUITests
+      gatherCoverageData: true
       configVariants:
         - Debug
         - Release
+
+  HueBoardAppTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/AppTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.wyattowalsh.HueBoardTests
+        SWIFT_VERSION: 6.0
+        SWIFT_STRICT_CONCURRENCY: complete
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Hue Board.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Hue Board"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+    dependencies:
+      - target: HueBoard
+
+  HueBoardUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/UITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.wyattowalsh.HueBoardUITests
+        SWIFT_VERSION: 6.0
+        SWIFT_STRICT_CONCURRENCY: complete
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: HueBoard
+    dependencies:
+      - target: HueBoard
