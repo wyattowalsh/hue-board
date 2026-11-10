@@ -55,7 +55,16 @@ Select a signing team before installing on a device. Pairing requires the physic
 
 ## Test on an iPhone
 
-Use the [physical iPhone testing guide](DEVICE_TESTING.md) for the exact repository checkout, project generation, signing, Developer Mode, Local Network permission, Bridge pairing, low-risk playback matrix, evidence capture, troubleshooting, and later TestFlight path.
+Use the [one-command device runner](DEVICE_RUNNER.md) to perform fail-closed preflight, source tests, pinned XcodeGen generation, automatic-signing device build, installation, and launch. The shortest route after local configuration is:
+
+```sh
+cd ios
+make iphone-preflight
+make iphone-list
+make iphone-run
+```
+
+Use the [physical iPhone testing guide](DEVICE_TESTING.md) for the exact repository checkout, signing and Developer Mode setup, Local Network permission, Bridge pairing, low-risk playback matrix, evidence capture, troubleshooting, and later TestFlight path.
 
 The fastest first install is a direct Xcode development build. A free Personal Team is sufficient for a personal device, although its provisioning expires and requires periodic reinstallation. Do not begin with TestFlight because direct Xcode installation exposes signing, local-network, TLS, pairing, and runtime diagnostics immediately.
 

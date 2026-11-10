@@ -25,6 +25,7 @@ coverage/
 # Local notes
 *.local
 # Native Apple development
+ios/device.env
 ios/HueBoard.xcodeproj/
 ios/DerivedData/
 ios/.swiftpm/
