@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-11-10
 - **Owners:** Product Architecture, Scriptable Release, Native Product
+- **Issues:** #5, #11, #13, #15
 
 ## Context
 
@@ -26,7 +27,7 @@ Scriptable 5.3 becomes the long-term compatibility and rollback line after its i
 
 ### Native-only capabilities
 
-- certificate fingerprint pinning;
+- certificate fingerprint pinning under the native trust model;
 - Keychain integration under the native app identity;
 - Hue v2 event streaming;
 - continued-processing requests;
@@ -46,7 +47,7 @@ Scriptable 5.3 becomes the long-term compatibility and rollback line after its i
 
 Scriptable 5.3.x receives:
 
-- security and safety corrections;
+- security and physical-light safety corrections;
 - Bridge compatibility corrections;
 - migration and installer fixes;
 - compatible catalog corrections;
@@ -56,4 +57,34 @@ It does not automatically receive every native feature.
 
 ## Consequences
 
-Documentation must say which semantics are shared and which capabilities are platform-specific. The word parity must not be used to imply identical lifecycle, security, background, audio, or streaming capability.
+- Documentation states which semantics are shared and which capabilities are platform-specific.
+- The word parity does not imply identical lifecycle, security, background, audio, streaming, or distribution behavior.
+- Scriptable remains a proven rollback path while native releases can advance independently.
+
+## Migration impact
+
+- Scriptable 5.3 exports remain accepted inputs to the v6 migration corpus.
+- Native-only persistence is not written back into Scriptable stores unless an explicit compatible export exists.
+- Rollback exports preserve shared scene semantics and clearly label native-only data that cannot be represented.
+
+## Evidence required
+
+- Shared engine and catalog golden fixtures across both runtimes.
+- No-write and recovery conformance tests.
+- Import/export round-trip fixtures.
+- Documented capability table generated or checked against shipped builds.
+- Immutable Scriptable 5.3 release and verified installer before native GA.
+
+## Rejected alternatives
+
+### Feature-identical parity
+
+Rejected because Scriptable cannot honestly reproduce native certificate, background-task, App Intent, audio, streaming, or distribution capabilities.
+
+### Abandon Scriptable immediately
+
+Rejected because it removes the current installation path and rollback baseline before native qualification is complete.
+
+## Supersession conditions
+
+Scriptable LTS may be retired only after a later ADR defines support duration, export and rollback treatment, user communication, and evidence that native migration is complete for supported users.
