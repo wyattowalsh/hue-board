@@ -1,6 +1,6 @@
 # Hue Board 6 architecture decisions
 
-These records are the accepted product and engineering boundaries for Hue Board 6. They supersede conflicting assumptions in older planning documents.
+These records are the accepted product and engineering boundaries for Hue Board 6. They supersede conflicting assumptions in older planning documents and are release gates for the v6 implementation program.
 
 | ADR | Decision | Status |
 |---|---|---|
@@ -10,4 +10,4 @@ These records are the accepted product and engineering boundaries for Hue Board 
 | [0004](0004-scriptable-lts-and-parity.md) | Scriptable 5.3 LTS and semantic parity policy | Accepted |
 | [0005](0005-physical-light-safety.md) | Physical-light health and motion-safety policy | Accepted |
 
-A decision may be revised only by a later ADR that states the migration and release consequences. Runtime code must not silently widen a support or safety boundary documented here.
+A decision may be revised only by a later ADR that states the compatibility, migration, qualification, and release consequences. Runtime code must not silently widen a support, ownership, privacy, or safety boundary documented here.
