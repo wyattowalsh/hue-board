@@ -18,7 +18,7 @@
     "verify:rebuild": "node scripts/check-rebuilt-bundle.cjs",
     "export:ios-contract": "node scripts/export-ios-contract.cjs",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm verify:release && pnpm build && pnpm export:ios-contract && pnpm typecheck && pnpm test && pnpm test:timing",
+    "check": "corepack pnpm verify:release && corepack pnpm build && corepack pnpm export:ios-contract && corepack pnpm typecheck && corepack pnpm test && corepack pnpm test:timing",
     "test:release-candidate": "corepack pnpm test && corepack pnpm test:timing && corepack pnpm test:ui && corepack pnpm test:e2e && corepack pnpm test:ui:everyday && corepack pnpm test:e2e:everyday"
   },
   "devDependencies": {
