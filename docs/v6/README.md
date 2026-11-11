@@ -72,15 +72,15 @@ Hue Board 6 is a **native-iPhone-first major release**. Scriptable 5.3 becomes t
 - Scriptable 5.3 is published and rollback-tested.
 - The exact native baseline builds, signs, installs, launches, pairs, controls, plays, locks, stops and restores on the real system.
 
-### Gate B: freeze product decisions
+### Gate B: accepted product decisions
 
-Approve ADRs for:
+The following decisions are accepted and binding unless superseded by a later ADR:
 
-- v6.0 scope;
-- product/build/schema/engine/protocol/catalog versioning;
-- supported OS/device/Bridge/fixture matrix;
-- Scriptable 5.3 LTS and native parity policy;
-- physical-light safety.
+- [ADR 0001: native iPhone GA scope and release train](decisions/0001-native-ga-scope.md)
+- [ADR 0002: independent product, build, schema, ABI, protocol and catalog versions](decisions/0002-version-and-schema-model.md)
+- [ADR 0003: supported OS, device, Bridge and fixture matrix](decisions/0003-supported-platform-and-hardware-matrix.md)
+- [ADR 0004: Scriptable 5.3 LTS and semantic parity policy](decisions/0004-scriptable-lts-and-parity.md)
+- [ADR 0005: physical-light health and motion-safety policy](decisions/0005-physical-light-safety.md)
 
 ### Gate C: persistence and ownership
 
@@ -233,16 +233,16 @@ The manifest binds the commit, tag, build number, toolchain, schemas, engine/cat
 1. Resolve hosted execution and protect `main`.
 2. Publish immutable Scriptable 5.3.
 3. Run the deterministic physical-iPhone/Hue baseline.
-4. Approve the scope, version, support, parity and safety ADRs.
+4. Implement persistence schema 2 and recovery durability using the accepted ADRs.
 5. Upgrade the release lane and add real app/UI test targets.
-6. Implement persistence schema 2 and recovery durability.
-7. Introduce `PlaybackCoordinator`, writer epochs, transport contracts and `NullPreviewTransport`.
-8. Enforce draft/live separation.
-9. Finish the bounded native 6.0 product and safety surface.
-10. Enter TestFlight qualification.
+6. Introduce `PlaybackCoordinator`, writer epochs, transport contracts and `NullPreviewTransport`.
+7. Enforce draft/live separation.
+8. Finish the bounded native 6.0 product and safety surface.
+9. Enter TestFlight qualification.
 
 ## Canonical files
 
+- [Accepted architecture decisions](decisions/README.md)
 - [`defect-register.md`](defect-register.md)
 - [`codex-handoff.md`](codex-handoff.md)
 - [`work-packages.json`](work-packages.json)
