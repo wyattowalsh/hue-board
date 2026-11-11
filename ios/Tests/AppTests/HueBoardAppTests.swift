@@ -7,6 +7,7 @@ final class HueBoardAppTests: XCTestCase {
         let model = AppModel()
         XCTAssertEqual(model.connectionState, .disconnected)
         XCTAssertFalse(model.isReady)
-        XCTAssertNil(await model.playbackCoordinator.currentLease())
+        let lease = await model.playbackCoordinator.currentLease()
+        XCTAssertNil(lease)
     }
 }

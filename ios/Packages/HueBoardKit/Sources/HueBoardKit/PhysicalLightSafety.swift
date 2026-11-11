@@ -37,7 +37,6 @@ public enum PhysicalLightSafetyPolicy {
         result.energy = min(result.energy, 45)
         result.depth = min(result.depth, 50)
         result.tension = min(result.tension, 55)
-        result.effectSpeed = min(result.effectSpeed, 0.25)
         result.phaseOffset = 0
         return result
     }
