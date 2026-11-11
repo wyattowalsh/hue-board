@@ -1,8 +1,5 @@
 import Foundation
 import HueBoardKit
-#if canImport(CryptoKit)
-import CryptoKit
-#endif
 
 public actor PhysicalLightSafetyStore {
     public static let shared = PhysicalLightSafetyStore()
@@ -39,7 +36,7 @@ public actor PhysicalLightSafetyStore {
                 throw PhysicalLightSafetyStoreError.unsupportedSchema(envelope.schema)
             }
             let payload = try encoder.encode(envelope.payload)
-            guard try digest(payload) == envelope.payloadSHA256 else {
+            guard digest(payload) == envelope.payloadSHA256 else {
                 throw PhysicalLightSafetyStoreError.integrityMismatch
             }
             return envelope.payload
@@ -55,7 +52,7 @@ public actor PhysicalLightSafetyStore {
         let envelope = Envelope(
             schema: 1,
             payload: settings,
-            payloadSHA256: try digest(payload)
+            payloadSHA256: digest(payload)
         )
         defaults.set(try encoder.encode(envelope), forKey: Key.settings)
     }
@@ -64,19 +61,14 @@ public actor PhysicalLightSafetyStore {
         defaults.data(forKey: Key.quarantine)
     }
 
-    private func digest(_ data: Data) throws -> String {
-        #if canImport(CryptoKit)
-        return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-        #else
-        throw PhysicalLightSafetyStoreError.cryptoUnavailable
-        #endif
+    private func digest(_ data: Data) -> String {
+        PersistenceChecksum.sha256Hex(data)
     }
 }
 
 public enum PhysicalLightSafetyStoreError: Error, LocalizedError, Sendable {
     case unsupportedSchema(Int)
     case integrityMismatch
-    case cryptoUnavailable
 
     public var errorDescription: String? {
         switch self {
@@ -84,8 +76,6 @@ public enum PhysicalLightSafetyStoreError: Error, LocalizedError, Sendable {
             return "Unsupported physical-light safety schema \(schema)."
         case .integrityMismatch:
             return "Physical-light safety settings failed their integrity check."
-        case .cryptoUnavailable:
-            return "SHA-256 is unavailable on this platform."
         }
     }
 }

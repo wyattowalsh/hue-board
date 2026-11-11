@@ -24,7 +24,8 @@ final class PhysicalLightSafetyStoreTests: XCTestCase {
         )
         try await writer.save(expected)
         let reader = PhysicalLightSafetyStore(suiteName: context.suite)
-        XCTAssertEqual(await reader.load(), expected)
+        let loaded = await reader.load()
+        XCTAssertEqual(loaded, expected)
         XCTAssertNotNil(context.defaults.data(forKey: "hue-board.native.physical-light-safety.v1"))
     }
 
@@ -41,8 +42,10 @@ final class PhysicalLightSafetyStoreTests: XCTestCase {
         )
         context.defaults.set(Data("tampered".utf8), forKey: "hue-board.native.physical-light-safety.v1")
 
-        XCTAssertEqual(await store.load(), .default)
-        XCTAssertNotNil(await store.quarantinedDataForTesting())
+        let loaded = await store.load()
+        let quarantined = await store.quarantinedDataForTesting()
+        XCTAssertEqual(loaded, .default)
+        XCTAssertNotNil(quarantined)
         XCTAssertNil(context.defaults.data(forKey: "hue-board.native.physical-light-safety.v1"))
     }
 

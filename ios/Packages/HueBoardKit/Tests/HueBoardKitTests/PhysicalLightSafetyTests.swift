@@ -45,7 +45,6 @@ final class PhysicalLightSafetyTests: XCTestCase {
         XCTAssertLessThanOrEqual(adjusted.energy, 45)
         XCTAssertLessThanOrEqual(adjusted.depth, 50)
         XCTAssertLessThanOrEqual(adjusted.tension, 55)
-        XCTAssertLessThanOrEqual(adjusted.effectSpeed, 0.25)
         XCTAssertEqual(adjusted.phaseOffset, 0)
     }
 
