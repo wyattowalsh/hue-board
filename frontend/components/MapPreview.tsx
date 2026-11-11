@@ -31,7 +31,7 @@ export function MapPreview({state,layout,settings,roomMode,focusId,onFocus}:{sta
    {geometry.length>1?<polyline points={geometry.map(v=>`${24+v.x*312},${16+v.y*198}`).join(' ')} fill="none" stroke="var(--muted-foreground)" opacity=".35" strokeWidth="2"/>:null}
    <g className="map-bulb" role="button" tabIndex={0} aria-label={`${light?.name}. ${source==='reported'?T.stateText(row):source==='target'?T.targetText(target,now):'Design simulation'}`} aria-pressed={selected}
      onClick={()=>onFocus(id)} onPointerDown={e=>{onFocus(id);if(roomMode){e.preventDefault();moving.current=id;svg.current?.setPointerCapture(e.pointerId)}}
-     onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onFocus(id)}if(roomMode&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();move(id,p.x+(e.key==='ArrowRight'?.02:e.key==='ArrowLeft'?-.02:0),p.y+(e.key==='ArrowDown'?.02:e.key==='ArrowUp'?-.02:0))}}}>
+     onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onFocus(id)}if(roomMode&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();move(id,p.x+(e.key==='ArrowRight' ? .02 : e.key==='ArrowLeft' ? -.02 : 0),p.y+(e.key==='ArrowDown' ? .02 : e.key==='ArrowUp' ? -.02 : 0))}}}>
      <circle className="hit" cx={x} cy={y} r="22" fill="transparent" stroke={selected?'var(--primary)':'transparent'} strokeWidth="1.5"/>
      <circle cx={x} cy={y} r={on?13+level*3:12} fill={color} opacity={stale?.35:on?.45+.55*level:.5} stroke="var(--lamp-edge)" strokeDasharray={stale?'3 3':undefined}/>
      <text x={x} y={y+4} textAnchor="middle" style={{fill:on?'#fff':'var(--muted-foreground)',paintOrder:'stroke',stroke:on?'#0007':'transparent',strokeWidth:2}}>{index+1}</text>
