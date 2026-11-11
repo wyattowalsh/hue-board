@@ -80,7 +80,7 @@ async def main():
   marker=page.locator('svg.room-map [role="button"]').first;await marker.focus();await page.keyboard.press('ArrowRight');packet=await sync();check('map keyboard editing sends stable position',packet['edit'] is not None)
   await tab('Lab');await page.get_by_label('Deterministic seed',exact=True).fill('222');await page.get_by_label('Edit crossfade (seconds)',exact=True).fill('7');packet=await sync();check('seed and edit crossfade wired',packet['edit']['settings']['seed']==222 and packet['edit']['settings']['transitionMs']==7000)
   await page.get_by_text('Controller events',exact=True).click();await page.get_by_role('button',name='Export redacted diagnostics',exact=True).click();packet=await sync();check('diagnostic export routes to native handler',packet['command']['name']=='exportDiagnostics')
-  await page.get_by_role('button',name='Live · phone open',exact=True).click();packet=await sync();check('Start dispatch',packet['command']['name']=='live')
+  await page.get_by_role('button',name='Live Studio · foreground',exact=True).click();packet=await sync();check('Start dispatch',packet['command']['name']=='live')
   await sync({'mode':'live','running':True});await page.get_by_role('button',name='Pause / cancel',exact=True).click();packet=await sync();check('Pause dispatch while live',packet['command']['name']=='pause')
   await sync({'mode':'preparing','running':False,'busy':True,'inFlight':True});await page.get_by_role('button',name='Pause / cancel',exact=True).click();packet=await sync();check('Pause remains available during pending request',packet['command']['name']=='pause')
   await sync({'mode':'paused','busy':False,'inFlight':False,'touched':2});await page.get_by_role('button',name='Restore',exact=True).click();packet=await sync();check('Restore dispatch',packet['command']['name']=='restore')
@@ -103,7 +103,7 @@ async def main():
     for section in ['Perform','Library','Room','Lab']:
      await tab(section);await page.evaluate('scrollTo(0,0)');await page.wait_for_timeout(80)
      check(f'{theme} {width} {section} has no horizontal overflow',await page.evaluate('document.documentElement.scrollWidth<=innerWidth'))
-     check(f'{theme} {width} {section} primary transport visible',await page.get_by_role('button',name='Live · phone open',exact=True).is_visible())
+     check(f'{theme} {width} {section} primary transport visible',await page.get_by_role('button',name='Live Studio · foreground',exact=True).is_visible())
      if width==390 or (width==1024 and section=='Perform'):
       await page.screenshot(path=str(ROOT/f'qa/{section.lower()}-{theme}-{width}.png'),full_page=False)
   # Long content and failing startup state.

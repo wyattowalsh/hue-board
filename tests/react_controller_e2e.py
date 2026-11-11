@@ -1,7 +1,7 @@
 import asyncio,json
 from pathlib import Path
 from playwright.async_api import async_playwright
-ROOT=Path(__file__).resolve().parents[1]
+ROOT=Path(__file__).resolve().parents[1];OUT=ROOT/'qa/v5';OUT.mkdir(parents=True,exist_ok=True)
 async def main():
  proc=await asyncio.create_subprocess_exec('node',str(ROOT/'tests/react_host.cjs'),stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE)
  async def host(msg):
@@ -24,6 +24,6 @@ async def main():
   await page.get_by_role('button',name='Restore',exact=True).click();r=await cycle();assert state['mode']=='paused' and state['touched']==0
   assert all(l['dimming']['brightness']==45 and l['on']['on'] for l in r['bulbs'])
   result={'passed':7,'checks':['no writes opening React view','React Start reaches real controller mock writes','React Pause reaches state machine','theme persists without writes when paused','library preset applies without starting','cue sequence advances through real controller','React Restore restores all six mock baselines'],'physicalHardware':False}
-  (ROOT/'qa/v5/animation-e2e.json').write_text(json.dumps(result,indent=2));print(json.dumps(result,indent=2));await browser.close()
+  (OUT/'animation-e2e.json').write_text(json.dumps(result,indent=2));print(json.dumps(result,indent=2));await browser.close()
  await host({'close':True});proc.stdin.close();await proc.wait()
 asyncio.run(main())
