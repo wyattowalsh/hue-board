@@ -10,7 +10,7 @@
     "test": "node frontend/build.cjs && node build.cjs && node --test tests/*.test.cjs",
     "test:timing": "node frontend/build.cjs && node build.cjs && node tests/timing.cjs",
     "demo": "node frontend/build.cjs && node build.cjs && node tests/make-demo.cjs && node tests/make-layout-demo.cjs",
-    "test:ui": "node frontend/build.cjs && node build.cjs && node tests/make-demo.cjs && node tests/make-layout-demo.cjs && python tests/react_ui_qa.py",
+    "test:ui": "node frontend/build.cjs && node build.cjs && node tests/make-demo.cjs && node tests/make-layout-demo.cjs && node -e \"require('node:fs').mkdirSync('qa/v5',{recursive:true})\" && python tests/react_ui_qa.py",
     "test:e2e": "node frontend/build.cjs && node build.cjs && python tests/react_controller_e2e.py",
     "test:ui:everyday": "node frontend/build.cjs && node build.cjs && node tests/everyday_host.cjs --demo && python tests/v5_ui_qa.py",
     "test:e2e:everyday": "node frontend/build.cjs && node build.cjs && node tests/everyday_host.cjs --demo && python tests/v5_controller_e2e.py",
