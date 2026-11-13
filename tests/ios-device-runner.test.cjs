@@ -41,19 +41,50 @@ test('physical-device helper is syntactically valid and fails closed', () => {
   assert.doesNotMatch(script, /sudo\s/);
 });
 
+test('qualification doctor is strict, sanitized, non-writing, and release-toolchain aligned', () => {
+  const doctorPath = path.join(root, 'ios/scripts/device-doctor.sh');
+  const doctor = read('ios/scripts/device-doctor.sh');
+  const syntax = spawnSync('bash', ['-n', doctorPath], { encoding: 'utf8' });
+  const nonMac = spawnSync('bash', [doctorPath], { encoding: 'utf8' });
+
+  assert.equal(syntax.status, 0, syntax.stderr || syntax.stdout);
+  if (process.platform !== 'darwin') {
+    assert.notEqual(nonMac.status, 0);
+    assert.match(nonMac.stderr, /requires macOS/);
+  }
+
+  assert.match(doctor, /^set -Eeuo pipefail$/m);
+  assert.match(doctor, /readonly MIN_XCODE_MAJOR=27/);
+  assert.match(doctor, /readonly MIN_XCODE_MINOR=2/);
+  assert.match(doctor, /readonly MIN_IPHONEOS_SDK_MAJOR=27/);
+  assert.match(doctor, /readonly MIN_IPHONEOS_SDK_MINOR=2/);
+  assert.match(doctor, /security find-identity/);
+  assert.match(doctor, /devicectl list devices/);
+  assert.match(doctor, /supported_surface=iphone-portrait/);
+  assert.match(doctor, /team_id_recorded=no/);
+  assert.match(doctor, /device_identifier_recorded=no/);
+  assert.doesNotMatch(doctor, /team_id=\$\{TEAM_ID\}/);
+  assert.doesNotMatch(doctor, /device_identifier=\$\{DEVICE_ID\}/);
+  assert.doesNotMatch(doctor, /\/clip\/v2\/resource\//);
+  assert.doesNotMatch(doctor, /curl[^\n]*\|[^\n]*(?:sh|bash)/);
+  assert.doesNotMatch(doctor, /sudo\s/);
+});
+
 test('device configuration template contains no committed account or device identifier', () => {
   const config = read('ios/device.env.example');
   assert.match(config, /^HUE_BOARD_TEAM_ID=$/m);
   assert.match(config, /^HUE_BOARD_DEVICE_ID=$/m);
   assert.match(config, /^HUE_BOARD_BUNDLE_ID=com\.wyattowalsh\.HueBoard\.dev$/m);
+  assert.match(config, /Xcode 27\.2\+/);
   assert.doesNotMatch(config, /HUE_BOARD_TEAM_ID=\S+/);
   assert.doesNotMatch(config, /HUE_BOARD_DEVICE_ID=\S+/);
 });
 
-test('Makefile exposes explicit preflight, build, install, and run targets', () => {
+test('Makefile exposes qualification, build, install, and run targets', () => {
   const makefile = read('ios/Makefile');
   for (const target of [
     'iphone-preflight',
+    'iphone-doctor',
     'iphone-prepare',
     'iphone-list',
     'iphone-simulator-build',
@@ -66,6 +97,9 @@ test('Makefile exposes explicit preflight, build, install, and run targets', () 
     assert.match(makefile, new RegExp(`^${target}:`, 'm'), `Missing ${target}`);
   }
   assert.match(makefile, /-include device\.env/);
+  assert.match(makefile, /^iphone-doctor:\s*\n\tbash scripts\/device-doctor\.sh/m);
+  assert.match(makefile, /^iphone-build: iphone-doctor$/m);
+  assert.match(makefile, /^iphone-run: iphone-doctor$/m);
   assert.match(makefile, /bash scripts\/device-run\.sh device-run/);
 });
 
