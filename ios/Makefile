@@ -7,7 +7,7 @@ export HUE_BOARD_BUNDLE_ID
 export HUE_BOARD_XCODE_PATH
 
 .PHONY: project test-kit parity build verify clean \
-	iphone-preflight iphone-prepare iphone-list iphone-simulator-build \
+	iphone-preflight iphone-doctor iphone-prepare iphone-list iphone-simulator-build \
 	iphone-build iphone-install iphone-launch iphone-run iphone-open
 
 project:
@@ -30,6 +30,9 @@ verify: parity build
 iphone-preflight:
 	bash scripts/device-run.sh preflight
 
+iphone-doctor:
+	bash scripts/device-doctor.sh
+
 iphone-prepare:
 	bash scripts/device-run.sh prepare
 
@@ -39,7 +42,7 @@ iphone-list:
 iphone-simulator-build:
 	bash scripts/device-run.sh simulator-build
 
-iphone-build:
+iphone-build: iphone-doctor
 	bash scripts/device-run.sh device-build
 
 iphone-install:
@@ -48,7 +51,7 @@ iphone-install:
 iphone-launch:
 	bash scripts/device-run.sh device-launch
 
-iphone-run:
+iphone-run: iphone-doctor
 	bash scripts/device-run.sh device-run
 
 iphone-open:
