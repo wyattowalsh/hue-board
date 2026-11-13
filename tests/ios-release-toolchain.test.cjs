@@ -35,6 +35,16 @@ test('XcodeGen project has real app and UI test targets',()=>{
   assert.match(project,/testTargets:\s*\n\s*- HueBoardAppTests\s*\n\s*- HueBoardUITests/);
 });
 
+test('initial native release surface is iPhone portrait only until broader layouts qualify',()=>{
+  const project=read('ios/project.yml');
+  const plist=read('ios/App/Info.plist');
+  assert.match(project,/TARGETED_DEVICE_FAMILY: "1"/);
+  assert.doesNotMatch(project,/TARGETED_DEVICE_FAMILY: "1,2"/);
+  assert.match(plist,/<string>UIInterfaceOrientationPortrait<\/string>/);
+  assert.doesNotMatch(plist,/UIInterfaceOrientationLandscape/);
+  assert.doesNotMatch(plist,/UISupportedInterfaceOrientations~ipad/);
+});
+
 test('hosted native workflow uses pinned Xcode 27.2, tests, archive, privacy check, and evidence upload',()=>{
   const workflow=read('.github/workflows/ios.yml');
   assert.match(workflow,/runs-on: macos-27/);
