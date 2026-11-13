@@ -2,10 +2,16 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const https = require("node:https");
 const {
   DEFAULT_APPLICATION_KEY,
   FakeHueBridge,
 } = require("./support/fake-hue-bridge.cjs");
+const {
+  generateFakeHueCertificate,
+  hasOpenSSL,
+  normalizeSHA256,
+} = require("./support/fake-hue-certificates.cjs");
 
 async function json(url, options = {}) {
   const response = await fetch(url, options);
@@ -192,4 +198,65 @@ test("SSE emits bounded synthetic Hue v2 events", async (t) => {
   ]);
   assert.match(eventText, /"id":"light-1"/);
   controller.abort();
+});
+
+test("generated Hue TLS certificates bind identity and expose pin rotation", async (t) => {
+  if (!hasOpenSSL()) {
+    t.skip("OpenSSL is unavailable");
+    return;
+  }
+  const first = await generateFakeHueCertificate();
+  const second = await generateFakeHueCertificate();
+  t.after(() => Promise.all([first.cleanup(), second.cleanup()]));
+
+  assert.match(first.subject, /CN=001788fffe123456/);
+  assert.match(first.subjectAltName, /DNS:001788fffe123456/);
+  assert.match(first.sha256, /^[a-f\d]{64}$/);
+  assert.notEqual(first.sha256, second.sha256);
+  assert.throws(
+    () => normalizeSHA256("not-a-fingerprint"),
+    /64 hexadecimal characters/,
+  );
+
+  const bridge = await new FakeHueBridge({
+    tls: { key: first.key, cert: first.cert },
+  }).start();
+  t.after(() => bridge.stop());
+
+  const observed = await new Promise((resolve, reject) => {
+    const request = https.get(
+      `${bridge.baseURL}/api/config`,
+      { rejectUnauthorized: false },
+      (response) => {
+        const chunks = [];
+        const peer = response.socket.getPeerCertificate();
+        response.on("data", (chunk) => chunks.push(chunk));
+        response.on("end", () => {
+          try {
+            resolve({
+              status: response.statusCode,
+              body: JSON.parse(Buffer.concat(chunks).toString("utf8")),
+              sha256: normalizeSHA256(peer.fingerprint256),
+              commonName: peer.subject.CN,
+            });
+          } catch (error) {
+            reject(error);
+          }
+        });
+      },
+    );
+    request.on("error", reject);
+  });
+
+  assert.equal(observed.status, 200);
+  assert.equal(observed.body.bridgeid, first.bridgeID.toUpperCase());
+  assert.equal(observed.commonName, first.bridgeID);
+  assert.equal(observed.sha256, first.sha256);
+});
+
+test("fake certificate generation rejects malformed Bridge identities", async () => {
+  await assert.rejects(
+    () => generateFakeHueCertificate({ bridgeID: "not-a-bridge" }),
+    /16 hexadecimal characters/,
+  );
 });
