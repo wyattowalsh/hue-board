@@ -34,7 +34,7 @@ struct ConnectionSheet: View {
                 }
 
                 Section("Manual address") {
-                    TextField("192.168.1.10 or hue-bridge.local", text: $model.manualHost)
+                    TextField("192.168.1.10[:port] or hue-bridge.local[:port]", text: $model.manualHost)
                         .textContentType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()

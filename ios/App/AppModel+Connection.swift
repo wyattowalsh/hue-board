@@ -13,7 +13,7 @@ extension AppModel {
                 return
             }
             profile = savedProfile
-            manualHost = savedProfile.host
+            manualHost = savedProfile.displayHost
             connectionState = .connecting
 
             let verifiedProfile = try await client.verify(profile: savedProfile)
@@ -92,7 +92,7 @@ extension AppModel {
         do {
             let value = try await client.probe(candidate: candidate)
             pendingProfile = value
-            manualHost = value.host
+            manualHost = value.displayHost
             connectionState = .awaitingBridgeButton
             note = "Bridge API identity and TLS certificate agree. Review the fingerprint, press the physical Bridge button, then pair."
         } catch {
@@ -102,12 +102,18 @@ extension AppModel {
     }
 
     func probeManualHost() async {
-        let host = manualHost.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard HueBridgeHostValidator.isAllowed(host) else {
-            errorMessage = "Use a private LAN IPv4 address or trusted .local Hue Bridge hostname."
-            return
+        do {
+            let endpoint = try HueBridgeEndpoint(parsing: manualHost)
+            await probe(
+                .init(
+                    id: endpoint.displayHost,
+                    host: endpoint.host,
+                    port: endpoint.port
+                )
+            )
+        } catch {
+            errorMessage = error.localizedDescription
         }
-        await probe(.init(id: host, host: host))
     }
 
     func pairPendingBridge() async {
