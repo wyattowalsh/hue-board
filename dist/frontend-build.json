@@ -10,16 +10,18 @@
     "components/PerformPanel",
     "components/RoomPanel",
     "components/SpotlightCard",
+    "components/lights/CommitRange",
+    "components/lights/LightCard",
     "components/ui",
     "lib/bridge",
     "lib/utils",
     "main",
     "types"
   ],
-  "candidateCount": 865,
+  "candidateCount": 856,
   "bytes": {
-    "js": 113550,
-    "css": 32907
+    "js": 116968,
+    "css": 33493
   },
   "checks": "TypeScript syntax/transpile diagnostics. Full semantic checking is separate."
 }

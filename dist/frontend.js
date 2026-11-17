@@ -63,9 +63,9 @@ function App() {
     else if (event.key === 'End')
         n = tabs.length - 1;
     else
-        return; event.preventDefault(); selectTab(tabs[n][0]); document.getElementById('tab-' + tabs[n][0])?.focus(); }
-    const backgroundOn = ui.continueInBackground === true;
-    const summary = state.mode === 'live' ? 'Live · iPhone open' : state.native ? 'Bridge · phone-free' : state.mode === 'adjusting' ? 'Applying lighting' : state.busy ? 'Working' : idle ? 'Controller idle' : 'Ready';
+        return; const next = tabs[n]; if (!next)
+        return; event.preventDefault(); selectTab(next[0]); document.getElementById('tab-' + next[0])?.focus(); }
+    const summary = state.background?.uncertain ? 'Bridge handoff unconfirmed' : state.mode === 'live' ? 'Live Studio · phone open' : state.native ? 'Bridge · phone-free' : state.mode === 'adjusting' ? 'Applying lighting' : state.busy ? 'Working' : idle ? 'Controller idle' : 'Ready';
     return React.createElement(React.Fragment, null,
         React.createElement("main", { className: "app", "data-surface": tab },
             React.createElement("header", { className: "app-header" },
@@ -110,12 +110,10 @@ function App() {
                 React.createElement(ui_1.Button, { variant: "ghost", size: "sm", onClick: () => bridge_1.deck.send({ name: 'stopSequence' }) }, "Keep this look")) : null,
             React.createElement("section", { role: "tabpanel", id: 'panel-' + tab, "aria-labelledby": 'tab-' + tab, tabIndex: 0, key: scopeId },
                 tab === 'lights' ? React.createElement(LightsPanel_1.LightsPanel, { state: state, layout: layout, ui: ui, onLooks: () => selectTab('library') }) : null,
-                (tab === 'library' || tab === 'perform') ? React.createElement("div", { className: "background-preference" },
-                    React.createElement("label", { className: "flex items-center gap-3 text-sm font-medium" },
-                        React.createElement("input", { type: "checkbox", className: "size-5 accent-primary", checked: backgroundOn, onChange: e => bridge_1.deck.ui({ continueInBackground: e.currentTarget.checked }) }),
-                        "Keep playing when I leave"),
-                    React.createElement("p", { className: "muted-note mt-1" }, backgroundOn ? 'Play uses a Hue Bridge palette that continues after locking. Enabling during Live starts a handoff now; wait for confirmation. Detailed choreography and cue sequences cannot continue.' : 'Play runs the detailed Studio animation while Scriptable stays open.'),
-                    backgroundOn && !state.background?.available ? React.createElement("p", { role: "status", className: "muted-note mt-1" }, "No eligible Hue dynamic-scene lights in this area. Switch to a supported room or turn this off for foreground Live.") : null) : null,
+                (tab === 'library' || tab === 'perform') ? React.createElement("div", { className: "background-preference", role: "note" },
+                    React.createElement("p", { className: "text-sm font-semibold" }, "Play automatically continues on the Hue Bridge"),
+                    React.createElement("p", { className: "muted-note mt-1" }, "On compatible rooms, Play delegates a dynamic palette before you leave. Live Studio is precise foreground-only choreography. Locking your phone cannot keep that Scriptable controller running."),
+                    !state.background?.available ? React.createElement("p", { role: "status", className: "muted-note mt-1" }, "This scope has no eligible dynamic-scene lights. Choose a supported room or zone for phone-free Play.") : null) : null,
                 tab === 'library' ? React.createElement(LibraryPanel_1.LibraryPanel, { state: state, settings: settings, ui: ui }) : null,
                 tab === 'perform' ? React.createElement("div", { className: "work-area" },
                     React.createElement("aside", { className: "preview-column" },
@@ -124,7 +122,7 @@ function App() {
                     React.createElement("div", { className: "control-column" },
                         React.createElement("div", { className: "studio-heading" },
                             React.createElement("h2", { className: "panel-heading" }, "Make it move."),
-                            React.createElement("p", { className: "muted-note mt-2" }, "Compose without starting. Press Play when you\u2019re ready.")),
+                            React.createElement("p", { className: "muted-note mt-2" }, "Compose without starting. Play uses the Bridge; Live Studio runs exact effects while Scriptable stays open.")),
                         React.createElement(PerformPanel_1.PerformPanel, { state: state, settings: settings, theme: theme, reduced: reduced }))) : null,
                 tab === 'settings' ? React.createElement("div", { className: "flex flex-col gap-6" },
                     React.createElement(ui_1.ToggleGroup, { label: "Settings section", value: settingsTab, options: [["room", "Room setup"], ["lab", "App & recovery"]], onChange: setSettingsTab }),
@@ -139,14 +137,14 @@ function App() {
                 React.createElement("span", { className: "muted-note" }, switching ? 'Changing area…' : stopping ? 'Local control active' : state.native ? 'Bridge scene can continue with your phone locked' : 'Local to your Hue Bridge'),
                 React.createElement("div", { className: "flex gap-2" },
                     stopping ? React.createElement(ui_1.Button, { size: "sm", variant: "outline", onClick: () => bridge_1.deck.send({ name: 'pause' }) }, "Pause / cancel") : null,
-                    state.native ? React.createElement(ui_1.Button, { size: "sm", variant: "outline", onClick: () => bridge_1.deck.send({ name: 'stopBridge' }) }, "Stop Bridge") : null,
+                    React.createElement(ui_1.Button, { size: "sm", disabled: switching || (!state.native && !state.background?.uncertain && !state.background?.available), onClick: () => bridge_1.deck.send({ name: state.native || state.background?.uncertain ? 'stopBridge' : 'background' }) }, state.native || state.background?.uncertain ? 'Stop / inspect Bridge' : 'Play · phone-free'),
                     React.createElement(ui_1.Button, { size: "sm", variant: "outline", disabled: !state.touched || switching, onClick: () => bridge_1.deck.send({ name: 'restore' }) }, "Restore session"))) : React.createElement(React.Fragment, null,
                 React.createElement("div", { className: "transport-grid" },
-                    React.createElement(ui_1.Button, { disabled: switching || (!state.native && !state.background?.available), onClick: () => bridge_1.deck.send({ name: state.native ? 'stopBridge' : 'background' }) }, state.native ? 'Stop background' : 'Play in background'),
-                    React.createElement(ui_1.Button, { variant: "outline", disabled: switching || (!stopping && !layout.selected.length), onClick: () => bridge_1.deck.send({ name: stopping ? 'pause' : 'live' }) }, stopping ? 'Pause / cancel' : backgroundOn ? 'Play · phone-free' : 'Live · phone open'),
+                    React.createElement(ui_1.Button, { disabled: switching || (!state.native && !state.background?.uncertain && !state.background?.available), onClick: () => bridge_1.deck.send({ name: state.native || state.background?.uncertain ? 'stopBridge' : 'background' }) }, state.native || state.background?.uncertain ? 'Stop / inspect Bridge' : 'Play · phone-free'),
+                    React.createElement(ui_1.Button, { variant: "outline", disabled: switching || (!stopping && !layout.selected.length), onClick: () => bridge_1.deck.send({ name: stopping ? 'pause' : 'live' }) }, stopping ? 'Pause / cancel' : 'Live Studio · foreground'),
                     React.createElement(ui_1.Button, { variant: "outline", disabled: !state.touched || switching, onClick: () => bridge_1.deck.send({ name: 'restore' }) }, "Restore")),
                 React.createElement("p", { className: "mt-2 text-center text-[10px] leading-relaxed text-muted-foreground" },
-                    state.native ? 'The Hue Bridge continues without your phone.' : state.mode === 'live' ? 'Studio choreography needs Scriptable open and awake.' : backgroundOn ? 'Play starts Bridge animation before you leave.' : 'Native playback moves your palette, not the exact spatial Studio pattern.',
+                    state.background?.uncertain ? 'Bridge handoff was not confirmed; check the lights before leaving.' : state.native ? 'The Hue Bridge continues without your phone.' : state.mode === 'live' ? 'Live Studio requires Scriptable to remain open.' : 'Play automatically delegates a supported palette to the Bridge, not the exact Studio pattern.',
                     " ",
                     state.inFlight ? 'An already-sent request can still finish.' : '')))),
         newBaseline ? React.createElement(ui_1.Confirm, { title: "Start a new restore baseline?", description: "Archive the earlier point and capture fresh light states on your next action. Live playback will pause. Stop Bridge playback first if it is active.", onClose: () => setNewBaseline(false), onAccept: () => bridge_1.deck.send({ name: 'newSession' }) }) : null);
@@ -204,10 +202,9 @@ function LabPanel({ state, settings, ui, theme }) {
             "Currently ",
             theme,
             ". System mode follows iOS appearance while this screen is open. Theme changes never change your lights."),
-        React.createElement("label", { className: "flex items-center gap-3 text-sm font-medium" },
-            React.createElement("input", { type: "checkbox", disabled: !ui.continueInBackground && !state.background?.available, checked: ui.continueInBackground === true, onChange: e => bridge_1.deck.ui({ continueInBackground: e.currentTarget.checked }), className: "size-5 accent-primary" }),
-            "Keep playing when I leave"),
-        React.createElement("p", { className: "muted-note" }, "When on, Play starts Hue Bridge animation so it can continue after locking your phone. Switching this on during a live show starts a Bridge handoff now. It will not keep the exact Studio choreography or a cue sequence running."),
+        React.createElement("p", { className: "muted-note" },
+            React.createElement("strong", null, "Automatic playback:"),
+            " Play starts a compatible Hue Bridge scene before you lock your phone; no switch is necessary. Live Studio and cue sequences require Scriptable to remain foregrounded. Exact background Studio playback requires an independent controller."),
         React.createElement(ui_1.Select, { label: "Interface motion", value: ui.motion, options: [["system", "Respect system Reduce Motion"], ["reduce", "Always reduce interface motion"]], onChange: v => bridge_1.deck.ui({ motion: v }) }),
         React.createElement("div", { className: "two-fields" },
             React.createElement(ui_1.Field, null,
@@ -253,7 +250,7 @@ function LabPanel({ state, settings, ui, theme }) {
             React.createElement(ui_1.Button, { variant: "outline", disabled: !archive || state.busy || state.native, onClick: () => setConfirm({ title: 'Select this archived baseline?', description: 'Keep the current baseline in history, then select this saved one. Review its timestamp before pressing Restore.', accept: () => bridge_1.deck.send({ name: 'restoreArchive', payload: archive }) }) }, "Select archived baseline")),
         React.createElement(ui_1.Fold, { title: "Detailed bulb telemetry" },
             React.createElement("p", { className: "muted-note" }, "Read time is when the Bridge replied. It can return cached or target properties, not every physical transition frame. No optical measurements are implied."),
-            bridge_1.META.lights.map(l => { const r = state.telemetry?.data?.[l.id], stale = !r?.fetchedAt || now - r.fetchedAt > 6000; return React.createElement("div", { key: l.id, className: "flex flex-col gap-1 border-b pb-4" },
+            bridge_1.META.lights.map(l => { const r = state.telemetry?.data?.[l.id], failure = state.failures?.[l.id], stale = !r?.fetchedAt || now - r.fetchedAt > 6000; return React.createElement("div", { key: l.id, className: "flex flex-col gap-1 border-b pb-4" },
                 React.createElement("p", { className: "text-sm font-semibold" }, l.name),
                 React.createElement("p", { className: "muted-note" }, bridge_1.T.stateText(r)),
                 React.createElement("p", { className: "muted-note" },
@@ -265,7 +262,7 @@ function LabPanel({ state, settings, ui, theme }) {
                 r?.gradient?.length ? React.createElement("div", { className: "gradient-points", "aria-label": "Reported gradient points" }, r.gradient.map((p, i) => React.createElement("span", { key: i, style: { background: bridge_1.T.xyCSS(p) } }))) : null,
                 React.createElement("p", { className: "muted-note" },
                     state.ownership?.[l.id] || 'uncontrolled',
-                    state.failures?.[l.id] ? ` · ${state.failures[l.id].count} failures: ${state.failures[l.id].error}` : '')); })),
+                    failure ? ` · ${failure.count} failures: ${failure.error}` : '')); })),
         React.createElement(ui_1.Fold, { title: "Controller events" },
             React.createElement("pre", { className: "trace" }, state.logs?.length ? state.logs.slice(-30).map(l => `${new Date(l.at).toLocaleTimeString()} ${l.kind}: ${l.message}`).join('\n') : 'No controller events yet.'),
             React.createElement(ui_1.Button, { variant: "outline", onClick: () => bridge_1.deck.send({ name: 'exportDiagnostics' }) }, "Export redacted diagnostics"),
@@ -318,7 +315,7 @@ const ui_1 = require("./ui");
 const utils_1 = require("../lib/utils");
 const PresetThumb = React.memo(function PresetThumb({ id, brightness }) { const p = bridge_1.PRESETS.find(p => p.id === id); const s = bridge_1.E.clean({ ...bridge_1.E.defaults, ...p.settings, brightness }); return React.createElement("div", { className: "preset-thumb", "aria-hidden": "true" }, Array.from({ length: 8 }, (_, i) => { const f = bridge_1.E.sample(19, i / 8, s); return React.createElement("span", { key: i, style: { background: bridge_1.E.css(f.rgb), height: 10 + f.b * .25, opacity: .85 } }); })); });
 function LibraryPanel({ settings, ui, state }) {
-    const [query, setQuery] = React.useState(''), [category, setCategory] = React.useState('All'), [favoriteOnly, setFavoriteOnly] = React.useState(false), [append, setAppend] = React.useState(bridge_1.PRESETS[0].id);
+    const [query, setQuery] = React.useState(''), [category, setCategory] = React.useState('All'), [favoriteOnly, setFavoriteOnly] = React.useState(false), [append, setAppend] = React.useState(bridge_1.PRESETS[0]?.id ?? '');
     const matches = bridge_1.PRESETS.filter(p => (category === 'All' || p.category === category) && (!favoriteOnly || ui.favorites.includes(p.id)) && `${p.name} ${p.description} ${p.category}`.toLowerCase().includes(query.toLowerCase()));
     const favorite = (id) => bridge_1.deck.ui({ favorites: ui.favorites.includes(id) ? ui.favorites.filter(v => v !== id) : ui.favorites.concat(id) });
     return React.createElement("div", { className: "flex flex-col gap-5" },
@@ -330,13 +327,14 @@ function LibraryPanel({ settings, ui, state }) {
         React.createElement("div", { className: "flex flex-wrap gap-2" },
             React.createElement(ui_1.Button, { variant: favoriteOnly ? 'secondary' : 'ghost', size: "sm", "aria-pressed": favoriteOnly, onClick: () => setFavoriteOnly(!favoriteOnly) }, "Favorites")),
         React.createElement(ui_1.Fold, { title: "Build a cue sequence" },
-            React.createElement("p", { className: "muted-note" }, "Requires foreground mode (turn off Keep playing when I leave). Holds use active wall time, not the speed dial. Pattern, palette, or room edits stop the sequence; the current look continues. Master brightness and interface theme can change without stopping it."),
+            React.createElement("p", { className: "muted-note" }, "Cue sequences run as foreground Live Studio sessions and stop when Scriptable is suspended. Holds use active wall time, not the speed dial. Pattern, palette, or room edits stop the sequence; the current look continues. Master brightness and interface theme can change without stopping it."),
             React.createElement("div", { className: "flex flex-col gap-2" }, settings.sequenceIds.map((id, index) => React.createElement("div", { key: `${id}-${index}`, className: "flex items-center gap-2 rounded-xl bg-muted px-3 py-1" },
                 React.createElement("span", { className: "min-w-0 flex-1 text-sm" },
                     index + 1,
                     ". ",
                     bridge_1.PRESETS.find(p => p.id === id)?.name || id),
-                React.createElement(ui_1.Button, { size: "icon", variant: "ghost", "aria-label": `Move cue ${index + 1} earlier`, disabled: index === 0, onClick: () => { const ids = settings.sequenceIds.slice(); [ids[index - 1], ids[index]] = [ids[index], ids[index - 1]]; bridge_1.deck.settings({ sequenceIds: ids }); } }, "\u2191"),
+                React.createElement(ui_1.Button, { size: "icon", variant: "ghost", "aria-label": `Move cue ${index + 1} earlier`, disabled: index === 0, onClick: () => { const ids = settings.sequenceIds.slice(), previous = ids[index - 1], current = ids[index]; if (previous === undefined || current === undefined)
+                        return; ids[index - 1] = current; ids[index] = previous; bridge_1.deck.settings({ sequenceIds: ids }); } }, "\u2191"),
                 React.createElement(ui_1.Button, { size: "icon", variant: "ghost", "aria-label": `Remove cue ${index + 1}`, onClick: () => bridge_1.deck.settings({ sequenceIds: settings.sequenceIds.filter((_, i) => i !== index) }) }, "\u00D7")))),
             React.createElement(ui_1.Select, { label: "Add a look", value: append, options: bridge_1.PRESETS.map(p => [p.id, p.name]), onChange: setAppend }),
             React.createElement(ui_1.Button, { variant: "outline", disabled: settings.sequenceIds.length >= 12, onClick: () => bridge_1.deck.settings({ sequenceIds: settings.sequenceIds.concat(append) }) },
@@ -345,8 +343,7 @@ function LibraryPanel({ settings, ui, state }) {
                 "/12)"),
             React.createElement(ui_1.Range, { label: "Hold each cue", value: settings.sequenceHold, min: 30, max: 600, step: 5, unit: "s", onChange: v => bridge_1.deck.settings({ sequenceHold: v }) }),
             React.createElement(ui_1.Select, { label: "Sequence order", value: settings.sequenceOrder, options: [["forward", "In order"], ["shuffle", "Seeded shuffle; no immediate repeats"]], onChange: v => bridge_1.deck.settings({ sequenceOrder: v }) }),
-            React.createElement(ui_1.Button, { disabled: ui.continueInBackground || !settings.sequenceIds.length || !state.layout.selected.length, onClick: () => bridge_1.deck.send({ name: state.sequence?.enabled ? 'stopSequence' : 'startSequence' }) }, state.sequence?.enabled ? 'Stop sequence, keep this look' : 'Start sequence and lights'),
-            ui.continueInBackground ? React.createElement("p", { className: "muted-note" }, "Cue sequences only run while Scriptable remains active. Turn off Keep playing when I leave to use them.") : null,
+            React.createElement(ui_1.Button, { disabled: !settings.sequenceIds.length || !state.layout.selected.length, onClick: () => bridge_1.deck.send({ name: state.sequence?.enabled ? 'stopSequence' : 'startSequence' }) }, state.sequence?.enabled ? 'Stop sequence, keep this look' : 'Start sequence and lights'),
             state.sequence?.enabled ? React.createElement("p", { className: "text-sm text-primary" },
                 "Cue ",
                 state.sequence.index + 1,
@@ -371,8 +368,7 @@ function LibraryPanel({ settings, ui, state }) {
                     "Preview ",
                     p.name),
                 React.createElement(ui_1.Button, { size: "sm", disabled: !state.layout.selected.length, onClick: () => bridge_1.deck.send({ name: 'playPreset', payload: p.id }) },
-                    ui.continueInBackground ? 'Play on Bridge' : 'Play',
-                    " ",
+                    "Play phone-free \u00B7 ",
                     p.name))))),
         !matches.length ? React.createElement(ui_1.Empty, null, "No matching looks. Try another search or category.") : null);
 }
@@ -418,72 +414,14 @@ exports.LightsPanel = LightsPanel;
 const React = __importStar(require("react"));
 const bridge_1 = require("../lib/bridge");
 const ui_1 = require("./ui");
-const utils_1 = require("../lib/utils");
-/** This is an edit target, never a fabricated readback. Commit at release, key-up or blur, not every frame. */
-function CommitRange({ label, value, min = 1, max = 100, unit = '%', disabled = false, onCommit }) {
-    const [draft, setDraft] = React.useState(value), dirty = React.useRef(false), id = React.useId();
-    React.useEffect(() => { if (!dirty.current)
-        setDraft(Math.min(max, Math.max(min, value))); }, [value, min, max]);
-    const commit = () => { if (disabled || !dirty.current)
-        return; dirty.current = false; onCommit(draft); };
-    return React.createElement(ui_1.Field, null,
-        React.createElement("label", { htmlFor: id, className: "flex items-center justify-between gap-3 text-sm font-medium" },
-            React.createElement("span", null, label),
-            React.createElement("output", { htmlFor: id, className: "tabular-nums text-primary" },
-                Math.round(draft),
-                unit)),
-        React.createElement("input", { id: id, type: "range", value: draft, min: min, max: max, step: unit === ' K' ? 50 : 1, disabled: disabled, onChange: e => { dirty.current = true; setDraft(Number(e.currentTarget.value)); }, onPointerUp: commit, onKeyUp: e => { if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key))
-                commit(); }, onBlur: commit, className: "h-11 w-full cursor-pointer accent-primary disabled:opacity-45" }));
-}
-const PowerIcon = () => React.createElement("svg", { "data-icon": "inline-start", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", "aria-hidden": "true" },
-    React.createElement("path", { d: "M12 3v9M7.2 5.8a8 8 0 1 0 9.6 0", strokeLinecap: "round" }));
-function LightCard({ id, state, layout, locked }) {
-    const light = bridge_1.META.lights.find(l => l.id === id), c = state.capabilities?.[id] || light.capabilities, p = layout.placements[id], r = state.telemetry?.data?.[id];
-    const [expanded, setExpanded] = React.useState(false), [color, setColor] = React.useState('#00bddd');
-    const age = r?.fetchedAt == null ? null : bridge_1.T.age(r.fetchedAt, Date.now()), stale = age == null || age > 6;
-    const streaming = c.streaming || r?.mode === 'streaming', disabled = locked || streaming;
-    const link = r && state.telemetry.links?.[r.owner], linkBad = link && Date.now() - link.fetchedAt < 30000 && ['disconnected', 'connectivity_issue'].includes(link.status);
-    const name = light.name, send = (change) => bridge_1.deck.send({ name: 'manual', payload: { ids: [id], ...change } });
-    const type = c.color ? 'Color' : c.temperature ? 'Adjustable white' : c.dimming ? 'Dimmable' : 'On / off';
-    const power = r?.on === true ? 'On' : r?.on === false ? 'Off' : 'Not read yet';
-    return React.createElement("article", { className: (0, utils_1.cn)('light-card', r?.on === true ? 'is-on' : undefined), "aria-label": name },
-        React.createElement("div", { className: "light-row" },
-            React.createElement("button", { type: "button", className: "light-main", "aria-expanded": expanded, "aria-controls": 'light-details-' + id, onClick: () => setExpanded(!expanded) },
-                React.createElement("span", { className: "light-orb", style: { '--lamp': bridge_1.T.color(r) }, "aria-hidden": "true" },
-                    React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.5" },
-                        React.createElement("path", { d: "M8 16c0-3-3-3.5-3-7a7 7 0 0 1 14 0c0 3.5-3 4-3 7M8 17h8M9 20h6M10 22h4", strokeLinecap: "round" }))),
-                React.createElement("span", { className: "min-w-0" },
-                    React.createElement("strong", null, name),
-                    React.createElement("span", { className: "light-description" },
-                        power,
-                        r?.brightness != null ? ` · ${Math.round(r.brightness)}%${r.on === false ? ' stored' : ''}` : '',
-                        streaming ? ' · Streaming' : linkBad ? ' · Link issue' : stale ? ' · Not current' : ''))),
-            React.createElement(ui_1.Button, { variant: r?.on === true ? 'default' : 'outline', size: "icon", disabled: disabled, "aria-label": `${r?.on === true ? 'Turn off' : 'Turn on'} ${name}`, onClick: () => send({ on: r?.on !== true }) },
-                React.createElement(PowerIcon, null))),
-        expanded ? React.createElement("div", { className: "light-details", id: 'light-details-' + id },
-            React.createElement("div", { className: "flex flex-wrap items-center justify-between gap-2" },
-                React.createElement(ui_1.Badge, { variant: "outline" }, type),
-                React.createElement("span", { className: "text-xs text-muted-foreground" }, r?.fetchedAt == null ? 'Waiting for readback' : `Bridge read ${Math.floor(age || 0)}s ago`)),
-            streaming ? React.createElement(ui_1.Alert, { title: "Controlled by a streaming app" }, "Stop its Entertainment stream before using these controls.") : null,
-            c.dimming ? React.createElement(CommitRange, { label: 'Set brightness · ' + name, value: r?.brightness || 50, min: Math.max(1, Math.ceil(c.minBrightness || 1)), disabled: disabled, onCommit: v => send({ on: true, brightness: v }) }) : null,
-            c.temperature && c.temperatureRange ? React.createElement(React.Fragment, null,
-                React.createElement("div", { className: "flex flex-wrap gap-2" }, [[2700, 'Warm'], [4000, 'Neutral'], [6000, 'Cool']].map(([k, label]) => React.createElement(ui_1.Button, { key: k, variant: "outline", size: "sm", disabled: disabled, onClick: () => send({ on: true, kelvin: k }) }, label))),
-                React.createElement(CommitRange, { label: 'White temperature · ' + name, value: r?.kelvin || 4000, min: c.temperatureRange.min, max: c.temperatureRange.max, unit: " K", disabled: disabled, onCommit: v => send({ on: true, kelvin: v }) })) : null,
-            c.color ? React.createElement(ui_1.Field, null,
-                React.createElement("label", { className: "text-sm font-medium", htmlFor: 'color-' + id }, "Choose a color"),
-                React.createElement("div", { className: "color-apply" },
-                    React.createElement("input", { type: "color", id: 'color-' + id, "aria-label": 'Color for ' + name, value: color, disabled: disabled, onChange: e => setColor(e.currentTarget.value) }),
-                    React.createElement(ui_1.Button, { variant: "outline", disabled: disabled, onClick: () => send({ on: true, hex: color }) }, "Set color"))) : null,
-            React.createElement("p", { className: "muted-note" },
-                c.dimming ? `Ceiling ${Math.round(p.ceiling)}% · trim ${Math.round(p.trim * 100)}%. ` : '',
-                "Changing a value turns this light on and pauses the local show. Reported values above update after a Bridge read.")) : null);
-}
+const CommitRange_1 = require("./lights/CommitRange");
+const LightCard_1 = require("./lights/LightCard");
 function LightsPanel({ state, layout, ui, onLooks }) {
     const [scope, setScope] = React.useState('area'), [search, setSearch] = React.useState(''), [filter, setFilter] = React.useState('all'), [confirmLimits, setConfirmLimits] = React.useState(false), [groupColor, setGroupColor] = React.useState('#00bddd');
     const ids = scope === 'selected' ? layout.selected : layout.order, locked = !!state.navigation?.switching;
     const lights = bridge_1.META.lights, targets = lights.filter(l => ids.includes(l.id)), dimmers = targets.filter(l => l.capabilities.dimming), whites = targets.filter(l => l.capabilities.temperature), colors = targets.filter(l => l.capabilities.color);
     const read = state.telemetry?.data || {}, on = lights.filter(l => read[l.id]?.on === true).length, unknown = lights.filter(l => read[l.id]?.on == null).length;
-    const capped = dimmers.filter(l => layout.placements[l.id].ceiling < 100 || layout.placements[l.id].trim < 1);
+    const capped = dimmers.filter(l => { const placement = layout.placements[l.id]; return !!placement && (placement.ceiling < 100 || placement.trim < 1); });
     const values = dimmers.map(l => read[l.id]?.brightness).filter((v) => typeof v === 'number');
     const average = values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : 50;
     const send = (change, subset = ids) => bridge_1.deck.send({ name: 'manual', payload: { ids: subset, ...change } });
@@ -503,22 +441,20 @@ function LightsPanel({ state, layout, ui, onLooks }) {
                         unknown ? ` · ${unknown} not read yet` : '',
                         !fresh ? ' · Waiting for current state' : '')),
                 React.createElement(ui_1.Badge, { variant: "outline" }, state.mode === 'live' ? 'Animating' : 'Everyday')),
-            React.createElement("label", { className: "mb-4 flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-muted/40 p-3 text-sm" },
-                React.createElement("input", { type: "checkbox", className: "mt-0.5 size-5 shrink-0 accent-primary", checked: ui.continueInBackground === true, disabled: !ui.continueInBackground && !state.background?.available, onChange: e => bridge_1.deck.ui({ continueInBackground: e.currentTarget.checked }) }),
-                React.createElement("span", null,
-                    React.createElement("strong", { className: "block" }, "Keep playing when I leave"),
-                    React.createElement("span", { className: "mt-1 block text-xs text-muted-foreground" }, state.background?.available
-                        ? 'Play sends compatible color animation to the Hue Bridge now, so it keeps moving after you lock your phone. Exact Studio patterns and cue sequences require an active controller.'
-                        : 'Requires a Hue room or zone with compatible dynamic color lights.'))),
+            React.createElement("div", { className: "mb-4 rounded-xl border border-border bg-muted/40 p-3 text-sm", role: "note" },
+                React.createElement("strong", { className: "block" }, "Phone-free Play is automatic"),
+                React.createElement("p", { className: "mt-1 text-xs text-muted-foreground" }, state.background?.available
+                    ? 'Press Play on any look to start a supported Hue Bridge dynamic palette. Wait for confirmation, then lock your phone. Exact Live Studio requires a foreground controller.'
+                    : 'No compatible Hue dynamic palette in this scope. Select a supported room or zone for phone-free Play; Live Studio still works while Scriptable is open.')),
             React.createElement(ui_1.ToggleGroup, { label: "Control scope", value: scope, options: [["area", `This area · ${layout.order.length}`], ["selected", `Selected · ${layout.selected.length}`]], onChange: setScope }),
             React.createElement("div", { className: "power-pair" },
                 React.createElement(ui_1.Button, { disabled: locked || !ids.length, onClick: () => send({ on: true }) },
-                    React.createElement(PowerIcon, null),
+                    React.createElement(LightCard_1.PowerIcon, null),
                     "Turn on"),
                 React.createElement(ui_1.Button, { variant: "outline", disabled: locked || !ids.length, onClick: () => send({ on: false }) },
-                    React.createElement(PowerIcon, null),
+                    React.createElement(LightCard_1.PowerIcon, null),
                     "Turn off")),
-            dimmers.length ? React.createElement(CommitRange, { label: `Set brightness · ${dimmers.length} dimmable lights`, value: average, disabled: locked, onCommit: v => send({ on: true, brightness: v }, dimmers.map(l => l.id)) }) : null,
+            dimmers.length ? React.createElement(CommitRange_1.CommitRange, { label: `Set brightness · ${dimmers.length} dimmable lights`, value: average, disabled: locked, onCommit: v => send({ on: true, brightness: v }, dimmers.map(l => l.id)) }) : null,
             React.createElement("div", { className: "quick-looks", "aria-label": "Everyday presets" },
                 React.createElement(ui_1.Button, { variant: "secondary", disabled: locked || !whites.length, onClick: () => send({ on: true, kelvin: 2700, brightness: 45 }, whites.map(l => l.id)) },
                     React.createElement("span", null,
@@ -551,7 +487,7 @@ function LightsPanel({ state, layout, ui, onLooks }) {
             React.createElement("div", { className: "light-filters" },
                 React.createElement(ui_1.Input, { "aria-label": "Find a light", placeholder: "Find a light\u2026", value: search, onChange: e => setSearch(e.currentTarget.value) }),
                 React.createElement(ui_1.Select, { label: "Show", value: filter, options: [["all", "All"], ["on", "On"], ["selected", "Show selection"]], onChange: setFilter })),
-            React.createElement("div", { className: "light-list" }, visible.map(l => React.createElement(LightCard, { key: l.id, id: l.id, state: state, layout: layout, locked: locked }))),
+            React.createElement("div", { className: "light-list" }, visible.map(l => React.createElement(LightCard_1.LightCard, { key: l.id, id: l.id, state: state, layout: layout, locked: locked }))),
             !visible.length ? React.createElement(ui_1.Empty, null, "No lights match. Clear the search or choose All.") : null),
         React.createElement(ui_1.Fold, { title: "Color for this area" },
             React.createElement("p", { className: "muted-note" },
@@ -630,9 +566,11 @@ function MapPreview({ state, layout, settings, roomMode, focusId, onFocus }) {
     const [source, setSource] = React.useState('reported'), now = (0, bridge_1.useNow)(), svg = React.useRef(null);
     const moving = React.useRef(null);
     const lamp = bridge_1.META.lights.find(l => l.id === focusId), reported = state.telemetry?.data?.[focusId];
-    function move(id, x, y) { bridge_1.deck.layout({ ...layout, placements: { ...layout.placements, [id]: { ...layout.placements[id], x: Math.min(.96, Math.max(.04, x)), y: Math.min(.94, Math.max(.06, y)) } } }); }
+    function move(id, x, y) { const current = layout.placements[id]; if (!current)
+        return; bridge_1.deck.layout({ ...layout, placements: { ...layout.placements, [id]: { ...current, x: Math.min(.96, Math.max(.04, x)), y: Math.min(.94, Math.max(.06, y)) } } }); }
     function drag(e) { if (!moving.current || !svg.current)
         return; const r = svg.current.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * 360, y = (e.clientY - r.top) / r.height * 230; move(moving.current, (x - 24) / 312, (y - 16) / 198); }
+    function keyDelta(key, positive, negative) { return key === positive ? 2 / 100 : key === negative ? -2 / 100 : 0; }
     const fresh = state.telemetry?.lastRead != null && now - state.telemetry.lastRead <= 6000;
     return React.createElement("div", { className: "flex flex-col gap-3" },
         React.createElement("div", { className: "flex items-center justify-between gap-3" },
@@ -649,6 +587,8 @@ function MapPreview({ state, layout, settings, roomMode, focusId, onFocus }) {
             React.createElement("rect", { x: "24", y: "16", width: "312", height: "198", rx: "16", fill: "none", stroke: "var(--grid)" }),
             layout.order.map((id, index) => {
                 const p = layout.placements[id], light = bridge_1.META.lights.find(l => l.id === id);
+                if (!p)
+                    return null;
                 let row = state.telemetry?.data?.[id];
                 const target = state.telemetry?.targets?.[id];
                 if (source === 'target')
@@ -675,7 +615,7 @@ function MapPreview({ state, layout, settings, roomMode, focusId, onFocus }) {
                             onFocus(id);
                         } if (roomMode && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
                             e.preventDefault();
-                            move(id, p.x + (e.key === 'ArrowRight' ? .02 : e.key === 'ArrowLeft' ? -.02 : 0), p.y + (e.key === 'ArrowDown' ? .02 : e.key === 'ArrowUp' ? -.02 : 0));
+                            move(id, p.x + keyDelta(e.key, 'ArrowRight', 'ArrowLeft'), p.y + keyDelta(e.key, 'ArrowDown', 'ArrowUp'));
                         } } },
                         React.createElement("circle", { className: "hit", cx: x, cy: y, r: "22", fill: "transparent", stroke: selected ? 'var(--primary)' : 'transparent', strokeWidth: "1.5" }),
                         React.createElement("circle", { cx: x, cy: y, r: on ? 13 + level * 3 : 12, fill: color, opacity: stale ? .35 : on ? .45 + .55 * level : .5, stroke: "var(--lamp-edge)", strokeDasharray: stale ? '3 3' : undefined }),
@@ -758,16 +698,18 @@ function SavedMixes({ state }) { const [name, setName] = React.useState(''), [se
     React.createElement("div", { className: "flex gap-2" },
         React.createElement(ui_1.Button, { variant: "ghost", onClick: () => bridge_1.deck.send({ name: 'exportMix' }) }, "Export JSON"),
         React.createElement(ui_1.Button, { variant: "ghost", onClick: () => bridge_1.deck.send({ name: 'importMix' }) }, "Import JSON"))); }
-function BridgePlayback({ state, settings }) { const match = Object.values(state.effectParams || {}).filter(p => p.effect === settings.effect); return React.createElement(ui_1.Fold, { title: "Let the Bridge take over" },
+function BridgePlayback({ state, settings }) { const match = Object.values(state.effectParams || {}).filter(p => p.effect === settings.effect); return React.createElement(ui_1.Fold, { title: "Advanced Bridge playback options" },
     React.createElement(ui_1.Select, { label: "Playback type", value: settings.nativeKind, options: [["palette", "Dynamic palette"], ["effect", "Advertised fixture effect"]], onChange: v => bridge_1.deck.settings({ nativeKind: v }) }),
     settings.nativeKind === 'effect' ? React.createElement(React.Fragment, null,
         React.createElement(ui_1.Select, { label: "Available effect", value: settings.effect, options: [["", "Select an advertised effect"], ...state.effects.map(e => [e.name, `${e.name} · ${e.supported}/${e.total} eligible`])], onChange: v => bridge_1.deck.settings({ effect: v }) }),
         match.some(v => v.speed) ? React.createElement(ui_1.Range, { label: "Native effect speed", value: settings.effectSpeed, min: 0, max: 1, step: .05, onChange: v => bridge_1.deck.settings({ effectSpeed: v }) }) : null,
         match.some(v => v.color) ? React.createElement(ui_1.Toggle, { label: "Tint with the selected palette", checked: settings.effectTint, onChange: v => bridge_1.deck.settings({ effectTint: v }) }) : null) : React.createElement("p", { className: "muted-note" }, "Runs a palette, not the spatial show. The lowest selected trim caps shared brightness. Task and anchor lamps remain static."),
     React.createElement(ui_1.Button, { variant: "outline", disabled: !state.layout.selected.length || (settings.nativeKind === 'effect' && !settings.effect), onClick: () => bridge_1.deck.send({ name: 'bridge' }) }, "Apply Bridge playback"),
-    React.createElement("p", { className: "muted-note" }, "Can continue without this screen on compatible fixtures. Stop Bridge or Restore to end delegated playback.")); }
+    React.createElement("p", { className: "muted-note" }, "Runs independently on the Hue Bridge after confirmation, on supported fixtures. Stop Bridge or Restore to end delegated playback.")); }
 function PerformPanel({ settings, state, theme, reduced }) {
-    const active = bridge_1.E.shows.find(v => v[0] === settings.showA)?.[1] || settings.showA;
+    const active = bridge_1.E.shows.find(v => v[0] === settings.showA)?.[1] || settings.showA, palette = bridge_1.E.palettes[settings.paletteA] ?? bridge_1.E.palettes[0];
+    if (!palette)
+        return null;
     return React.createElement("div", { className: "flex flex-col gap-5" },
         " ",
         React.createElement(ui_1.Range, { id: "brightness", label: "Master brightness", value: settings.brightness, min: 5, max: 100, unit: "%", onChange: v => bridge_1.deck.settings({ brightness: v }) }),
@@ -777,9 +719,9 @@ function PerformPanel({ settings, state, theme, reduced }) {
                 React.createElement(ui_1.Badge, { variant: "outline" }, state.mode === 'live' ? 'Live' : state.native ? 'Bridge playback' : 'Stopped')),
             React.createElement("h2", { className: "mt-3 text-3xl font-semibold tracking-tight" }, active),
             React.createElement("p", { className: "mt-2 text-sm text-muted-foreground" },
-                bridge_1.E.palettes[settings.paletteA].name,
+                palette.name,
                 settings.morph > 0 ? ` → ${bridge_1.E.shows.find(v => v[0] === settings.showB)?.[1]} · ${settings.morph}%` : ''),
-            React.createElement("div", { className: "swatch mt-5", "aria-hidden": "true" }, (settings.paletteA === 18 ? settings.customColors : bridge_1.E.palettes[settings.paletteA].colors).map((c, i) => React.createElement("span", { key: i, style: { background: c } })))),
+            React.createElement("div", { className: "swatch mt-5", "aria-hidden": "true" }, (settings.paletteA === 18 ? settings.customColors : palette.colors).map((c, i) => React.createElement("span", { key: i, style: { background: c } })))),
         React.createElement("div", { className: "grid grid-cols-2 gap-2" }, ['ion-eclipse', 'plasma-turbine', 'afterburner', 'deep-orbit'].map(id => { const p = bridge_1.PRESETS.find(p => p.id === id); return React.createElement(ui_1.Button, { key: id, variant: "outline", onClick: () => bridge_1.deck.send({ name: 'applyPreset', payload: id }) }, p.name); })),
         React.createElement(ui_1.FieldGroup, null,
             React.createElement(ui_1.Range, { label: "Energy", value: settings.energy, min: 0, max: 100, unit: "%", onChange: v => bridge_1.deck.settings({ energy: v }) }),
@@ -858,10 +800,12 @@ function RoomPanel({ state, layout, settings, focusId, onFocus }) {
     const [areaId, setArea] = React.useState(layout.hue?.areaId || ''), [projection, setProjection] = React.useState(layout.hue?.projection || 'xy'), [phase, setPhase] = React.useState(layout.hue?.phaseMode || 'clockwise'), [mirror, setMirror] = React.useState(layout.hue?.mirror || false), [confirm, setConfirm] = React.useState(null), [roomName, setRoomName] = React.useState(''), [savedRoom, setSavedRoom] = React.useState('');
     const catalog = state.hueLayouts, areas = (catalog?.areas || []).filter(a => a.matched > 0), selectedArea = areas.find(a => a.id === areaId) || (areas.length === 1 ? areas[0] : undefined);
     const light = bridge_1.META.lights.find(l => l.id === focusId), p = layout.placements[focusId];
-    function placement(patch) { bridge_1.deck.layout({ ...layout, placements: { ...layout.placements, [focusId]: { ...p, ...patch } } }); }
+    function placement(patch) { if (!p)
+        return; bridge_1.deck.layout({ ...layout, placements: { ...layout.placements, [focusId]: { ...p, ...patch } } }); }
     function selection(id, checked) { bridge_1.deck.layout({ ...layout, selected: checked ? [...new Set([...layout.selected, id])] : layout.selected.filter(x => x !== id) }); }
-    function reorder(delta) { const order = layout.order.slice(), i = order.indexOf(focusId); if (i + delta < 0 || i + delta >= order.length)
-        return; [order[i], order[i + delta]] = [order[i + delta], order[i]]; bridge_1.deck.layout({ ...layout, order }); }
+    function reorder(delta) { const order = layout.order.slice(), i = order.indexOf(focusId), next = i + delta; if (i < 0 || next < 0 || next >= order.length)
+        return; const current = order[i], other = order[next]; if (current === undefined || other === undefined)
+        return; order[i] = other; order[next] = current; bridge_1.deck.layout({ ...layout, order }); }
     return React.createElement("div", { className: "flex flex-col gap-5" },
         React.createElement("div", null,
             React.createElement("h2", { className: "panel-heading" }, "Room, not a list."),
@@ -917,7 +861,8 @@ function RoomPanel({ state, layout, settings, focusId, onFocus }) {
             React.createElement(ui_1.Button, { variant: "outline", disabled: !roomName.trim(), onClick: () => bridge_1.deck.send({ name: 'saveRoom', payload: roomName }) }, "Save layout"),
             React.createElement(ui_1.Select, { label: "Stored room layout", value: savedRoom, options: [["", "Choose a layout"], ...state.rooms.map(r => [r.name, r.name])], onChange: setSavedRoom }),
             React.createElement(ui_1.Button, { variant: "outline", disabled: !savedRoom, onClick: () => setConfirm({ title: 'Load room layout?', description: 'Replace local placement, selection, and fixture settings with this saved layout. Playback is not started.', accept: () => bridge_1.deck.send({ name: 'loadRoom', payload: savedRoom }) }) }, "Load layout"),
-            React.createElement(ui_1.Button, { variant: "ghost", onClick: () => setConfirm({ title: 'Redistribute clockwise?', description: 'Explicitly replace all map positions and animation phases with an evenly spaced ring. Imported source coordinates remain available in metadata.', accept: () => { const placements = { ...layout.placements }; layout.order.forEach((id, i) => { const q = i / Math.max(1, layout.order.length); placements[id] = { ...placements[id], q, x: .5 + .4 * Math.sin(q * Math.PI * 2), y: .5 - .4 * Math.cos(q * Math.PI * 2) }; }); bridge_1.deck.layout({ ...layout, placements }); } }) }, "Redistribute clockwise explicitly")),
+            React.createElement(ui_1.Button, { variant: "ghost", onClick: () => setConfirm({ title: 'Redistribute clockwise?', description: 'Explicitly replace all map positions and animation phases with an evenly spaced ring. Imported source coordinates remain available in metadata.', accept: () => { const placements = { ...layout.placements }; layout.order.forEach((id, i) => { const current = placements[id]; if (!current)
+                        return; const q = i / Math.max(1, layout.order.length); placements[id] = { ...current, q, x: .5 + .4 * Math.sin(q * Math.PI * 2), y: .5 - .4 * Math.cos(q * Math.PI * 2) }; }); bridge_1.deck.layout({ ...layout, placements }); } }) }, "Redistribute clockwise explicitly")),
         confirm ? React.createElement(ui_1.Confirm, { ...confirm, onAccept: confirm.accept, onClose: () => setConfirm(null) }) : null);
 }
 
@@ -974,6 +919,155 @@ function SpotlightCard({ children, className = '', style, spotlightColor = 'var(
     return React.createElement("div", { "data-hue-board": "focus-surface", ref: ref, className: 'relative isolate overflow-hidden rounded-2xl border bg-card text-card-foreground ' + className, style: style, onPointerMove: move, onPointerLeave: event => { setPoint(null); onPointerLeave?.(event); }, ...props },
         point && !disabled ? React.createElement("span", { "aria-hidden": "true", className: "pointer-events-none absolute inset-0 rounded-[inherit]", style: { background: `radial-gradient(circle ${Math.max(40, spotlightSize)}px at ${point.x}px ${point.y}px, color-mix(in srgb, ${spotlightColor} ${(100 * Math.min(.35, Math.max(0, intensity)) * (theme === 'light' ? .6 : 1)).toFixed(1)}%, transparent), transparent 75%)` } }) : null,
         React.createElement("div", { className: "relative" }, children));
+}
+
+},
+"components/lights/CommitRange":function(module,exports,require){
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.CommitRange = CommitRange;
+const React = __importStar(require("react"));
+const ui_1 = require("../ui");
+/** This is an edit target, never a fabricated readback. Commit at release, key-up or blur, not every frame. */
+function CommitRange({ label, value, min = 1, max = 100, unit = '%', disabled = false, onCommit }) {
+    const [draft, setDraft] = React.useState(value), dirty = React.useRef(false), id = React.useId();
+    React.useEffect(() => { if (!dirty.current)
+        setDraft(Math.min(max, Math.max(min, value))); }, [value, min, max]);
+    const commit = () => { if (disabled || !dirty.current)
+        return; dirty.current = false; onCommit(draft); };
+    return React.createElement(ui_1.Field, null,
+        React.createElement("label", { htmlFor: id, className: "flex items-center justify-between gap-3 text-sm font-medium" },
+            React.createElement("span", null, label),
+            React.createElement("output", { htmlFor: id, className: "tabular-nums text-primary" },
+                Math.round(draft),
+                unit)),
+        React.createElement("input", { id: id, type: "range", value: draft, min: min, max: max, step: unit === ' K' ? 50 : 1, disabled: disabled, onChange: e => { dirty.current = true; setDraft(Number(e.currentTarget.value)); }, onPointerUp: commit, onKeyUp: e => { if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key))
+                commit(); }, onBlur: commit, className: "h-11 w-full cursor-pointer accent-primary disabled:opacity-45" }));
+}
+
+},
+"components/lights/LightCard":function(module,exports,require){
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PowerIcon = void 0;
+exports.LightCard = LightCard;
+const React = __importStar(require("react"));
+const bridge_1 = require("../../lib/bridge");
+const ui_1 = require("../ui");
+const utils_1 = require("../../lib/utils");
+const CommitRange_1 = require("./CommitRange");
+const PowerIcon = () => React.createElement("svg", { "data-icon": "inline-start", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", "aria-hidden": "true" },
+    React.createElement("path", { d: "M12 3v9M7.2 5.8a8 8 0 1 0 9.6 0", strokeLinecap: "round" }));
+exports.PowerIcon = PowerIcon;
+function LightCard({ id, state, layout, locked }) {
+    const light = bridge_1.META.lights.find(l => l.id === id), p = layout.placements[id];
+    if (!light || !p)
+        return null;
+    const c = state.capabilities?.[id] || light.capabilities, r = state.telemetry?.data?.[id];
+    const [expanded, setExpanded] = React.useState(false), [color, setColor] = React.useState('#00bddd');
+    const age = r?.fetchedAt == null ? null : bridge_1.T.age(r.fetchedAt, Date.now()), stale = age == null || age > 6;
+    const streaming = c.streaming || r?.mode === 'streaming', disabled = locked || streaming;
+    const link = r && state.telemetry.links?.[r.owner], linkBad = link && Date.now() - link.fetchedAt < 30000 && ['disconnected', 'connectivity_issue'].includes(link.status);
+    const name = light.name, send = (change) => bridge_1.deck.send({ name: 'manual', payload: { ids: [id], ...change } });
+    const type = c.color ? 'Color' : c.temperature ? 'Adjustable white' : c.dimming ? 'Dimmable' : 'On / off';
+    const power = r?.on === true ? 'On' : r?.on === false ? 'Off' : 'Not read yet';
+    return React.createElement("article", { className: (0, utils_1.cn)('light-card', r?.on === true ? 'is-on' : undefined), "aria-label": name },
+        React.createElement("div", { className: "light-row" },
+            React.createElement("button", { type: "button", className: "light-main", "aria-expanded": expanded, "aria-controls": 'light-details-' + id, onClick: () => setExpanded(!expanded) },
+                React.createElement("span", { className: "light-orb", style: { '--lamp': bridge_1.T.color(r) }, "aria-hidden": "true" },
+                    React.createElement("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.5" },
+                        React.createElement("path", { d: "M8 16c0-3-3-3.5-3-7a7 7 0 0 1 14 0c0 3.5-3 4-3 7M8 17h8M9 20h6M10 22h4", strokeLinecap: "round" }))),
+                React.createElement("span", { className: "min-w-0" },
+                    React.createElement("strong", null, name),
+                    React.createElement("span", { className: "light-description" },
+                        power,
+                        r?.brightness != null ? ` · ${Math.round(r.brightness)}%${r.on === false ? ' stored' : ''}` : '',
+                        streaming ? ' · Streaming' : linkBad ? ' · Link issue' : stale ? ' · Not current' : ''))),
+            React.createElement(ui_1.Button, { variant: r?.on === true ? 'default' : 'outline', size: "icon", disabled: disabled, "aria-label": `${r?.on === true ? 'Turn off' : 'Turn on'} ${name}`, onClick: () => send({ on: r?.on !== true }) },
+                React.createElement(exports.PowerIcon, null))),
+        expanded ? React.createElement("div", { className: "light-details", id: 'light-details-' + id },
+            React.createElement("div", { className: "flex flex-wrap items-center justify-between gap-2" },
+                React.createElement(ui_1.Badge, { variant: "outline" }, type),
+                React.createElement("span", { className: "text-xs text-muted-foreground" }, r?.fetchedAt == null ? 'Waiting for readback' : `Bridge read ${Math.floor(age || 0)}s ago`)),
+            streaming ? React.createElement(ui_1.Alert, { title: "Controlled by a streaming app" }, "Stop its Entertainment stream before using these controls.") : null,
+            c.dimming ? React.createElement(CommitRange_1.CommitRange, { label: 'Set brightness · ' + name, value: r?.brightness || 50, min: Math.max(1, Math.ceil(c.minBrightness || 1)), disabled: disabled, onCommit: v => send({ on: true, brightness: v }) }) : null,
+            c.temperature && c.temperatureRange ? React.createElement(React.Fragment, null,
+                React.createElement("div", { className: "flex flex-wrap gap-2" }, [[2700, 'Warm'], [4000, 'Neutral'], [6000, 'Cool']].map(([k, label]) => React.createElement(ui_1.Button, { key: k, variant: "outline", size: "sm", disabled: disabled, onClick: () => send({ on: true, kelvin: k }) }, label))),
+                React.createElement(CommitRange_1.CommitRange, { label: 'White temperature · ' + name, value: r?.kelvin || 4000, min: c.temperatureRange.min, max: c.temperatureRange.max, unit: " K", disabled: disabled, onCommit: v => send({ on: true, kelvin: v }) })) : null,
+            c.color ? React.createElement(ui_1.Field, null,
+                React.createElement("label", { className: "text-sm font-medium", htmlFor: 'color-' + id }, "Choose a color"),
+                React.createElement("div", { className: "color-apply" },
+                    React.createElement("input", { type: "color", id: 'color-' + id, "aria-label": 'Color for ' + name, value: color, disabled: disabled, onChange: e => setColor(e.currentTarget.value) }),
+                    React.createElement(ui_1.Button, { variant: "outline", disabled: disabled, onClick: () => send({ on: true, hex: color }) }, "Set color"))) : null,
+            React.createElement("p", { className: "muted-note" },
+                c.dimming ? `Ceiling ${Math.round(p.ceiling)}% · trim ${Math.round(p.trim * 100)}%. ` : '',
+                "Changing a value turns this light on and pauses the local show. Reported values above update after a Bridge read.")) : null);
 }
 
 },
