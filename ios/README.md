@@ -39,7 +39,7 @@ The native SwiftUI app is the primary product direction for Hue Board. Scriptabl
 
 ## Generate and verify
 
-Requirements: Xcode 26+, XcodeGen 2.46.0, Node 22, pnpm 10.17.1, and a physical iPhone/Hue Bridge for integration qualification.
+Requirements: Xcode 27.2 or newer, XcodeGen 2.46.0, Node 22, pnpm 10.17.1, and a physical iPhone/Hue Bridge for integration qualification. The device path fails closed below Xcode 27.2.
 
 ```sh
 corepack enable

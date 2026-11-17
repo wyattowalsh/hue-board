@@ -1,9 +1,9 @@
-// Hue Board 5.2.0 pinned installer for Scriptable on iPhone.
+// Hue Board 5.3.0 pinned installer for Scriptable on iPhone.
 // Installs code only; never removes the Hue Bridge authorization or saved settings.
 const APP = 'Hue Board';
-const VERSION = '5.2.0';
-const REVISION = 'f5c1bd9d3c1a6336d2639d8ef63028b31fa945d6';
-const EXPECTED_SHA256 = 'd733ef2af228cddf45ca179e567d0c479e1a802b2689818c0918b57c37a71a7d';
+const VERSION = '5.3.0';
+const REVISION = '82140cc3ee1141799acdb0a01bc5e03f69118f75';
+const EXPECTED_SHA256 = '9fcef3778fe93d0f46f61975103931cb7ac967ee12738b6cdb3d192a8757ab05';
 const URL = `https://raw.githubusercontent.com/wyattowalsh/hue-board/${REVISION}/dist/hue-board.js`;
 
 
@@ -51,7 +51,7 @@ async function install() {
   r.timeoutInterval = 30;
   const script = await r.loadString();
   if (r.response?.statusCode !== 200 ||
-      !script.startsWith('// Hue Board 5.2.0 | Standalone Scriptable controller') ||
+      !script.startsWith('// Hue Board ' + VERSION + ' | Standalone Scriptable controller') ||
       sha256Hex(Data.fromString(script).getBytes()) !== EXPECTED_SHA256) {
     throw new Error('The pinned release failed download or SHA-256 verification. No files were changed.');
   }

@@ -141,7 +141,7 @@ Perform these in order. Stop if the observed behavior contradicts the expected r
 ### D. Native Live foreground behavior
 
 - Open **Live**.
-- Select a scene, keep brightness conservative, choose the shortest available duration, and tap **Start Native Live**.
+- Select a scene, keep brightness conservative, choose the shortest available duration, and tap **Start Ambient Live**.
 - Keep Hue Board in the foreground for several transition cycles.
 - Confirm updates are smooth enough for the low-rate REST fallback and that only the selected area changes.
 - Tap **Stop & restore baseline**.
@@ -152,7 +152,7 @@ Perform these in order. Stop if the observed behavior contradicts the expected r
 
 On iOS 26 or later:
 
-- Start Native Live from the foreground.
+- Start Ambient Live from the foreground.
 - Background the app without force-quitting it.
 - Observe the system continued-processing UI and Hue Board progress.
 - Let the session finish or cancel it, then reopen Hue Board and restore if needed.
@@ -216,7 +216,7 @@ Do not bypass the check. Confirm that the physical Bridge is the intended device
 
 ### Build error around iOS 26 continued processing
 
-Use Xcode 26 or newer. The project deploys to iOS 18+, but its iOS 26-specific code is availability-gated and still must be compiled with an SDK that contains `BGContinuedProcessingTask`.
+Use Xcode 27.2 or newer. `make iphone-doctor` rejects an older toolchain before any build. The project deploys to iOS 18+, and its continued-processing code is availability-gated.
 
 ## 10. TestFlight later
 

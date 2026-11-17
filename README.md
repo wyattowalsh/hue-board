@@ -35,13 +35,9 @@ The current native app is a reviewable vertical slice, **not** an App Store rele
 
 ## Scriptable installation
 
-**Release qualification pending:** This branch implements automatic phone-free Play in source, but the published GitHub installer and checked-in `dist/` still contain **v5.2.0**. Do not use those files expecting v5.3 behavior. A new compiled bundle, immutable release SHA-256, and pinned installer must be published and checked before release.
+The pinned Scriptable release is **5.3.0**. The installer checks the immutable commit `82140cc3ee1141799acdb0a01bc5e03f69118f75` and SHA-256 `9fcef3778fe93d0f46f61975103931cb7ac967ee12738b6cdb3d192a8757ab05` before replacing an existing Scriptable file. Installation requires trusted Wi-Fi, preserves existing Hue credentials and baselines, and never turns lights on merely by opening the app.
 
-For now, use the verified v5.2.0 installer from `main` or inspect the local v5.3 source candidate. The source branch is **not a new installable Scriptable release**.
-
-The currently verified standalone controller is [`dist/hue-board.js`](dist/hue-board.js). The pinned installer checks its immutable commit and SHA-256 before replacing an existing Scriptable file.
-
-The eventual v5.3 Scriptable installation will continue to require trusted Wi-Fi, preserve existing Hue credentials and baselines, and never turn lights on merely by opening the app.
+The verified controller is [`dist/hue-board.js`](dist/hue-board.js).
 
 ## Playback and background behavior
 
@@ -71,7 +67,7 @@ pnpm test
 pnpm test:timing
 ```
 
-Native iOS development requires Xcode 26+ and XcodeGen 2.46.0:
+Native iOS development requires Xcode 27.2 or newer and XcodeGen 2.46.0:
 
 ```sh
 cd ios
