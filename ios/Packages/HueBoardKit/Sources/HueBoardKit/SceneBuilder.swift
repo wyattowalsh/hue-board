@@ -135,7 +135,8 @@ public enum HueSceneBuilder {
         area: HueArea,
         preset: HuePreset,
         contract: HueBoardContract,
-        brightness: Double
+        brightness: Double,
+        reduceLightMotion: Bool = false
     ) throws -> HueSceneDraft {
         let lights = area.dynamicLights
         guard !lights.isEmpty else {
@@ -173,7 +174,8 @@ public enum HueSceneBuilder {
             }
         )
         let metadata = HueSceneMetadata(name: "Hue Board | \(palette.name)")
-        let speed = (min(max(0.15 + preset.speed * 0.35, 0.1), 0.8) * 100).rounded() / 100
+        var speed = (min(max(0.15 + preset.speed * 0.35, 0.1), 0.8) * 100).rounded() / 100
+        if reduceLightMotion { speed = min(speed, 0.25) }
         let create = HueSceneCreateRequest(
             metadata: metadata,
             group: .init(resourceID: area.id, resourceType: area.kind.rawValue),

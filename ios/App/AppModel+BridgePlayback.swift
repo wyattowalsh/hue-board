@@ -21,7 +21,8 @@ extension AppModel {
       credential: credential,
       contract: contract,
       preset: preset,
-      brightness: effectiveDynamicBrightness
+      brightness: effectiveDynamicBrightness,
+      reduceLightMotion: safetySettings.reduceLightMotion
     )
     let request = LightingPlaybackRequest(
       scope: .init(bridgeID: profile.bridgeID, areaID: area.id),

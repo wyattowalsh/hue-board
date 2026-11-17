@@ -41,6 +41,21 @@ test('Reduce Light Motion bounds engine behavior and keeps emergency controls av
   const powerRow=everyday.slice(0, everyday.indexOf('.disabled(!model.canUseEverydayControls)'));
   assert.doesNotMatch(powerRow,/Turn off now/);
   assert.doesNotMatch(banner,/HueEngine\.sample/);
+  const scenes=read('ios/Packages/HueBoardKit/Sources/HueBoardKit/SceneBuilder.swift');
+  const transport=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/BridgeSceneTransport.swift');
+  const playback=read('ios/App/AppModel+BridgePlayback.swift');
+  const ambient=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/HueLightFrameTransports.swift');
+  assert.match(scenes,/if reduceLightMotion \{ speed = min\(speed, 0\.25\) \}/);
+  assert.match(playback,/reduceLightMotion: safetySettings\.reduceLightMotion/);
+  assert.match(transport,/reduceLightMotion: reduceLightMotion/);
+  const rest=ambient.slice(ambient.indexOf('actor RestAmbientTransport'));
+  assert.match(rest,/duration >= 4_500/);
+  assert.match(read('ios/App/AppModel.swift'),/func presentConnection\(\)/);
+  assert.match(read('ios/App/Views/SettingsView.swift'),/model\.presentConnection\(\)/);
+  const journal=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/AppPersistence.swift');
+  const loader=journal.slice(journal.indexOf('func loadRestoreJournal'), journal.indexOf('func saveRestoreJournal'));
+  assert.ok(loader.indexOf('readRecoveryEnvelope')<loader.indexOf('loadState'));
+  assert.doesNotMatch(read('ios/Packages/HueBoardKit/Sources/HueBoardKit/HueEvents.swift'),/payload\.prefix\(160\)/);
 });
 
 test('ordinary static controls are not subject to dynamic brightness cap',()=>{

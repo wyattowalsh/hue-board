@@ -29,6 +29,7 @@ public actor BridgeSceneTransport: LightingTransport {
     private let contract: HueBoardContract
     private let preset: HuePreset
     private let brightness: Double
+    private let reduceLightMotion: Bool
     private var plan: PreparedPlan?
     private var activeLease: PlaybackWriterLease?
     private var currentOutcome: BridgeSceneOutcome = .idle
@@ -40,7 +41,8 @@ public actor BridgeSceneTransport: LightingTransport {
         credential: HueBridgeCredential,
         contract: HueBoardContract,
         preset: HuePreset,
-        brightness: Double
+        brightness: Double,
+        reduceLightMotion: Bool = false
     ) {
         self.client = client
         self.persistence = persistence
@@ -49,6 +51,7 @@ public actor BridgeSceneTransport: LightingTransport {
         self.contract = contract
         self.preset = preset
         self.brightness = brightness
+        self.reduceLightMotion = reduceLightMotion
     }
 
     public func prepare(
@@ -80,7 +83,8 @@ public actor BridgeSceneTransport: LightingTransport {
             area: area,
             preset: preset,
             contract: contract,
-            brightness: brightness
+            brightness: brightness,
+            reduceLightMotion: reduceLightMotion
         )
 
         var existingSceneID = try await persistence.sceneID(

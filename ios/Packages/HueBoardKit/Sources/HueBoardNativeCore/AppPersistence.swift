@@ -88,7 +88,12 @@ public actor AppPersistence {
     }
 
     public func loadRestoreJournal() throws -> RestoreJournal? {
-        _ = try loadState()
+        if let journal = try readRecoveryEnvelope() { return journal }
+        do { _ = try loadState() } catch { return nil }
+        return try readRecoveryEnvelope()
+    }
+
+    private func readRecoveryEnvelope() throws -> RestoreJournal? {
         guard let data = defaults.data(forKey: Key.recoveryV2) else { return nil }
         return try decodeEnvelope(
             RestoreJournal.self,

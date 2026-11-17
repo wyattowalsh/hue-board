@@ -12,8 +12,8 @@ The warning tells users to start at low brightness, avoid looking directly at la
 
 - Dynamic brightness defaults to a maximum of 80% and is user-adjustable from 10–100%.
 - Ordinary static power and brightness controls are not capped by the dynamic setting.
-- Reduce Light Motion caps engine speed, energy, depth, tension, and effect speed, removes phase offset, and uses longer REST transitions.
-- Bridge-owned scenes may still animate according to Bridge capabilities. Hue Board states this limitation rather than claiming that the setting controls Bridge firmware motion.
+- Reduce Light Motion caps engine speed, energy, depth, and tension, removes phase offset, and uses longer REST transitions. It also caps the speed value sent with Bridge Play at 0.25.
+- The Bridge may still move a recalled scene after that request. Hue Board does not treat the setting as control of Bridge firmware.
 
 ## Emergency behavior
 

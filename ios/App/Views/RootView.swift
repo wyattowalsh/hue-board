@@ -29,6 +29,11 @@ struct RootView: View {
             NavigationStack { SettingsView() }
                 .environment(model)
         }
+        .onChange(of: model.isSettingsPresented) { _, shown in
+            guard !shown, model.openConnectionAfterSettings else { return }
+            model.openConnectionAfterSettings = false
+            model.isConnectionSheetPresented = true
+        }
         .alert("Hue Board", isPresented: errorPresented) {
             Button("OK", role: .cancel) { model.errorMessage = nil }
         } message: {

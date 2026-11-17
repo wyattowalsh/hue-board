@@ -96,9 +96,8 @@ public struct HueEventStreamParser: Sendable {
             )
             return containers.isEmpty ? nil : HueEventBatch(containers: containers)
         } catch {
-            let preview = payload.prefix(160)
             throw HueBoardError.invalidResponse(
-                "Malformed Hue event payload: \(preview)"
+                "Malformed Hue event payload. The body was omitted."
             )
         }
     }

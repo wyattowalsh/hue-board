@@ -181,6 +181,14 @@ public actor RestAmbientTransport: LightingTransport {
         _ frame: LightingFrame,
         lease: PlaybackWriterLease
     ) async throws {
+        for action in frame.actions.values {
+            let duration = action.dynamics?.duration ?? 0
+            guard duration >= 4_500 else {
+                throw HueBoardError.unsupported(
+                    "Ambient Live transitions must last at least 4.5 seconds."
+                )
+            }
+        }
         try await writer.submit(frame, lease: lease)
     }
 

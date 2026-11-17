@@ -43,6 +43,16 @@ final class AppModel {
   var isBusy = false
   var isConnectionSheetPresented = false
   var isSettingsPresented = false
+  var openConnectionAfterSettings = false
+
+  func presentConnection() {
+    if isSettingsPresented {
+      openConnectionAfterSettings = true
+      isSettingsPresented = false
+    } else {
+      isConnectionSheetPresented = true
+    }
+  }
   var hasRestorePoint = false
   var restoreAreaID: HueResourceID?
   var safetySettings: PhysicalLightSafetySettings = .default

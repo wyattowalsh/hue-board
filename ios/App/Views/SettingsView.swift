@@ -21,7 +21,7 @@ struct SettingsView: View {
             Button("Discard recovery & forget Bridge",role:.destructive){confirmDestructiveReset=true}.disabled(model.isBusy)
             Text("Last resort for a permanently unreachable or replaced Bridge. This deletes the only saved baseline without restoring those lights.").font(.caption).foregroundStyle(.secondary)
           }
-        } else {Button("Connect Bridge"){model.isConnectionSheetPresented=true}}
+        } else {Button("Connect Bridge"){model.presentConnection()}}
       }
       Section("Physical-light safety") {
         Toggle(
@@ -32,7 +32,7 @@ struct SettingsView: View {
           )
         )
         Text(
-          "Uses slower Ambient Live transitions and bounds engine speed, energy, depth, effect speed, and phase movement. Bridge-owned scenes may still animate according to Bridge capabilities."
+          "Uses slower Ambient Live transitions, bounds engine speed, energy, depth, and phase movement, and caps Bridge Play speed. The Bridge may still move a recalled scene."
         )
         .font(.caption)
         .foregroundStyle(.secondary)
