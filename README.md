@@ -35,7 +35,7 @@ The current native app is a reviewable vertical slice, **not** an App Store rele
 
 ## Scriptable installation
 
-The pinned Scriptable release is **5.3.0**. The installer checks the immutable commit `908f84f73fa54045d44306c33e312876aded362b` and SHA-256 `ffbed528e9e84ccda0103f6520b938534aa63946636654df7d10a3a0d3a7cf36` before replacing an existing Scriptable file. Installation requires trusted Wi-Fi, preserves existing Hue credentials and baselines, and never turns lights on merely by opening the app.
+The pinned Scriptable release is **5.3.0**. The installer checks the immutable commit `63d303f439e155dcabab7b60439e264b2e6b4bc1` and SHA-256 `62e2b689541b6bab80a5beaf5c59a8713e4ea005559460921515b10a1cbaf52d` before replacing an existing Scriptable file. Installation requires trusted Wi-Fi, preserves existing Hue credentials and baselines, and never turns lights on merely by opening the app.
 
 The verified controller is [`dist/hue-board.js`](dist/hue-board.js).
 
