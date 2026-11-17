@@ -22,7 +22,8 @@ extension AppModel {
       contract: contract,
       preset: preset,
       brightness: effectiveDynamicBrightness,
-      reduceLightMotion: safetySettings.reduceLightMotion
+      reduceLightMotion: safetySettings.reduceLightMotion,
+      outputLimits: preservedOutputCeilings()
     )
     let request = LightingPlaybackRequest(
       scope: .init(bridgeID: profile.bridgeID, areaID: area.id),

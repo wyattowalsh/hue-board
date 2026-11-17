@@ -66,8 +66,9 @@ actor NativeLiveRunner {
       for (index, light) in lights.enumerated() {
         guard light.minimumBrightness <= light.outputLimit else { continue }
         let position = Double(index) / Double(max(1, lights.count))
+        let patternSpeed = settings.speed.isFinite ? max(settings.speed, 0) : 0
         let sampled = try await engine.sample(
-          time: elapsed,
+          time: elapsed * patternSpeed,
           position: position,
           settings: settings,
           surge: 0

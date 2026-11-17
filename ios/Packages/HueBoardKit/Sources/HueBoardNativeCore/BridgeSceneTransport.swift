@@ -30,6 +30,7 @@ public actor BridgeSceneTransport: LightingTransport {
     private let preset: HuePreset
     private let brightness: Double
     private let reduceLightMotion: Bool
+    private let outputLimits: [HueResourceID: Double]
     private var plan: PreparedPlan?
     private var activeLease: PlaybackWriterLease?
     private var currentOutcome: BridgeSceneOutcome = .idle
@@ -44,7 +45,8 @@ public actor BridgeSceneTransport: LightingTransport {
         contract: HueBoardContract,
         preset: HuePreset,
         brightness: Double,
-        reduceLightMotion: Bool = false
+        reduceLightMotion: Bool = false,
+        outputLimits: [HueResourceID: Double] = [:]
     ) {
         self.client = client
         self.persistence = persistence
@@ -54,6 +56,7 @@ public actor BridgeSceneTransport: LightingTransport {
         self.preset = preset
         self.brightness = brightness
         self.reduceLightMotion = reduceLightMotion
+        self.outputLimits = outputLimits
     }
 
     public func prepare(
@@ -77,7 +80,7 @@ public actor BridgeSceneTransport: LightingTransport {
             try await client.inventory(
                 profile: profile,
                 credential: credential,
-                outputLimits: [:]
+                outputLimits: outputLimits
             )
         }
         guard let area = areas.first(where: { $0.id == request.scope.areaID }) else {

@@ -14,7 +14,11 @@ extension AppModel {
     var lease: PlaybackWriterLease?
 
     do {
-      let freshAreas = try await client.inventory(profile: profile, credential: credential)
+      let freshAreas = try await client.inventory(
+        profile: profile,
+        credential: credential,
+        outputLimits: preservedOutputCeilings()
+      )
       guard let freshArea = freshAreas.first(where: { $0.id == area.id }) else {
         throw HueBoardError.missingResource("The selected area is no longer available.")
       }

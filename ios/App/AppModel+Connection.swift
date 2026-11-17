@@ -224,7 +224,11 @@ extension AppModel {
     }
 
     func loadInventory(profile: BridgeProfile, credential: HueBridgeCredential) async throws {
-        let values = try await client.inventory(profile: profile, credential: credential)
+        let values = try await client.inventory(
+          profile: profile,
+          credential: credential,
+          outputLimits: preservedOutputCeilings()
+        )
         areas = values
         let saved = try await persistence.loadSelectedAreaID(bridgeID: profile.bridgeID)
         if let saved, values.contains(where: { $0.id == saved }) {

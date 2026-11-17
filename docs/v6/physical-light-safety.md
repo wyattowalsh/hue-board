@@ -12,7 +12,7 @@ The warning tells users to start at low brightness, avoid looking directly at la
 
 - Dynamic brightness defaults to a maximum of 80% and is user-adjustable from 10–100%.
 - Ordinary static power and brightness controls are not capped by the dynamic setting.
-- Reduce Light Motion caps engine speed, energy, depth, and tension, removes phase offset, and uses longer REST transitions. It also caps the speed value sent with Bridge Play at 0.25.
+- Reduce Light Motion caps engine speed, energy, depth, and tension, removes phase offset, and uses longer REST transitions. Ambient Live advances the shared pattern clock by that capped speed. It also caps the speed value sent with Bridge Play at 0.25. A Bridge refresh keeps each light’s existing output ceiling.
 - The Bridge may still move a recalled scene after that request. Hue Board does not treat the setting as control of Bridge firmware.
 
 ## Emergency behavior

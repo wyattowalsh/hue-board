@@ -120,7 +120,11 @@ extension AppModel {
       guard !Task.isCancelled, self.eventRefreshGeneration == generation,
             let profile = self.profile, let credential = self.credential else { return }
       do {
-        let values = try await self.client.inventory(profile: profile, credential: credential)
+        let values = try await self.client.inventory(
+          profile: profile,
+          credential: credential,
+          outputLimits: self.preservedOutputCeilings()
+        )
         guard self.eventRefreshGeneration == generation, self.profile?.bridgeID == profile.bridgeID else { return }
         self.areas = values
         await self.reconcileAcceptedRestore()

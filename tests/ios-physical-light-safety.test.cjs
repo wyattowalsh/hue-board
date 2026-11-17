@@ -32,6 +32,10 @@ test('Reduce Light Motion bounds engine behavior and keeps emergency controls av
   assert.match(policy,/energy = min\(result\.energy, 45\)/);
   assert.match(policy,/return max\(8_000, count \* 800\)/);
   assert.match(runner,/adjustedEngineSettings/);
+  assert.match(runner,/elapsed \* patternSpeed/);
+  assert.match(read('ios/App/AppModel+BridgePlayback.swift'),/outputLimits: preservedOutputCeilings\(\)/);
+  assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/BridgeSceneTransport.swift'),/outputLimits: outputLimits/);
+  assert.doesNotMatch(read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/BridgeSceneTransport.swift'),/outputLimits: \[:\]/);
   assert.match(settings,/Reduce Light Motion/);
   assert.match(settings,/not a medical guarantee/);
   assert.match(lights,/Turn off now/);

@@ -129,6 +129,14 @@ final class AppModel {
   var canForgetBridge: Bool {
     profile != nil && !hasRestorePoint && !foreignRecoveryPending && !isLiveRunning && !isBusy
   }
+  func preservedOutputCeilings() -> [HueResourceID: Double] {
+    var limits: [HueResourceID: Double] = [:]
+    for light in areas.flatMap(\.lights) where limits[light.id] == nil {
+      limits[light.id] = light.outputLimit
+    }
+    return limits
+  }
+
   var effectiveDynamicBrightness: Double {
     PhysicalLightSafetyPolicy.clampedBrightness(
       brightness,
