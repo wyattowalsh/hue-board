@@ -169,7 +169,10 @@ function makeController(cfg,group,options={}) {
     const actions=animated.map(l=>{const f=desired(l.id),a=actionFromFrame(l,f,layoutCopy.placements[l.id],s,0,true);delete a.dynamics;return {target:{rid:l.id,rtype:'light'},action:a};});
     // A shared native palette cannot preserve individual gain curves. Use the minimum
     // selected trim/ceiling as a conservative cap, and explain that limitation in UI.
-    const level=Math.min(...animated.map(l=>Math.min(s.brightness*layoutCopy.placements[l.id].trim,layoutCopy.placements[l.id].ceiling,100)));
+    const ceilings=animated.map(l=>Math.min(layoutCopy.placements[l.id].ceiling,100));
+    const cap=Math.min(...animated.map(l=>Math.min(s.brightness*layoutCopy.placements[l.id].trim,layoutCopy.placements[l.id].ceiling,100)));
+    const floor=Math.max(...animated.map(minimumBrightness));
+    const level=+(floor<=Math.min(...ceilings)?Math.max(cap,floor):cap).toFixed(2);
     const paletteIndex=s.morph<50?s.paletteA:s.paletteB;
     const payload={metadata:{name:'Hue Board | '+ENGINE.palettes[paletteIndex].name},actions,
       palette:{color:ENGINE.getColors(s,paletteIndex).map(c=>({color:{xy:ENGINE.xy(c)},dimming:{brightness:level}})),dimming:[],color_temperature:[],effects:[]},
@@ -180,12 +183,12 @@ function makeController(cfg,group,options={}) {
       }catch(e){if(e.status===404){id=null;delete sceneRegistry[area];save(V3_SCENES,sceneRegistry);}else throw e;}}
     await paced(token);
     if(id){const r=await api(cfg,'PUT','scene/'+id,payload);assertAck(r,id);}
-    else {const r=await api(cfg,'POST','scene',{...payload,group:{rid:group.id,rtype:group.type}});id=r.data?.find(x=>x.rtype==='scene'||x.rid)?.rid;
+    else {const r=await api(cfg,'POST','scene',{...payload,group:{rid:group.id,rtype:group.type}});id=r.data?.find(x=>x.rtype==='scene')?.rid;
       if(!id)throw new HueError('protocol','Scene creation result is uncertain. Inspect Hue scenes before retrying.');
       sceneRegistry[area]={id,group:group.id,type:group.type,createdAt:now()};save(V3_SCENES,sceneRegistry);}
     check(token);
     for(const l of animated){session.states[l.id].touchedAt=session.states[l.id].touchedAt||now();session.delegated[l.id]={kind:'palette',scene:id,acceptedAt:now(),state:'request pending'};}
-    persist();await paced(token);check(token);const recall=await api(cfg,'PUT','scene/'+id,{recall:{action:'dynamic_palette'}});assertAck(recall,id);sent++;
+    persist();await paced(token);const recall=await api(cfg,'PUT','scene/'+id,{recall:{action:'dynamic_palette'}});assertAck(recall,id);sent++;check(token);
     for(const l of animated){session.delegated[l.id].acceptedAt=now();session.delegated[l.id].state='accepted';telemetry.noteReply(l.id,null,'native',recall,id);}persist();
     for(const l of chosen.filter(l=>!animated.includes(l))){check(token);const p=layoutCopy.placements[l.id],f=fixtureSample(elapsed,{...p,role:p.role==='task'?'task':'anchor'},s);await write(l.id,{...actionFromFrame(l,f,p,s,2500,true),...stopEffect(l)},'static',token);}
     check(token);mode='delegated';note='Bridge palette accepted for '+animated.length+' lights. You may lock your phone; the Bridge continues independently. This is palette animation, not the exact Studio choreography.';

@@ -65,8 +65,16 @@ function fixtureSample(t,placement,settings,surge=0) {
   else if(placement.role==='wash')f.b=f.b*.7+settings.brightness*.18;
   f.b=clamp(f.b*placement.trim,.1,Math.min(settings.brightness,placement.ceiling,100));return f;
 }
+function minimumBrightness(light){
+  const raw=light?.dimming?.min_dim_level;
+  return finite(raw)?clamp(raw,.1,100):.1;
+}
+function boundedBrightness(light,value,ceiling){
+  const floor=minimumBrightness(light),hi=Math.min(100,ceiling);
+  return +(hi<floor?clamp(value,.1,hi):clamp(value,floor,hi)).toFixed(2);
+}
 function actionFromFrame(light,frame,placement,settings,duration,on=false,gradientFrames=null) {
-  const a={dimming:{brightness:+clamp(frame.b,.1,Math.min(settings.brightness,placement.ceiling,100)).toFixed(2)},dynamics:{duration:Math.round(duration/100)*100}};
+  const a={dimming:{brightness:boundedBrightness(light,frame.b,Math.min(settings.brightness,placement.ceiling,100))},dynamics:{duration:Math.round(duration/100)*100}};
   if(on)a.on={on:true};
   if(placement.role==='task'&&light.color_temperature){const sc=light.color_temperature.mirek_schema||{};a.color_temperature={mirek:clamp(250,sc.mirek_minimum||153,sc.mirek_maximum||500)};}
   else if(light.color)a.color={xy:ENGINE.xy(frame.rgb,light.color.gamut)};
@@ -78,7 +86,7 @@ function actionFromFrame(light,frame,placement,settings,duration,on=false,gradie
 }
 function effectAction(light,effect,settings,placement) {
   const c=capabilities(light);if(!c.effects.includes(effect)||effect==='no_effect')throw new HueError('unsupported','This fixture does not advertise the selected effect.');
-  const a={on:{on:true},dimming:{brightness:Math.min(settings.brightness*placement.trim,placement.ceiling,100)}};
+  const a={on:{on:true},dimming:{brightness:boundedBrightness(light,settings.brightness*placement.trim,Math.min(placement.ceiling,100))}};
   if(c.effectsV2){a.effects_v2={action:{effect}};const reported=light.effects_v2.status;
     // Parameter availability is advertised conservatively by readback for this effect.
     if(reported?.effect===effect&&reported.parameters){const parameters={};if(finite(reported.parameters.speed))parameters.speed=settings.effectSpeed;
