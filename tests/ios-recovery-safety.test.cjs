@@ -18,6 +18,9 @@ test('native recovery journal expands without replacing prior baselines', () => 
   assert.match(helper, /snapshots\.append/);
   assert.match(recovery, /captureMissing\(from: area, touchedIDs: touchedIDs\)/);
   assert.match(recovery, /saveRestoreJournal\(existing\)/);
+  assert.match(recovery, /func discardForeignBaseline\(\)/);
+  assert.match(recovery, /journal\.bridgeID != profile\.bridgeID/);
+  assert.match(recovery, /Those lights were not changed/);
 });
 
 test('emergency off reports incomplete coverage and retains recovery', () => {
@@ -48,5 +51,8 @@ test('destructive Bridge reset is separate, explicit, and confirmed in both reco
     assert.match(source, /confirmationDialog\(/);
     assert.match(source, /Discard recovery & forget Bridge/);
     assert.match(source, /cannot be undone|permanently deletes/i);
+    assert.match(source, /Discard the other Bridge's baseline/);
+    assert.match(source, /Discard unrestored baseline/);
+    assert.match(source, /will not restore those lights/);
   }
 });

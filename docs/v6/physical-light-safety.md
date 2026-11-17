@@ -19,7 +19,9 @@ The warning tells users to start at low brightness, avoid looking directly at la
 
 `Turn off now` remains available during playback from the playback banner on every tab and from the Lights screen, outside the everyday controls that playback disables. It cancels Hue Board's active writer lease, targets only eligible lights in the selected or recoverable scope, reports unresolved lights, and retains the restore baseline. The scene list shows a static palette illustration. That illustration does not sample the shared engine and does not write lights.
 
-A baseline saved for a different Bridge stays visible after another Bridge connects. Everyday controls, Bridge Play, Ambient Live, emergency off, and Forget stay blocked until the original Bridge is reconnected and restored. Stop & restore is not offered against the wrong Bridge.
+A baseline saved for a different Bridge stays visible after another Bridge connects. Everyday controls, Bridge Play, Ambient Live, emergency off, and Forget stay blocked until the original Bridge is reconnected and restored. Stop & restore is not offered against the wrong Bridge. Settings can delete that unrestored baseline after a separate confirmation. That deletion does not change the lights and does not remove the Bridge that is connected now.
+
+Ambient Live’s brightness control shows the level dynamic playback will request, limited by the maximum dynamic brightness.
 
 ## Limits
 

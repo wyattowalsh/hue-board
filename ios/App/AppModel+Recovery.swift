@@ -73,6 +73,27 @@ extension AppModel {
     return true
   }
 
+  func discardForeignBaseline() async {
+    guard foreignRecoveryPending, !isBusy, let profile else { return }
+    isBusy = true
+    defer { isBusy = false }
+    do {
+      guard let journal = try await persistence.loadRestoreJournal(),
+            journal.bridgeID != profile.bridgeID else {
+        foreignRecoveryPending = false
+        return
+      }
+      try await persistence.saveRestoreJournal(nil)
+      foreignRecoveryPending = false
+      hasRestorePoint = false
+      restoreAreaID = nil
+      playback.stop("The other Bridge's unrestored baseline was deleted. Those lights were not changed.")
+      note = playback.snapshot.message
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
   func ensureRestoreJournal(profile: BridgeProfile, area: HueArea, touchedIDs: Set<HueResourceID>) async throws {
     let touched = area.lights.filter { touchedIDs.contains($0.id) }
     guard !touched.isEmpty else { throw HueBoardError.unsupported("No compatible lights are selected.") }

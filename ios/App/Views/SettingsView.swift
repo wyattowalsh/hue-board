@@ -4,6 +4,7 @@ struct SettingsView: View {
   @Environment(AppModel.self) private var model
   @State private var confirmForget=false
   @State private var confirmDestructiveReset=false
+  @State private var confirmForeignBaseline=false
   var body:some View{
     @Bindable var model=model
     Form{
@@ -21,6 +22,10 @@ struct SettingsView: View {
             Button("Discard recovery & forget Bridge",role:.destructive){confirmDestructiveReset=true}.disabled(model.isBusy)
             Text("Last resort for a permanently unreachable or replaced Bridge. This deletes the only saved baseline without restoring those lights.").font(.caption).foregroundStyle(.secondary)
           }
+          if model.foreignRecoveryPending {
+            Button("Discard the other Bridge's baseline",role:.destructive){confirmForeignBaseline=true}.disabled(model.isBusy)
+            Text("The saved baseline belongs to a different Bridge. Reconnect that Bridge to restore its lights, or discard the baseline if that Bridge cannot be recovered. This Bridge stays paired.").font(.caption).foregroundStyle(.secondary)
+          }
         } else {Button("Connect Bridge"){model.presentConnection()}}
       }
       Section("Physical-light safety") {
@@ -32,7 +37,7 @@ struct SettingsView: View {
           )
         )
         Text(
-          "Uses slower Ambient Live transitions, bounds engine speed, energy, depth, and phase movement, and caps Bridge Play speed. The Bridge may still move a recalled scene."
+          "Uses slower Ambient Live transitions and pattern timing, bounds engine speed, energy, depth, and phase movement, and caps Bridge Play speed. The Bridge may still move a recalled scene."
         )
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -79,5 +84,6 @@ struct SettingsView: View {
     }
     .confirmationDialog("Remove this Bridge from Hue Board?",isPresented:$confirmForget,titleVisibility:.visible){Button("Forget Bridge",role:.destructive){Task{await model.forgetBridge()}}}message:{Text("This removes the Hue application key, certificate pin, and Hue Board scene registry from this device. Active recovery must be restored first.")}
     .confirmationDialog("Permanently discard the saved baseline?",isPresented:$confirmDestructiveReset,titleVisibility:.visible){Button("Discard recovery & forget",role:.destructive){Task{await model.discardRecoveryAndForgetBridge()}}}message:{Text("Hue Board will not restore the affected lights. This permanently deletes the application key, certificate pin, scene registry, and the only saved baseline for this Bridge. Use only if the original Bridge is unreachable or has been replaced.")}
+    .confirmationDialog("Delete the other Bridge's baseline?",isPresented:$confirmForeignBaseline,titleVisibility:.visible){Button("Discard unrestored baseline",role:.destructive){Task{await model.discardForeignBaseline()}}}message:{Text("Hue Board will not restore those lights. This permanently deletes the only saved baseline for the other Bridge. The Bridge you are connected to now stays paired.")}
   }
 }

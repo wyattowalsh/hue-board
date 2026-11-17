@@ -65,6 +65,9 @@ test('Reduce Light Motion bounds engine behavior and keeps emergency controls av
   assert.match(read('ios/App/AppModel+Live.swift'),/Saved restore state belongs to a different Bridge/);
   assert.match(read('ios/App/Views/Components.swift'),/!model\.foreignRecoveryPending && \(model\.hasRestorePoint/);
   assert.match(read('ios/App/Views/LightsView.swift'),/another Bridge is still pending/);
+  assert.match(read('ios/App/Views/LiveView.swift'),/effectiveDynamicBrightness/);
+  assert.match(read('ios/App/Views/LiveView.swift'),/maximumDynamicBrightness/);
+  assert.match(read('ios/App/Views/ScenesView.swift'),/discard that baseline from Settings/);
   assert.match(read('ios/App/AppModel+Live.swift'),/restoreAcceptedAt = Date\(\)/);
   assert.doesNotMatch(read('ios/App/AppModel+Live.swift'),/saveRestoreJournal\(nil\)/);
   assert.match(read('ios/App/AppModel+Recovery.swift'),/Bridge readback matches the saved baseline/);

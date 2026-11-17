@@ -39,9 +39,16 @@ struct LiveView: View {
                             HStack {
                                 Text("Brightness")
                                 Spacer()
-                                Text("\(Int(model.brightness))%").monospacedDigit()
+                                Text("\(Int(model.effectiveDynamicBrightness))%").monospacedDigit()
                             }
-                            Slider(value: $model.brightness, in: 5...100, step: 1)
+                            Slider(
+                                value: Binding(
+                                    get: { model.effectiveDynamicBrightness },
+                                    set: { model.brightness = $0 }
+                                ),
+                                in: 5...model.safetySettings.maximumDynamicBrightness,
+                                step: 1
+                            )
                         }
 
                         if let preset = model.selectedPreset {
@@ -57,6 +64,16 @@ struct LiveView: View {
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
                         .disabled(!model.canStartLive)
+
+                        if model.foreignRecoveryPending {
+                            Text("A saved baseline for another Bridge is still pending. Reconnect that Bridge and restore it, or discard that baseline from Settings. Ambient Live stays off.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        } else if model.brightness > model.effectiveDynamicBrightness {
+                            Text("Dynamic playback uses the \(Int(model.effectiveDynamicBrightness))% safety cap from Settings.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
 
                         if #unavailable(iOS 26.0) {
                             Text("Ambient Live is foreground-only on this iOS version. Use Play on Bridge for reliable phone-free playback.")

@@ -29,7 +29,10 @@ struct ScenesView: View {
               .padding()
               .background(.quaternary.opacity(0.45),in:RoundedRectangle(cornerRadius:20))
             }
-            if !model.canPlayScene {
+            if model.foreignRecoveryPending {
+              Text("A saved baseline for another Bridge is still pending. Reconnect that Bridge and restore it, or discard that baseline from Settings. Play on Bridge stays off.")
+                .font(.footnote).foregroundStyle(.secondary).padding(.horizontal)
+            } else if !model.canPlayScene {
               Text("Stop and restore existing playback before starting another scene. Unsupported areas never fall back silently to Ambient Live.")
                 .font(.footnote).foregroundStyle(.secondary).padding(.horizontal)
             }

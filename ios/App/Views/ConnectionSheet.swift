@@ -5,6 +5,7 @@ struct ConnectionSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var confirmsDestructiveReset = false
+    @State private var confirmsForeignBaseline = false
 
     var body: some View {
         @Bindable var model = model
@@ -118,6 +119,19 @@ struct ConnectionSheet: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         }
+                        if model.foreignRecoveryPending {
+                            Button(role: .destructive) {
+                                confirmsForeignBaseline = true
+                            } label: {
+                                Label("Discard the other Bridge's baseline", systemImage: "trash.slash")
+                            }
+                            .disabled(model.isBusy)
+                            Text(
+                                "Reconnect the original Bridge to restore its lights. Discarding the baseline leaves those lights unchanged and keeps this Bridge paired."
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
                     }
                 }
 
@@ -156,6 +170,20 @@ struct ConnectionSheet: View {
             } message: {
                 Text(
                     "This permanently deletes the application key, certificate pin, scene registry, and the only saved state needed to restore lights changed by the active playback session."
+                )
+            }
+            .confirmationDialog(
+                "Delete the other Bridge's baseline?",
+                isPresented: $confirmsForeignBaseline,
+                titleVisibility: .visible
+            ) {
+                Button("Discard unrestored baseline", role: .destructive) {
+                    Task { await model.discardForeignBaseline() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text(
+                    "Hue Board will not restore those lights. This permanently deletes the only saved baseline for the other Bridge. The Bridge you are connected to now stays paired."
                 )
             }
         }
