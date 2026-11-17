@@ -143,7 +143,8 @@ public extension HueLight {
             dynamicStatus: event.dynamics?.status ?? dynamicStatus,
             gamut: event.color?.gamut ?? gamut,
             capabilities: updatedCapabilities,
-            outputLimit: outputLimit
+            outputLimit: outputLimit,
+            minimumBrightness: minimumBrightness
         )
     }
 }

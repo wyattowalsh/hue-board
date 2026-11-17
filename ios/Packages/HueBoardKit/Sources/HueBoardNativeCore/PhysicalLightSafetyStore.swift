@@ -43,7 +43,7 @@ public actor PhysicalLightSafetyStore {
         } catch {
             defaults.set(data, forKey: Key.quarantine)
             defaults.removeObject(forKey: Key.settings)
-            return .default
+            return .failedClosed
         }
     }
 

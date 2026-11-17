@@ -74,7 +74,7 @@ actor NativeLiveRunner {
         let xy = try await engine.xy(sampled.color, gamut: light.gamut)
         actions[light.id] = HueLightAction(
           on: .init(on: true),
-          dimming: .init(brightness: min(sampled.brightness, light.outputLimit)),
+          dimming: .init(brightness: min(max(sampled.brightness, light.minimumBrightness), light.outputLimit)),
           color: .init(xy: xy),
           dynamics: .init(duration: transition)
         )

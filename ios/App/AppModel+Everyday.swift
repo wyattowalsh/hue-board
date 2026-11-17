@@ -160,7 +160,7 @@ extension AppModel {
           light.id,
           HueLightAction(
             on: .init(on: true),
-            dimming: .init(brightness: min(brightness, light.outputLimit)),
+            dimming: .init(brightness: min(max(brightness, light.minimumBrightness), light.outputLimit)),
             dynamics: .init(duration: 500)
           )
         )

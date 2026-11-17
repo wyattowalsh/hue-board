@@ -44,7 +44,9 @@ final class PhysicalLightSafetyStoreTests: XCTestCase {
 
         let loaded = await store.load()
         let quarantined = await store.quarantinedDataForTesting()
-        XCTAssertEqual(loaded, .default)
+        XCTAssertEqual(loaded, .failedClosed)
+        XCTAssertTrue(loaded.reduceLightMotion)
+        XCTAssertFalse(loaded.warningAcknowledged)
         XCTAssertNotNil(quarantined)
         XCTAssertNil(context.defaults.data(forKey: "hue-board.native.physical-light-safety.v1"))
     }

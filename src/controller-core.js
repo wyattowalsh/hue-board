@@ -42,6 +42,14 @@ function makeController(cfg,group,options={}) {
   function log(kind,message,id=null){logs.push({at:now(),kind,message:shortError(message),lamp:id?layout.order.indexOf(id)+1:null});if(logs.length>60)logs.shift();}
   function persist(){journal.current[area]=clone(session);save(V3_SESSION,journal);}
   function persistPrefs(force=false){const data={schema:3,settings,layout,presets,rooms,layoutUndo,ui},s=JSON.stringify(data);if(s!==lastPrefs&&(force||now()-lastSave>=1000)){store[area]=data;save(V3_STORE,store);lastPrefs=s;lastSave=now();}}
+  function restoreMatches(light,action){
+    if(!action||typeof action.on?.on!=='boolean'||light.on?.on!==action.on.on)return false;
+    if(action.dimming&&finite(action.dimming.brightness)){
+      const brightness=light.dimming?.brightness;
+      if(!finite(brightness)||Math.abs(brightness-action.dimming.brightness)>0.6)return false;
+    }
+    return true;
+  }
   function isCurrent(token){return !closed&&token===epoch;}
   function check(token){if(!isCurrent(token))throw new HueError('cancelled','Superseded by a newer control action.');}
   function surge(at=now()){const t=(at-surgeAt)/1000;return t>=0&&t<12?Math.sin(Math.PI*t/12)**2:0;}
@@ -70,6 +78,11 @@ function makeController(cfg,group,options={}) {
     for(const l of data){if(!byId.has(l.id))continue;found.add(l.id);const old=byId.get(l.id);
       if(old.mode==='streaming'&&l.mode!=='streaming'&&streamingSeenAt[l.id]!=null&&started<streamingSeenAt[l.id])continue;
       byId.set(l.id,{...l,label:old.label,deviceLabel:old.deviceLabel,model:old.model});
+      const pendingRestore=session.states[l.id];
+      if(pendingRestore?.restoreAcceptedAt&&restoreMatches(l,pendingRestore.action)){
+        delete session.states[l.id];delete session.delegated[l.id];delete held[l.id];
+        recoveryRequired=Object.keys(session.states).length>0;persist();
+      }
       if(l.mode==='streaming'){streamingSeenAt[l.id]=finished;held[l.id]='Streaming owner detected';offChecks[l.id]=0;continue;}
       delete streamingSeenAt[l.id];
       if(mode==='live'&&settings.ownership==='yield_off'&&activated[l.id]&&started>(lastOwn[l.id]?.onAt||0)+500){
@@ -200,7 +213,7 @@ function makeController(cfg,group,options={}) {
     if(!supported.length)throw new HueError('unsupported','Select an advertised effect and at least one supported fixture.');
     await capture(chosen.map(l=>l.id),token);await stopDelegated(token);check(token);
     for(const l of supported){check(token);session.delegated[l.id]={kind:'effect',effect:name,acceptedAt:now(),state:'request pending'};persist();
-      await write(l.id,effectAction(byId.get(l.id),name,s,ls.placements[l.id]),'effect',token);session.delegated[l.id].acceptedAt=now();session.delegated[l.id].state='accepted';persist();}
+      await write(l.id,effectAction(byId.get(l.id),name,s,ls.placements[l.id]),'effect',token);check(token);session.delegated[l.id].acceptedAt=now();session.delegated[l.id].state='accepted';persist();}
     for(const l of chosen.filter(l=>!supported.includes(l)&&['task','anchor'].includes(ls.placements[l.id].role))){check(token);const p=ls.placements[l.id];await write(l.id,{...actionFromFrame(l,fixtureSample(elapsed,p,s),p,s,2500,true),...stopEffect(l)},'static',token);}
     check(token);mode='delegated';note=name+' accepted for '+supported.length+'/'+chosen.length+' selected lamps. Unsupported accent/wash fixtures were left unchanged.';
   }
@@ -208,7 +221,7 @@ function makeController(cfg,group,options={}) {
     const errors=[];restoreFailures=[];
     for(const id of Object.keys(session.states)){check(token);const record=session.states[id];
       if(!record.touchedAt&&!session.legacy){delete session.states[id];continue;}
-      try{await write(id,record.action,'restore',token);delete session.states[id];delete session.delegated[id];delete held[id];persist();}
+      try{await write(id,record.action,'restore',token);session.states[id].restoreAcceptedAt=now();persist();}
       catch(e){if(errorKind(e)==='cancelled')throw e;errors.push(layout.order.indexOf(id)+1);restoreFailures.push({id,error:shortError(e)});log('restore',shortError(e),id);if(errorKind(e)==='auth'||errorKind(e)==='network')break;}
     }
     persist();check(token);mode='paused';recoveryRequired=errors.length>0||Object.keys(session.states).length>0;note=errors.length?'Some restore commands failed. Remaining snapshots are retained; tap Restore to retry.':'Static restore commands accepted. Prior animations are not resumed.';

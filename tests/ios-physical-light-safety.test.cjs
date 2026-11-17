@@ -50,7 +50,13 @@ test('Reduce Light Motion bounds engine behavior and keeps emergency controls av
   assert.match(transport,/reduceLightMotion: reduceLightMotion/);
   const rest=ambient.slice(ambient.indexOf('actor RestAmbientTransport'));
   assert.match(rest,/duration >= 4_500/);
-  assert.match(read('ios/App/AppModel.swift'),/func presentConnection\(\)/);
+  const app=read('ios/App/AppModel.swift');
+  assert.match(app,/func presentConnection\(\)/);
+  assert.match(app,/var canTurnOffNow: Bool \{ isReady \}/);
+  assert.doesNotMatch(app,/canUseEverydayControls: Bool \{\n    isReady && !hasRestorePoint/);
+  assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardKit/PhysicalLightSafety.swift'),/static let failedClosed/);
+  assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/PhysicalLightSafetyStore.swift'),/return \.failedClosed/);
+  assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardKit/HueAPI.swift'),/minimumBrightness:reportedMinimum/);
   assert.match(read('ios/App/Views/SettingsView.swift'),/model\.presentConnection\(\)/);
   const journal=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/AppPersistence.swift');
   const loader=journal.slice(journal.indexOf('func loadRestoreJournal'), journal.indexOf('func saveRestoreJournal'));

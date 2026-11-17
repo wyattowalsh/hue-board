@@ -39,7 +39,9 @@ public enum HueInventoryBuilder {
         let mapped=lights.map { r -> HueLight in
             let base=baseName(r),name=counts[base,default:0]>1 ? "\(base) · \(r.id.rawValue.prefix(4))":base
             let effectValues=r.effectsV2?.action?.effectValues ?? r.effects?.effectValues ?? []
-            return .init(id:r.id,ownerID:r.owner?.resourceID,name:name,isOn:r.on.on,brightness:r.dimming?.brightness,color:r.color?.xy,colorTemperatureMirek:r.colorTemperature?.valid == false ? nil:r.colorTemperature?.mirek,dynamicStatus:r.dynamics?.status,gamut:r.color?.gamut,capabilities:.init(power:true,dimming:r.dimming != nil,color:r.color != nil,colorTemperature:r.colorTemperature != nil,dynamicPalette:r.dynamics?.statusValues?.contains("dynamic_palette") == true,gradientPoints:min(max(r.gradient?.pointsCapable ?? 0,0),5),effects:effectValues.filter{!$0.isEmpty},streaming:r.mode == "streaming"),outputLimit:outputLimits[r.id] ?? 100)
+            let ceiling=outputLimits[r.id] ?? 100
+            let reportedMinimum=r.dimming?.minimum ?? 0.1
+            return .init(id:r.id,ownerID:r.owner?.resourceID,name:name,isOn:r.on.on,brightness:r.dimming?.brightness,color:r.color?.xy,colorTemperatureMirek:r.colorTemperature?.valid == false ? nil:r.colorTemperature?.mirek,dynamicStatus:r.dynamics?.status,gamut:r.color?.gamut,capabilities:.init(power:true,dimming:r.dimming != nil,color:r.color != nil,colorTemperature:r.colorTemperature != nil,dynamicPalette:r.dynamics?.statusValues?.contains("dynamic_palette") == true,gradientPoints:min(max(r.gradient?.pointsCapable ?? 0,0),5),effects:effectValues.filter{!$0.isEmpty},streaming:r.mode == "streaming"),outputLimit:ceiling,minimumBrightness:reportedMinimum)
         }
         let byID=Dictionary(uniqueKeysWithValues:mapped.map{($0.id,$0)})
         let byOwner=Dictionary(grouping:mapped.compactMap{l in l.ownerID.map{($0,l.id)}},by:\.0).mapValues{$0.map(\.1)}

@@ -45,7 +45,7 @@ test('manual control uses same paced writer, acknowledges targets, and restores 
  await command(e,'manual',{ids:['l1','l2'],on:true,brightness:100});assert.equal(e.database.get('l1').dimming.brightness,100);assert.equal(e.database.get('l3').dimming.brightness,45);
  assert.deepEqual(e.ctl.state().manualResult.accepted,['l1','l2']);assert.equal(e.ctl.state().mode,'manual');assert.equal(e.ctl.state().telemetry.targets.l1.kind,'manual');
  const w=e.writes();assert.ok(w[1].at-w[0].at>=350);assert.equal(e.ctl.state().stats.maxConcurrentWriters,1);
- await command(e,'restore');assert.equal(e.database.get('l1').dimming.brightness,45);assert.equal(e.ctl.state().touched,0);await e.ctl.close();
+ await command(e,'restore');assert.equal(e.database.get('l1').dimming.brightness,45);assert.equal(e.ctl.state().session.recoveryRequired,true);e.ctl._observe([...e.database.values()],e.now()+5,e.now()+5);assert.equal(e.ctl.state().touched,0);assert.equal(e.ctl.state().session.recoveryRequired,false);await e.ctl.close();
 });
 test('manual edit stops live show and cue sequence, not a second writer',async()=>{
  const e=env({count:3});await e.start();await e.run(5000);await command(e,'manual',{ids:['l1'],on:false});const n=e.writes().length;await e.run(10000);

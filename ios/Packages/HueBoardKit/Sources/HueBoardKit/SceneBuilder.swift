@@ -153,7 +153,9 @@ public enum HueSceneBuilder {
         guard colors.count == 4 else {
             throw HueBoardError.invalidResponse("Hue Board palettes must contain exactly four colors.")
         }
-        let level = min(max(brightness, 5), lights.map(\.outputLimit).min() ?? 100)
+        let ceiling = lights.map(\.outputLimit).min() ?? 100
+        let floor = lights.map(\.minimumBrightness).max() ?? 0.1
+        let level = min(max(brightness, floor), ceiling)
         let actions = lights.enumerated().map { index, light in
             HueSceneAction(
                 target: .init(resourceID: light.id, resourceType: "light"),

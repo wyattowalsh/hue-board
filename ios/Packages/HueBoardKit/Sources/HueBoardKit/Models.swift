@@ -90,10 +90,12 @@ public struct HueLight: Codable, Equatable, Identifiable, Sendable {
     public let gamut: HueGamut?
     public let capabilities: HueLightCapabilities
     public let outputLimit: Double
-    public init(id: HueResourceID, ownerID: HueResourceID?, name: String, isOn: Bool, brightness: Double?, color: HueXY?, colorTemperatureMirek: Int?, dynamicStatus: String? = nil, gamut: HueGamut?, capabilities: HueLightCapabilities, outputLimit: Double = 100) {
+    public let minimumBrightness: Double
+    public init(id: HueResourceID, ownerID: HueResourceID?, name: String, isOn: Bool, brightness: Double?, color: HueXY?, colorTemperatureMirek: Int?, dynamicStatus: String? = nil, gamut: HueGamut?, capabilities: HueLightCapabilities, outputLimit: Double = 100, minimumBrightness: Double = 0.1) {
         self.id=id; self.ownerID=ownerID; self.name=name; self.isOn=isOn; self.brightness=brightness; self.color=color
         self.colorTemperatureMirek=colorTemperatureMirek; self.dynamicStatus=dynamicStatus; self.gamut=gamut; self.capabilities=capabilities
         self.outputLimit=min(max(outputLimit,1),100)
+        self.minimumBrightness=min(max(minimumBrightness,0.1),self.outputLimit)
     }
 }
 

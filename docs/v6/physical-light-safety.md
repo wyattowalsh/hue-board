@@ -21,4 +21,6 @@ The warning tells users to start at low brightness, avoid looking directly at la
 
 ## Limits
 
+A corrupt safety record is quarantined and replaced with the fail-closed settings: Reduce Light Motion on, the 80% dynamic cap, and consent required again.
+
 These controls are a conservative product policy, not a medical certification or guarantee. The supported physical-light envelope still requires real-device and real-fixture qualification under issues #4, #17, and #18.

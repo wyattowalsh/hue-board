@@ -16,6 +16,12 @@ public struct PhysicalLightSafetySettings: Codable, Equatable, Sendable {
     }
 
     public static let `default` = PhysicalLightSafetySettings()
+    /// Used when the saved record is corrupt. Motion stays reduced and consent is required again.
+    public static let failedClosed = PhysicalLightSafetySettings(
+        warningAcknowledged: false,
+        reduceLightMotion: true,
+        maximumDynamicBrightness: 80
+    )
 }
 
 public enum PhysicalLightSafetyPolicy {

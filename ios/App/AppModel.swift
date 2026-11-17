@@ -108,9 +108,9 @@ final class AppModel {
   }
   var canSwitchArea: Bool { !hasRestorePoint && !isLiveRunning && !isBusy }
   var canUseEverydayControls: Bool {
-    isReady && !hasRestorePoint && playback.snapshot.mode != .bridge && !isLiveRunning && !isBusy
+    isReady && playback.snapshot.mode != .bridge && !isLiveRunning && !isBusy
   }
-  var canTurnOffNow: Bool { isReady && !isBusy }
+  var canTurnOffNow: Bool { isReady }
   var requiresRecovery: Bool {
     playback.snapshot.phase == .uncertain
       || playback.snapshot.mode == .stopping
