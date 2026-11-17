@@ -28,6 +28,10 @@ test('emergency off reports incomplete coverage and retains recovery', () => {
   assert.match(everyday, /Emergency off reached/);
   assert.match(everyday, /saved baseline is retained/);
   assert.doesNotMatch(everyday, /saveRestoreJournal\(nil\)/);
+  const powerIndex = everyday.indexOf('func setAreaPower');
+  const brightnessIndex = everyday.indexOf('func setAreaBrightness');
+  assert.ok(powerIndex >= 0 && everyday.indexOf('ensureRestoreJournal', powerIndex) < everyday.indexOf('executeDirectFrame', powerIndex));
+  assert.ok(brightnessIndex > powerIndex && everyday.indexOf('ensureRestoreJournal', brightnessIndex) < everyday.indexOf('executeDirectFrame', brightnessIndex));
 });
 
 test('destructive Bridge reset is separate, explicit, and confirmed in both recovery surfaces', () => {

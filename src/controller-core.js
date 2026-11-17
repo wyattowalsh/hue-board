@@ -34,7 +34,8 @@ function makeController(cfg,group,options={}) {
   let mode=Object.keys(session.delegated).length?'detached':'idle',closed=false,epoch=0,job=null,pending=null;
   let elapsed=0,lastTick=now(),lastPrefs='',lastSave=0,controlError='',note='Ready. Opening the deck does not change lights.';
   let transitionAt=now(),fromFrames={},fromGradient={},surgeAt=-Infinity;
-  let readRevision=0,sent=0,totalFailures=0,networkFailures=0,failures={},held={},activated={},lastOwn={},offChecks={};
+  let readRevision=0,sent=0,totalFailures=0,networkFailures=0,failures={},held={},activated={},lastOwn={},offChecks={},streamingSeenAt={};
+  for(const light of lights)if(light.mode==='streaming')streamingSeenAt[light.id]=now();
   let requested={},logs=[],jobStarted=0,quarantined=false,lastSend=-Infinity,lastObservedAt=null,restoreFailures=[];
   let badGradients=new Set(),planner=new DeadlinePlanner();
   const stats={writes:0,readErrors:0,maxConcurrentWriters:0,currentWriters:0,missedDeadlines:0};
@@ -66,8 +67,11 @@ function makeController(cfg,group,options={}) {
   }
   function observe(data,finished,started=finished){
     const found=new Set();lastObservedAt=finished;readRevision++;
-    for(const l of data){if(!byId.has(l.id))continue;found.add(l.id);const old=byId.get(l.id);byId.set(l.id,{...l,label:old.label,deviceLabel:old.deviceLabel,model:old.model});
-      if(l.mode==='streaming'){held[l.id]='Streaming owner detected';offChecks[l.id]=0;continue;}
+    for(const l of data){if(!byId.has(l.id))continue;found.add(l.id);const old=byId.get(l.id);
+      if(old.mode==='streaming'&&l.mode!=='streaming'&&streamingSeenAt[l.id]!=null&&started<streamingSeenAt[l.id])continue;
+      byId.set(l.id,{...l,label:old.label,deviceLabel:old.deviceLabel,model:old.model});
+      if(l.mode==='streaming'){streamingSeenAt[l.id]=finished;held[l.id]='Streaming owner detected';offChecks[l.id]=0;continue;}
+      delete streamingSeenAt[l.id];
       if(mode==='live'&&settings.ownership==='yield_off'&&activated[l.id]&&started>(lastOwn[l.id]?.onAt||0)+500){
         if(l.on?.on===false){offChecks[l.id]=(offChecks[l.id]||0)+1;held[l.id]=offChecks[l.id]>=2?'Yielded to external off':'Checking an off readback';
           if(offChecks[l.id]===2)log('ownership','Yielded to two off readbacks; Start explicitly reclaims this lamp.',l.id);}

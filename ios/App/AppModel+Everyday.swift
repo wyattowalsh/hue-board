@@ -36,6 +36,7 @@ extension AppModel {
     isBusy = true
     defer { isBusy = false }
     do {
+      try await ensureRestoreJournal(profile: profile, area: area, touchedIDs: Set(actions.keys))
       try await executeDirectFrame(
         actions,
         profile: profile,
@@ -44,7 +45,10 @@ extension AppModel {
         purpose: on ? "everyday-power-on" : "everyday-power-off"
       )
       try await loadInventory(profile: profile, credential: credential)
-      note = on ? "Power-on commands accepted." : "Power-off commands accepted."
+      let skipped = area.lights.count - actions.count
+      note = on
+        ? "Power-on commands accepted for \(actions.count) lights. \(skipped) were skipped."
+        : "Power-off commands accepted for \(actions.count) lights. \(skipped) were skipped."
     } catch {
       errorMessage = error.localizedDescription
     }
@@ -165,6 +169,7 @@ extension AppModel {
     isBusy = true
     defer { isBusy = false }
     do {
+      try await ensureRestoreJournal(profile: profile, area: area, touchedIDs: Set(actions.keys))
       try await executeDirectFrame(
         actions,
         profile: profile,
@@ -172,7 +177,8 @@ extension AppModel {
         areaID: area.id,
         purpose: "everyday-brightness"
       )
-      note = "Brightness commands accepted. Bridge readback will confirm reported state."
+      let skipped = area.lights.count - actions.count
+      note = "Brightness commands accepted for \(actions.count) lights. \(skipped) were skipped. Bridge readback is not measured light."
     } catch {
       errorMessage = error.localizedDescription
     }

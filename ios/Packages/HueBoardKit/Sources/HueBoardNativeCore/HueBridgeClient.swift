@@ -159,7 +159,7 @@ public actor HueBridgeClient {
             path: "/api",
             credential: nil,
             body: try encoder.encode(
-                Request(devicetype: "hue_board#iphone", generateclientkey: true)
+                Request(devicetype: "hue_board#iphone", generateclientkey: false)
             )
         )
         let rows = try decoder.decode([HuePairingEntry].self, from: response.data)
@@ -224,9 +224,7 @@ public actor HueBridgeClient {
             credential: credential,
             body: scene
         )
-        guard let id = response.data.first(where: { $0.resourceType == "scene" })?.resourceID
-            ?? response.data.first?.resourceID
-        else {
+        guard let id = response.data.first(where: { $0.resourceType == "scene" })?.resourceID else {
             throw HueBoardError.invalidResponse("Bridge returned no scene identifier.")
         }
         return id
@@ -478,9 +476,8 @@ public actor HueBridgeClient {
         case 429:
             throw HueBoardError.network("Bridge asked Hue Board to slow down.")
         default:
-            let detail = String(data: data, encoding: .utf8)?.prefix(160) ?? ""
             throw HueBoardError.invalidResponse(
-                "Bridge request failed (HTTP \(response.statusCode)). \(detail)"
+                "Bridge request failed (HTTP \(response.statusCode)). The response body was omitted."
             )
         }
     }

@@ -107,6 +107,12 @@ test('native app keeps credentials out of source and in Keychain',()=>{
   assert.doesNotMatch(source,/hue-application-key\s*[:=]\s*["'][A-Za-z0-9_-]{16,}/i);
   assert.doesNotMatch(source,/(?:manualHost|host)\s*=\s*["'](?:10|192\.168|172\.(?:1[6-9]|2\d|3[01]))\.\d+\.\d+["']/);
   assert.match(read('ios/App/Services/KeychainVault.swift'),/kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly/);
+  const bridgeClient=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/HueBridgeClient.swift');
+  assert.match(bridgeClient,/generateclientkey: false/);
+  assert.doesNotMatch(bridgeClient,/prefix\(160\)/);
+  assert.match(bridgeClient,/resourceType == "scene"/);
+  assert.doesNotMatch(bridgeClient,/response\.data\.first\?\.resourceID/);
+  assert.match(read('ios/App/AppModel+Events.swift'),/markBridgeReported\(\)/);
 });
 
 test('native local transport verifies bridge identity and pins its certificate',()=>{

@@ -93,6 +93,11 @@ extension AppModel {
       }
     }
     if batch.requiresInventoryRefresh { scheduleInventoryRefreshFromEvents() }
+    if playback.snapshot.mode == .bridge,
+       playback.snapshot.phase == .accepted,
+       selectedArea?.lights.contains(where: { $0.dynamicStatus == "dynamic_palette" }) == true {
+      playback.markBridgeReported()
+    }
   }
 
   private func scheduleInventoryRefreshFromEvents() {
