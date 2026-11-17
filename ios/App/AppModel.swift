@@ -54,6 +54,7 @@ final class AppModel {
     }
   }
   var hasRestorePoint = false
+  var foreignRecoveryPending = false
   var restoreAreaID: HueResourceID?
   var safetySettings: PhysicalLightSafetySettings = .default
   var pendingDynamicAction: PendingDynamicAction?
@@ -108,11 +109,12 @@ final class AppModel {
   }
   var canSwitchArea: Bool { !hasRestorePoint && !isLiveRunning && !isBusy }
   var canUseEverydayControls: Bool {
-    isReady && playback.snapshot.mode != .bridge && !isLiveRunning && !isBusy
+    isReady && !foreignRecoveryPending && playback.snapshot.mode != .bridge && !isLiveRunning && !isBusy
   }
-  var canTurnOffNow: Bool { isReady }
+  var canTurnOffNow: Bool { isReady && !foreignRecoveryPending }
   var requiresRecovery: Bool {
-    playback.snapshot.phase == .uncertain
+    foreignRecoveryPending
+      || playback.snapshot.phase == .uncertain
       || playback.snapshot.mode == .stopping
       || (playback.snapshot.phase == .failed && hasRestorePoint)
   }
@@ -124,7 +126,7 @@ final class AppModel {
     isReady && !hasRestorePoint && playback.snapshot.mode != .bridge && !requiresRecovery && !isBusy
   }
   var canForgetBridge: Bool {
-    profile != nil && !hasRestorePoint && !isLiveRunning && !isBusy
+    profile != nil && !hasRestorePoint && !foreignRecoveryPending && !isLiveRunning && !isBusy
   }
   var effectiveDynamicBrightness: Double {
     PhysicalLightSafetyPolicy.clampedBrightness(

@@ -28,7 +28,7 @@ struct AreaPicker: View {
 struct PlaybackBanner: View {
   @Environment(AppModel.self) private var model
   var body: some View {
-    if model.playbackSnapshot.mode != .idle || model.hasRestorePoint {
+    if model.playbackSnapshot.mode != .idle || model.hasRestorePoint || model.foreignRecoveryPending {
       VStack(alignment:.leading,spacing:8){
         HStack{
           VStack(alignment:.leading,spacing:2){
@@ -37,7 +37,7 @@ struct PlaybackBanner: View {
           }
           .accessibilityElement(children:.combine)
           Spacer()
-          if model.hasRestorePoint || model.playbackSnapshot.phase == .running || model.requiresRecovery {
+          if !model.foreignRecoveryPending && (model.hasRestorePoint || model.playbackSnapshot.phase == .running || model.requiresRecovery) {
             Button("Stop & restore") { Task{await model.stopAndRestore()} }
               .buttonStyle(.borderedProminent)
               .disabled(model.isBusy)

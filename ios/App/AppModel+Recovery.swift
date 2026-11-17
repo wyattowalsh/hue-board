@@ -7,17 +7,32 @@ extension AppModel {
   func loadRecoveryState() async throws {
     guard let profile else {
       hasRestorePoint = false
+      foreignRecoveryPending = false
       restoreAreaID = nil
       return
     }
     let journal = try await persistence.loadRestoreJournal()
-    hasRestorePoint = journal?.bridgeID == profile.bridgeID
-    restoreAreaID = hasRestorePoint ? journal?.areaID : nil
-    if let journal, journal.bridgeID == profile.bridgeID {
+    guard let journal else {
+      hasRestorePoint = false
+      foreignRecoveryPending = false
+      restoreAreaID = nil
+      return
+    }
+    if journal.bridgeID == profile.bridgeID {
+      hasRestorePoint = true
+      foreignRecoveryPending = false
+      restoreAreaID = journal.areaID
       playback = HuePlaybackMachine(snapshot: .init(mode: .failed, phase: .uncertain,
         message: "A saved baseline from \(journal.createdAt.formatted()) needs review before new playback."))
       note = playback.snapshot.message
+      return
     }
+    hasRestorePoint = false
+    foreignRecoveryPending = true
+    restoreAreaID = nil
+    playback = HuePlaybackMachine(snapshot: .init(mode: .failed, phase: .uncertain,
+      message: "A saved baseline for Bridge \(journal.bridgeID) is still pending. Reconnect that Bridge and restore it before changing lights on this one."))
+    note = playback.snapshot.message
   }
 
   func ensureRestoreJournal(profile: BridgeProfile, area: HueArea, touchedIDs: Set<HueResourceID>) async throws {

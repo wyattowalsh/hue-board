@@ -217,6 +217,7 @@ extension AppModel {
         playback = HuePlaybackMachine()
         liveProgress = 0
         hasRestorePoint = false
+        foreignRecoveryPending = false
         restoreAreaID = nil
         activePlaybackLease = nil
     }

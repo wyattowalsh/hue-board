@@ -52,8 +52,14 @@ test('Reduce Light Motion bounds engine behavior and keeps emergency controls av
   assert.match(rest,/duration >= 4_500/);
   const app=read('ios/App/AppModel.swift');
   assert.match(app,/func presentConnection\(\)/);
-  assert.match(app,/var canTurnOffNow: Bool \{ isReady \}/);
+  assert.match(app,/var canTurnOffNow: Bool \{ isReady && !foreignRecoveryPending \}/);
+  assert.match(app,/isReady && !foreignRecoveryPending && playback\.snapshot\.mode != \.bridge/);
   assert.doesNotMatch(app,/canUseEverydayControls: Bool \{\n    isReady && !hasRestorePoint/);
+  const recovery=read('ios/App/AppModel+Recovery.swift');
+  assert.match(recovery,/foreignRecoveryPending = true/);
+  assert.match(recovery,/Reconnect that Bridge and restore it before changing lights/);
+  assert.match(read('ios/App/AppModel+Live.swift'),/Saved restore state belongs to a different Bridge/);
+  assert.match(read('ios/App/Views/Components.swift'),/!model\.foreignRecoveryPending && \(model\.hasRestorePoint/);
   assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardKit/PhysicalLightSafety.swift'),/static let failedClosed/);
   assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/PhysicalLightSafetyStore.swift'),/return \.failedClosed/);
   assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardKit/HueAPI.swift'),/minimumBrightness:reportedMinimum/);
