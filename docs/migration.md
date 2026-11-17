@@ -16,7 +16,7 @@ To upgrade:
 
 New exports use the scope-free `hue-board.scene` schema 2 format. The document describes lighting intent only and cannot carry a Bridge host, application key, room/zone ID, fixture ID, or implicit physical target. The user selects the active room or zone when applying or playing the imported look.
 
-Hue Board continues to import legacy Scriptable schema-3 mixes from both the `hue-board` and `BOYZ.EXE` app identifiers. Legacy values are normalized through the deterministic engine bounds and returned with a migration warning. Importing or previewing a document does not start lights.
+Hue Board continues to import legacy Scriptable schema-3 mixes from the `hue-board` identifier and from the previous app identifier kept only in `src/legacy.js`. Legacy values are normalized through the deterministic engine bounds and returned with a migration warning. Importing or previewing a document does not start lights.
 
 Schema 2 imports:
 

@@ -86,7 +86,7 @@ Hue Board accepts legacy mix objects with:
 }
 ```
 
-The migration also accepts the historical `BOYZ.EXE` app identifier. Legacy partial settings are normalized through current deterministic bounds. Unsupported metadata is ignored with an explicit warning. The same normalized logical settings produce the same deterministic migration identifier.
+The migration also accepts the previous app identifier kept only in `src/legacy.js`. Legacy partial settings are normalized through current deterministic bounds. Unsupported metadata is ignored with an explicit warning. The same normalized logical settings produce the same deterministic migration identifier.
 
 Legacy import never transfers Keychain values, Bridge addresses, room IDs, fixture IDs, recovery journals, or other home-specific state.
 
