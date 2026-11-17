@@ -35,6 +35,44 @@ extension AppModel {
     note = playback.snapshot.message
   }
 
+  func reconcileAcceptedRestore() async {
+    guard let profile else { return }
+    guard var journal = try? await persistence.loadRestoreJournal(),
+          journal.restoreAcceptedAt != nil,
+          journal.bridgeID == profile.bridgeID else { return }
+    var known: [HueResourceID: HueLight] = [:]
+    for light in areas.flatMap(\.lights) where known[light.id] == nil {
+      known[light.id] = light
+    }
+    let remaining = journal.snapshots.filter { snapshot in
+      guard let light = known[snapshot.lightID], !light.capabilities.streaming else { return true }
+      return !Self.restoreReadbackMatches(light, snapshot.action)
+    }
+    guard remaining.count != journal.snapshots.count else { return }
+    if remaining.isEmpty {
+      do { try await persistence.saveRestoreJournal(nil) } catch { return }
+      hasRestorePoint = false
+      foreignRecoveryPending = false
+      restoreAreaID = nil
+      playback.stop("Bridge readback matches the saved baseline for the restored lights.")
+      note = playback.snapshot.message
+      return
+    }
+    journal.snapshots = remaining
+    do { try await persistence.saveRestoreJournal(journal) } catch { return }
+    hasRestorePoint = true
+    foreignRecoveryPending = false
+    restoreAreaID = journal.areaID
+  }
+
+  static func restoreReadbackMatches(_ light: HueLight, _ action: HueLightAction) -> Bool {
+    guard let expected = action.on?.on, light.isOn == expected else { return false }
+    if let expectedBrightness = action.dimming?.brightness {
+      guard let actual = light.brightness, abs(actual - expectedBrightness) <= 0.6 else { return false }
+    }
+    return true
+  }
+
   func ensureRestoreJournal(profile: BridgeProfile, area: HueArea, touchedIDs: Set<HueResourceID>) async throws {
     let touched = area.lights.filter { touchedIDs.contains($0.id) }
     guard !touched.isEmpty else { throw HueBoardError.unsupported("No compatible lights are selected.") }

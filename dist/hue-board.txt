@@ -596,7 +596,8 @@ function minimumBrightness(light){
 }
 function boundedBrightness(light,value,ceiling){
   const floor=minimumBrightness(light),hi=Math.min(100,ceiling);
-  return +(hi<floor?clamp(value,.1,hi):clamp(value,floor,hi)).toFixed(2);
+  if(hi<floor)throw new HueError('validation','This light’s ceiling is below its advertised minimum dim level.');
+  return +clamp(value,floor,hi).toFixed(2);
 }
 function actionFromFrame(light,frame,placement,settings,duration,on=false,gradientFrames=null) {
   const a={dimming:{brightness:boundedBrightness(light,frame.b,Math.min(settings.brightness,placement.ceiling,100))},dynamics:{duration:Math.round(duration/100)*100}};
@@ -965,13 +966,13 @@ function makeController(cfg,group,options={}) {
     for(const l of data){if(!byId.has(l.id))continue;found.add(l.id);const old=byId.get(l.id);
       if(old.mode==='streaming'&&l.mode!=='streaming'&&streamingSeenAt[l.id]!=null&&started<streamingSeenAt[l.id])continue;
       byId.set(l.id,{...l,label:old.label,deviceLabel:old.deviceLabel,model:old.model});
+      if(l.mode==='streaming'){streamingSeenAt[l.id]=finished;held[l.id]='Streaming owner detected';offChecks[l.id]=0;continue;}
+      delete streamingSeenAt[l.id];
       const pendingRestore=session.states[l.id];
-      if(pendingRestore?.restoreAcceptedAt&&restoreMatches(l,pendingRestore.action)){
+      if(pendingRestore?.restoreAcceptedAt&&started>pendingRestore.restoreAcceptedAt&&restoreMatches(l,pendingRestore.action)){
         delete session.states[l.id];delete session.delegated[l.id];delete held[l.id];
         recoveryRequired=Object.keys(session.states).length>0;persist();
       }
-      if(l.mode==='streaming'){streamingSeenAt[l.id]=finished;held[l.id]='Streaming owner detected';offChecks[l.id]=0;continue;}
-      delete streamingSeenAt[l.id];
       if(mode==='live'&&settings.ownership==='yield_off'&&activated[l.id]&&started>(lastOwn[l.id]?.onAt||0)+500){
         if(l.on?.on===false){offChecks[l.id]=(offChecks[l.id]||0)+1;held[l.id]=offChecks[l.id]>=2?'Yielded to external off':'Checking an off readback';
           if(offChecks[l.id]===2)log('ownership','Yielded to two off readbacks; Start explicitly reclaims this lamp.',l.id);}
@@ -1023,6 +1024,8 @@ function makeController(cfg,group,options={}) {
   async function write(id,action,kind,token){check(token);if(!session.states[id])throw new HueError('session','Restore state was not captured.');
     const light=byId.get(id);if(light?.mode==='streaming')throw new HueError('ownership','Entertainment owns this fixture. No REST write was sent.');
     await paced(token);check(token);
+    if(!session.states[id])throw new HueError('session','Restore state was not captured.');
+    if(byId.get(id)?.mode==='streaming')throw new HueError('ownership','Entertainment owns this fixture. No REST write was sent.');
     session.states[id].touchedAt=session.states[id].touchedAt||now();persist();
     requested[id]={at:now(),kind,action:clone(action),status:'in flight'};
     const started=now();stats.currentWriters++;stats.maxConcurrentWriters=Math.max(stats.maxConcurrentWriters,stats.currentWriters);
@@ -1065,14 +1068,21 @@ function makeController(cfg,group,options={}) {
     if(!animated.length)throw new HueError('unsupported','No selected fixture advertises dynamic palettes. Try Bridge effects or Live.');
     await capture(chosen.map(l=>l.id),token);await stopDelegated(token);check(token);
     const s=clone(settings),layoutCopy=clone(layout);
-    for(const lamp of animated){check(token);const current=byId.get(lamp.id),effect=current.effects_v2?.status?.effect||current.effects?.status;if(effect&&effect!=='no_effect'&&Object.keys(stopEffect(current)).length)await write(lamp.id,stopEffect(current),'handoff',token);}
-    const actions=animated.map(l=>{const f=desired(l.id),a=actionFromFrame(l,f,layoutCopy.placements[l.id],s,0,true);delete a.dynamics;return {target:{rid:l.id,rtype:'light'},action:a};});
+    let paletteLights=animated.slice();
+    const placementCeiling=l=>Math.min(layoutCopy.placements[l.id].ceiling,100);
+    while(paletteLights.length&&Math.max(...paletteLights.map(minimumBrightness))>Math.min(...paletteLights.map(placementCeiling))){
+      let worst=0;paletteLights.forEach((l,i)=>{if(minimumBrightness(l)>minimumBrightness(paletteLights[worst]))worst=i;});
+      paletteLights.splice(worst,1);
+    }
+    if(!paletteLights.length)throw new HueError('validation','Every selected light’s ceiling is below its advertised minimum dim level.');
+    for(const lamp of paletteLights){check(token);const current=byId.get(lamp.id),effect=current.effects_v2?.status?.effect||current.effects?.status;if(effect&&effect!=='no_effect'&&Object.keys(stopEffect(current)).length)await write(lamp.id,stopEffect(current),'handoff',token);}
+    const actions=paletteLights.map(l=>{const f=desired(l.id),a=actionFromFrame(l,f,layoutCopy.placements[l.id],s,0,true);delete a.dynamics;return {target:{rid:l.id,rtype:'light'},action:a};});
     // A shared native palette cannot preserve individual gain curves. Use the minimum
     // selected trim/ceiling as a conservative cap, and explain that limitation in UI.
-    const ceilings=animated.map(l=>Math.min(layoutCopy.placements[l.id].ceiling,100));
-    const cap=Math.min(...animated.map(l=>Math.min(s.brightness*layoutCopy.placements[l.id].trim,layoutCopy.placements[l.id].ceiling,100)));
-    const floor=Math.max(...animated.map(minimumBrightness));
-    const level=+(floor<=Math.min(...ceilings)?Math.max(cap,floor):cap).toFixed(2);
+    const ceilings=paletteLights.map(placementCeiling);
+    const cap=Math.min(...paletteLights.map(l=>Math.min(s.brightness*layoutCopy.placements[l.id].trim,layoutCopy.placements[l.id].ceiling,100)));
+    const floor=Math.max(...paletteLights.map(minimumBrightness));
+    const level=+(Math.max(Math.min(cap,Math.min(...ceilings)),floor)).toFixed(2);
     const paletteIndex=s.morph<50?s.paletteA:s.paletteB;
     const payload={metadata:{name:'Hue Board | '+ENGINE.palettes[paletteIndex].name},actions,
       palette:{color:ENGINE.getColors(s,paletteIndex).map(c=>({color:{xy:ENGINE.xy(c)},dimming:{brightness:level}})),dimming:[],color_temperature:[],effects:[]},
@@ -1087,11 +1097,14 @@ function makeController(cfg,group,options={}) {
       if(!id)throw new HueError('protocol','Scene creation result is uncertain. Inspect Hue scenes before retrying.');
       sceneRegistry[area]={id,group:group.id,type:group.type,createdAt:now()};save(V3_SCENES,sceneRegistry);}
     check(token);
-    for(const l of animated){session.states[l.id].touchedAt=session.states[l.id].touchedAt||now();session.delegated[l.id]={kind:'palette',scene:id,acceptedAt:now(),state:'request pending'};}
-    persist();await paced(token);const recall=await api(cfg,'PUT','scene/'+id,{recall:{action:'dynamic_palette'}});assertAck(recall,id);sent++;check(token);
-    for(const l of animated){session.delegated[l.id].acceptedAt=now();session.delegated[l.id].state='accepted';telemetry.noteReply(l.id,null,'native',recall,id);}persist();
-    for(const l of chosen.filter(l=>!animated.includes(l))){check(token);const p=layoutCopy.placements[l.id],f=fixtureSample(elapsed,{...p,role:p.role==='task'?'task':'anchor'},s);await write(l.id,{...actionFromFrame(l,f,p,s,2500,true),...stopEffect(l)},'static',token);}
-    check(token);mode='delegated';note='Bridge palette accepted for '+animated.length+' lights. You may lock your phone; the Bridge continues independently. This is palette animation, not the exact Studio choreography.';
+    await paced(token);check(token);
+    if(paletteLights.some(l=>byId.get(l.id)?.mode==='streaming'))throw new HueError('ownership','A selected light belongs to an Entertainment stream. The palette was not recalled.');
+    for(const l of paletteLights){session.states[l.id].touchedAt=session.states[l.id].touchedAt||now();session.delegated[l.id]={kind:'palette',scene:id,acceptedAt:now(),state:'request pending'};}
+    persist();const recall=await api(cfg,'PUT','scene/'+id,{recall:{action:'dynamic_palette'}});assertAck(recall,id);sent++;check(token);
+    for(const l of paletteLights){session.delegated[l.id].acceptedAt=now();session.delegated[l.id].state='accepted';telemetry.noteReply(l.id,null,'native',recall,id);}persist();
+    for(const l of chosen.filter(l=>!animated.includes(l))){check(token);const p=layoutCopy.placements[l.id];if(minimumBrightness(l)>Math.min(p.ceiling,s.brightness,100))continue;const f=fixtureSample(elapsed,{...p,role:p.role==='task'?'task':'anchor'},s);await write(l.id,{...actionFromFrame(l,f,p,s,2500,true),...stopEffect(l)},'static',token);}
+    const excluded=animated.length-paletteLights.length;
+    check(token);mode='delegated';note='Bridge palette accepted for '+paletteLights.length+' lights.'+(excluded?' '+excluded+' lights were left unchanged because their ceiling is below the advertised minimum.':'')+' You may lock your phone; the Bridge continues independently. This is palette animation, not the exact Studio choreography.';
   }
   async function nativeEffect(token){
     if(recoveryRequired)throw new HueError('recovery','Resolve the saved restore point in Lab.');
@@ -1101,15 +1114,16 @@ function makeController(cfg,group,options={}) {
     await capture(chosen.map(l=>l.id),token);await stopDelegated(token);check(token);
     for(const l of supported){check(token);session.delegated[l.id]={kind:'effect',effect:name,acceptedAt:now(),state:'request pending'};persist();
       await write(l.id,effectAction(byId.get(l.id),name,s,ls.placements[l.id]),'effect',token);check(token);session.delegated[l.id].acceptedAt=now();session.delegated[l.id].state='accepted';persist();}
-    for(const l of chosen.filter(l=>!supported.includes(l)&&['task','anchor'].includes(ls.placements[l.id].role))){check(token);const p=ls.placements[l.id];await write(l.id,{...actionFromFrame(l,fixtureSample(elapsed,p,s),p,s,2500,true),...stopEffect(l)},'static',token);}
+    for(const l of chosen.filter(l=>!supported.includes(l)&&['task','anchor'].includes(ls.placements[l.id].role))){check(token);const p=ls.placements[l.id];if(minimumBrightness(l)>Math.min(p.ceiling,s.brightness,100))continue;await write(l.id,{...actionFromFrame(l,fixtureSample(elapsed,p,s),p,s,2500,true),...stopEffect(l)},'static',token);}
     check(token);mode='delegated';note=name+' accepted for '+supported.length+'/'+chosen.length+' selected lamps. Unsupported accent/wash fixtures were left unchanged.';
   }
   async function restore(token){
     const errors=[];restoreFailures=[];
     for(const id of Object.keys(session.states)){check(token);const record=session.states[id];
+      if(!record)continue;
       if(!record.touchedAt&&!session.legacy){delete session.states[id];continue;}
-      try{await write(id,record.action,'restore',token);session.states[id].restoreAcceptedAt=now();persist();}
-      catch(e){if(errorKind(e)==='cancelled')throw e;errors.push(layout.order.indexOf(id)+1);restoreFailures.push({id,error:shortError(e)});log('restore',shortError(e),id);if(errorKind(e)==='auth'||errorKind(e)==='network')break;}
+      try{await write(id,record.action,'restore',token);if(session.states[id]){session.states[id].restoreAcceptedAt=now();persist();}}
+      catch(e){if(errorKind(e)==='cancelled')throw e;if(!session.states[id])continue;errors.push(layout.order.indexOf(id)+1);restoreFailures.push({id,error:shortError(e)});log('restore',shortError(e),id);if(errorKind(e)==='auth'||errorKind(e)==='network')break;}
     }
     persist();check(token);mode='paused';recoveryRequired=errors.length>0||Object.keys(session.states).length>0;note=errors.length?'Some restore commands failed. Remaining snapshots are retained; tap Restore to retry.':'Static restore commands accepted. Prior animations are not resumed.';
     if(errors.length)controlError=errors.length+' lamp restore command(s) failed.';
@@ -1258,7 +1272,7 @@ function makeController(cfg,group,options={}) {
         failures[l.id]={count:n,retryAt,error:shortError(e),kind:errorKind(e)};log(errorKind(e),shortError(e),l.id);
         if(errorKind(e)==='auth'){pause('Authorization rejected. Fix pairing from the main menu.');mode='error';controlError=shortError(e);}
         else if(['network','server','rate'].includes(errorKind(e))){networkFailures++;if(networkFailures>=3){pause('Bridge connection failed repeatedly. Start retries after you resolve it.');mode='error';controlError=shortError(e);}}
-        else if(['api','unsupported','missing','ownership'].includes(errorKind(e))){held[l.id]=shortError(e);}
+        else if(['api','unsupported','missing','ownership','validation'].includes(errorKind(e))){held[l.id]=shortError(e);}
       }
     });
   }

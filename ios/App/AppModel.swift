@@ -55,6 +55,7 @@ final class AppModel {
   }
   var hasRestorePoint = false
   var foreignRecoveryPending = false
+  var emergencyOffInFlight = false
   var restoreAreaID: HueResourceID?
   var safetySettings: PhysicalLightSafetySettings = .default
   var pendingDynamicAction: PendingDynamicAction?
@@ -111,7 +112,7 @@ final class AppModel {
   var canUseEverydayControls: Bool {
     isReady && !foreignRecoveryPending && playback.snapshot.mode != .bridge && !isLiveRunning && !isBusy
   }
-  var canTurnOffNow: Bool { isReady && !foreignRecoveryPending }
+  var canTurnOffNow: Bool { isReady && !foreignRecoveryPending && !emergencyOffInFlight }
   var requiresRecovery: Bool {
     foreignRecoveryPending
       || playback.snapshot.phase == .uncertain

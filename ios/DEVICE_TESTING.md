@@ -38,7 +38,7 @@ git diff --exit-code -- \
 
 Record the commit printed by `git rev-parse HEAD` in every device-test result.
 
-The build modifies generated `dist/` files locally because `main` contains v5.3 source while the public Scriptable artifact remains the verified v5.2 release. Do not commit or publish those generated files as a release without completing the release workflow in issue #5.
+The pinned Scriptable artifact on `main` is v5.3.0. `pnpm build` rewrites `dist/` locally. Commit a new bundle only together with an installer pin that names the commit containing those exact bytes.
 
 ## 3. Generate the Xcode project
 

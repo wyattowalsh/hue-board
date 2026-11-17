@@ -24,7 +24,8 @@ test('physical-device helper is syntactically valid and fails closed', () => {
   }
 
   assert.match(script, /^set -Eeuo pipefail$/m);
-  assert.match(script, /Xcode 26 or newer is required/);
+  assert.match(script, /Xcode 27\.2 or newer is required/);
+  assert.match(script, /iPhoneOS SDK 27\.2 or newer is required/);
   assert.match(script, /corepack pnpm install --frozen-lockfile/);
   assert.match(script, /corepack pnpm verify:release/);
   assert.match(script, /corepack pnpm test\n/);

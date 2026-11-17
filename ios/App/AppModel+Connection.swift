@@ -218,6 +218,7 @@ extension AppModel {
         liveProgress = 0
         hasRestorePoint = false
         foreignRecoveryPending = false
+        emergencyOffInFlight = false
         restoreAreaID = nil
         activePlaybackLease = nil
     }
@@ -233,5 +234,6 @@ extension AppModel {
             try await persistence.saveSelectedAreaID(selectedAreaID, bridgeID: profile.bridgeID)
         }
         try await loadRecoveryState()
+        await reconcileAcceptedRestore()
     }
 }

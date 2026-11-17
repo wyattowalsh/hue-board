@@ -90,9 +90,9 @@ test('native app source preserves no-write-on-open and complete restore gates',(
   assert.match(everyday,/No emergency-off command was accepted/);
   assert.match(lookup,/message\.contains\("HTTP 404"\)/);
   const captureIndex=bridgeTransport.indexOf('try await ensureRestoreJournal(');
-  const updateIndex=bridgeTransport.indexOf('try await client.updateScene(');
-  const createIndex=bridgeTransport.indexOf('sceneID = try await client.createScene(');
-  const recallIndex=bridgeTransport.indexOf('try await client.recallScene(');
+  const updateIndex=bridgeTransport.indexOf('client.updateScene(');
+  const createIndex=bridgeTransport.indexOf('client.createScene(');
+  const recallIndex=bridgeTransport.indexOf('client.recallScene(');
   assert.ok(captureIndex>=0&&updateIndex>captureIndex&&createIndex>captureIndex&&recallIndex>captureIndex);
 });
 

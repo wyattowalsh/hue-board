@@ -153,10 +153,28 @@ public enum HueSceneBuilder {
         guard colors.count == 4 else {
             throw HueBoardError.invalidResponse("Hue Board palettes must contain exactly four colors.")
         }
-        let ceiling = lights.map(\.outputLimit).min() ?? 100
-        let floor = lights.map(\.minimumBrightness).max() ?? 0.1
-        let level = min(max(brightness, floor), ceiling)
-        let actions = lights.enumerated().map { index, light in
+        let requested = min(max(brightness, 0.1), 100)
+        var paletteLights = lights
+        while true {
+            let sharedCeiling = paletteLights.map(\.outputLimit).min() ?? 100
+            let sharedFloor = paletteLights.map(\.minimumBrightness).max() ?? 0.1
+            if sharedFloor <= sharedCeiling { break }
+            guard let worst = paletteLights.max(by: { $0.minimumBrightness < $1.minimumBrightness }) else {
+                throw HueBoardError.unsupported(
+                    "No light can show this palette within its minimum and ceiling."
+                )
+            }
+            paletteLights.removeAll { $0.id == worst.id }
+            guard !paletteLights.isEmpty else {
+                throw HueBoardError.unsupported(
+                    "No light can show this palette within its minimum and ceiling."
+                )
+            }
+        }
+        let ceiling = paletteLights.map(\.outputLimit).min() ?? 100
+        let floor = paletteLights.map(\.minimumBrightness).max() ?? 0.1
+        let level = min(max(requested, floor), ceiling)
+        let actions = paletteLights.enumerated().map { index, light in
             HueSceneAction(
                 target: .init(resourceID: light.id, resourceType: "light"),
                 action: .init(
@@ -195,7 +213,7 @@ public enum HueSceneBuilder {
                 speed: speed,
                 autoDynamic: true
             ),
-            animatedLightIDs: lights.map(\.id)
+            animatedLightIDs: paletteLights.map(\.id)
         )
     }
 }

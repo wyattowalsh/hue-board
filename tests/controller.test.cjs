@@ -31,3 +31,41 @@ test('cancel native effect batch mid-request retains partial handoff for Stop',a
 test('palette handoff explicitly ends a previously active built-in effect',async()=>{
   const e=env({count:2});e.database.get('l1').effects_v2.status.effect='cosmos';await e.run(2500);e.ctl.dispatch('bridge');await e.step();await e.ctl.settled();const off=e.calls.findIndex(c=>c.path==='light/l1'&&c.payload?.effects_v2?.action.effect==='no_effect');const recall=e.calls.findIndex(c=>c.payload?.recall);assert.ok(off>=0&&recall>off);await e.ctl.close();
 });
+test('a sample that started before restore acceptance does not retire the baseline',async()=>{
+  const e=env({count:1});await e.start();await e.run(4000);e.ctl.dispatch('restore');await e.step();await e.ctl.settled();
+  const accepted=e.now();
+  e.ctl._observe([...e.database.values()],accepted+5,accepted-1000);
+  assert.equal(e.ctl.state().session.recoveryRequired,true);
+  assert.ok(e.ctl.state().touched>0);
+  e.ctl._observe([{...e.database.get('l1'),mode:'streaming'}],accepted+6,accepted+1);
+  assert.ok(e.ctl._session().states.l1);
+  e.ctl._observe([...e.database.values()],accepted+10,accepted+7);
+  assert.equal(e.ctl.state().touched,0);
+  assert.equal(e.ctl.state().session.recoveryRequired,false);
+  await e.ctl.close();
+});
+test('a confirming read during restore retry does not throw away an empty baseline',async()=>{
+  let armed=false;const e=env({count:1,apiOverride:async(c,m,p,v,basic)=>{const result=await basic(c,m,p,v);if(armed&&m==='PUT'&&p==='light/l1'){armed=false;e.ctl._observe([...e.database.values()],e.now()+2,e.now()+2);}return result;}});
+  await e.start();await e.run(3000);e.ctl.dispatch('restore');await e.step();await e.ctl.settled();
+  assert.equal(e.ctl.state().session.recoveryRequired,true);armed=true;e.ctl.dispatch('restore');await e.step();await e.ctl.settled();
+  assert.equal(e.ctl.state().mode,'paused');assert.equal(e.ctl.state().touched,0);assert.equal(e.ctl.state().session.recoveryRequired,false);await e.ctl.close();
+});
+test('live withholds a lamp whose ceiling is below its minimum dim level',async()=>{
+  const e=env({count:1,lightExtras:{dimming:{brightness:45,min_dim_level:30}}});const layout=clone(e.ctl.state().layout);layout.placements.l1.ceiling=5;e.ctl.update({layout});
+  e.ctl.dispatch('live');await e.step();await e.ctl.settled();await e.run(3000);
+  assert.equal(e.writes().filter(w=>w.path==='light/l1').length,0);
+  assert.match(String(e.ctl.state().ownership.l1),/minimum/);
+  await e.ctl.close();
+});
+test('a shared palette leaves out a lamp whose ceiling is below its minimum',async()=>{
+  const e=env({count:2});
+  const low={...e.database.get('l1'),dimming:{brightness:45,min_dim_level:30}};
+  const high={...e.database.get('l2'),dimming:{brightness:45,min_dim_level:5}};
+  e.database.set('l1',low);e.database.set('l2',high);e.ctl._observe([low,high],e.now(),e.now());
+  const layout=clone(e.ctl.state().layout);layout.placements.l1.ceiling=5;layout.placements.l2.ceiling=100;e.ctl.update({settings:{...e.ctl.state().settings,brightness:60},layout});
+  e.ctl.dispatch('bridge');await e.step();await e.ctl.settled();
+  const create=e.calls.find(c=>c.method==='POST'&&c.path==='scene');
+  assert.ok(create);assert.deepEqual(create.payload.actions.map(a=>a.target.rid),['l2']);
+  assert.equal(create.payload.palette.color[0].dimming.brightness,60);
+  await e.ctl.close();
+});

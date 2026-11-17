@@ -28,6 +28,9 @@ public actor PhysicalLightSafetyStore {
 
     public func load() -> PhysicalLightSafetySettings {
         guard let data = defaults.data(forKey: Key.settings) else {
+            if defaults.data(forKey: Key.quarantine) != nil {
+                return .failedClosed
+            }
             return .default
         }
         do {
@@ -43,6 +46,7 @@ public actor PhysicalLightSafetyStore {
         } catch {
             defaults.set(data, forKey: Key.quarantine)
             defaults.removeObject(forKey: Key.settings)
+            try? save(.failedClosed)
             return .failedClosed
         }
     }

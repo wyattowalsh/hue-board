@@ -71,7 +71,8 @@ function minimumBrightness(light){
 }
 function boundedBrightness(light,value,ceiling){
   const floor=minimumBrightness(light),hi=Math.min(100,ceiling);
-  return +(hi<floor?clamp(value,.1,hi):clamp(value,floor,hi)).toFixed(2);
+  if(hi<floor)throw new HueError('validation','This light’s ceiling is below its advertised minimum dim level.');
+  return +clamp(value,floor,hi).toFixed(2);
 }
 function actionFromFrame(light,frame,placement,settings,duration,on=false,gradientFrames=null) {
   const a={dimming:{brightness:boundedBrightness(light,frame.b,Math.min(settings.brightness,placement.ceiling,100))},dynamics:{duration:Math.round(duration/100)*100}};

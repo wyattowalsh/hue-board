@@ -79,6 +79,7 @@ public struct RestoreJournal: Codable, Equatable, Sendable, Identifiable {
     public let areaID: HueResourceID
     public let areaName: String
     public let createdAt: Date
+    public var restoreAcceptedAt: Date?
     public var snapshots: [HueLightSnapshot]
 
     public init(
@@ -93,6 +94,7 @@ public struct RestoreJournal: Codable, Equatable, Sendable, Identifiable {
         areaID = area.id
         areaName = area.name
         self.createdAt = createdAt
+        restoreAcceptedAt = nil
         snapshots = lights.map { HueLightSnapshot(light: $0, capturedAt: createdAt) }
     }
 }

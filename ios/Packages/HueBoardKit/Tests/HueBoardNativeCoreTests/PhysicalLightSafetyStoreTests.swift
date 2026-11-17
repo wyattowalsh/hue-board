@@ -48,7 +48,15 @@ final class PhysicalLightSafetyStoreTests: XCTestCase {
         XCTAssertTrue(loaded.reduceLightMotion)
         XCTAssertFalse(loaded.warningAcknowledged)
         XCTAssertNotNil(quarantined)
-        XCTAssertNil(context.defaults.data(forKey: "hue-board.native.physical-light-safety.v1"))
+
+        let relaunched = await store.load()
+        XCTAssertEqual(relaunched, .failedClosed)
+        XCTAssertTrue(relaunched.reduceLightMotion)
+
+        context.defaults.removeObject(forKey: "hue-board.native.physical-light-safety.v1")
+        let afterSettingsRemoval = await store.load()
+        XCTAssertEqual(afterSettingsRemoval, .failedClosed)
+        XCTAssertTrue(afterSettingsRemoval.reduceLightMotion)
     }
 
     private func makeContext() -> TestContext {

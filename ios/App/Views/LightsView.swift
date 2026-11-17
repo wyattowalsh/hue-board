@@ -25,7 +25,10 @@ struct LightsView: View {
               Slider(value:$model.brightness,in:1...100,step:1){editing in if !editing { Task{await model.setAreaBrightness(model.brightness)} }}
                 .disabled(!model.canUseEverydayControls)
             }
-            if !model.canUseEverydayControls && model.isReady {
+            if model.foreignRecoveryPending {
+              Text("A saved baseline for another Bridge is still pending. Reconnect that Bridge and restore it before changing lights here.")
+                .font(.caption).foregroundStyle(.secondary)
+            } else if !model.canUseEverydayControls && model.isReady {
               Text("Stop and restore active playback before using ordinary controls. Turn off now remains available and retains the baseline.")
                 .font(.caption).foregroundStyle(.secondary)
             }

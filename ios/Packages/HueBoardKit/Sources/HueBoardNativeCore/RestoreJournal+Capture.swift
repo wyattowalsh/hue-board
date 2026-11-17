@@ -27,6 +27,7 @@ public extension RestoreJournal {
         snapshots.append(
             contentsOf: missing.map { HueLightSnapshot(light: $0, capturedAt: capturedAt) }
         )
+        if !missing.isEmpty { restoreAcceptedAt = nil }
         return missing.count
     }
 }

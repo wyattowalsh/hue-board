@@ -57,6 +57,14 @@ with_xcode() {
   fi
 }
 
+version_at_least() {
+  local value="$1" required_major="$2" required_minor="$3"
+  local major minor ignored
+  IFS='.' read -r major minor ignored <<< "${value}"
+  [[ "${major}" =~ ^[0-9]+$ && "${minor:-0}" =~ ^[0-9]+$ ]] || return 1
+  (( major > required_major || (major == required_major && ${minor:-0} >= required_minor) ))
+}
+
 require_macos_and_xcode() {
   [[ "$(uname -s)" == "Darwin" ]] || die "Apple-platform builds require macOS."
   need git
@@ -66,11 +74,11 @@ require_macos_and_xcode() {
   need swift
   need security
 
-  local version major developer_dir
+  local version sdk developer_dir
   version="$(with_xcode xcodebuild -version | awk 'NR == 1 { print $2 }')"
-  major="${version%%.*}"
-  [[ "${major}" =~ ^[0-9]+$ ]] || die "Could not parse the Xcode version: ${version}"
-  (( major >= 26 )) || die "Xcode 26 or newer is required; active version is ${version}."
+  version_at_least "${version}" 27 2 || die "Xcode 27.2 or newer is required; active version is ${version}."
+  sdk="$(with_xcode xcrun --sdk iphoneos --show-sdk-version)"
+  version_at_least "${sdk}" 27 2 || die "iPhoneOS SDK 27.2 or newer is required; active SDK is ${sdk}."
 
   if [[ -n "${XCODE_APP}" ]]; then
     developer_dir="${XCODE_APP%/}/Contents/Developer"

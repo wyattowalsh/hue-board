@@ -95,7 +95,7 @@ public struct HueLight: Codable, Equatable, Identifiable, Sendable {
         self.id=id; self.ownerID=ownerID; self.name=name; self.isOn=isOn; self.brightness=brightness; self.color=color
         self.colorTemperatureMirek=colorTemperatureMirek; self.dynamicStatus=dynamicStatus; self.gamut=gamut; self.capabilities=capabilities
         self.outputLimit=min(max(outputLimit,1),100)
-        self.minimumBrightness=min(max(minimumBrightness,0.1),self.outputLimit)
+        self.minimumBrightness=min(max(minimumBrightness,0.1),100)
     }
 }
 

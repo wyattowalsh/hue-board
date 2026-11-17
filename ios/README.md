@@ -86,7 +86,7 @@ On Apple test hosts, `HueBoardAppleEngineTests` executes those 512 cases through
 - Independent JavaScript and Swift canonical-format passes reproduce the same 512-frame parity digest.
 - Native source parsing and cross-file API-shape checks have covered the SwiftUI model split, connection/recovery paths and continued-processing coordinator.
 - Static Node gates cover generated parity, no-write-on-open, Keychain use, pinned TLS, Bonjour, bounded SSE parsing, baseline-before-scene-mutation ordering, baseline expansion, emergency-off retention, reconnect-without-repairing and explicit destructive-reset consent.
-- Existing JavaScript regression and synthetic timing suites remain independent of the unpublished v5.3 installer manifest.
+- Existing JavaScript regression and synthetic timing suites check the controller that the pinned v5.3.0 installer publishes.
 
 These checks are useful but do not substitute for the exact Xcode target, Apple Security implementation, simulator, or physical-device tests.
 

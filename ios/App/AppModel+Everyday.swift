@@ -56,31 +56,41 @@ extension AppModel {
 
   func turnOffNow() async {
     guard canTurnOffNow, let profile, let credential, let area = selectedArea else { return }
+    emergencyOffInFlight = true
+    isBusy = true
+    defer {
+      isBusy = false
+      emergencyOffInFlight = false
+    }
     foregroundLiveTask?.cancel()
     foregroundLiveTask = nil
     ContinuedLiveCoordinator.shared.cancel()
     await stopCoordinatedPlayback(reason: .user)
-    isBusy = true
-    defer { isBusy = false }
 
     do {
       let journal = try await persistence.loadRestoreJournal()
       let targetIDs: Set<HueResourceID>
+      let commandAreaID: HueResourceID
       if let journal {
-        guard journal.bridgeID == profile.bridgeID, journal.areaID == area.id else {
+        guard journal.bridgeID == profile.bridgeID else {
           throw HueBoardError.unsupported(
-            "The saved playback baseline belongs to another Bridge or area. Restore it before using emergency off here."
+            "The saved playback baseline belongs to another Bridge. Reconnect that Bridge and restore it before using emergency off here."
           )
         }
         targetIDs = journal.capturedLightIDs
+        commandAreaID = journal.areaID
       } else {
         targetIDs = Set(area.lights.map(\.id))
+        commandAreaID = area.id
       }
       guard !targetIDs.isEmpty else {
         throw HueBoardError.unsupported("No lights are available to turn off.")
       }
 
-      let byID = Dictionary(uniqueKeysWithValues: area.lights.map { ($0.id, $0) })
+      var byID: [HueResourceID: HueLight] = [:]
+      for light in areas.flatMap(\.lights) where byID[light.id] == nil {
+        byID[light.id] = light
+      }
       let eligibleIDs = Set(targetIDs.filter { id in
         guard let light = byID[id] else { return false }
         return light.capabilities.power && !light.capabilities.streaming
@@ -94,7 +104,7 @@ extension AppModel {
       let lease = try await beginDirectControl(
         profile: profile,
         credential: credential,
-        areaID: area.id,
+        areaID: commandAreaID,
         allowedLightIDs: eligibleIDs,
         purpose: "emergency-off"
       )
@@ -155,7 +165,8 @@ extension AppModel {
     brightness = min(max(value, 1), 100)
     let actions: [HueResourceID: HueLightAction] = Dictionary(
       uniqueKeysWithValues: area.lights.compactMap { light -> (HueResourceID, HueLightAction)? in
-        guard light.capabilities.dimming, !light.capabilities.streaming else { return nil }
+        guard light.capabilities.dimming, !light.capabilities.streaming,
+              light.minimumBrightness <= light.outputLimit else { return nil }
         return (
           light.id,
           HueLightAction(

@@ -8,6 +8,8 @@ private actor HueLightFrameWriter {
     private let credential: HueBridgeCredential
     private let allowedLightIDs: Set<HueResourceID>
     private var activeLease: PlaybackWriterLease?
+    private var inFlightWrites = 0
+    private var writeIdleWaiters: [CheckedContinuation<Void, Never>] = []
 
     init(
         kind: LightingTransportKind,
@@ -65,6 +67,8 @@ private actor HueLightFrameWriter {
                 throw PlaybackCoordinationError.staleLease(lease)
             }
             guard let action = frame.actions[id] else { continue }
+            inFlightWrites += 1
+            defer { completeInFlightWrite() }
             try await client.updateLight(
                 id: id,
                 action: action,
@@ -77,10 +81,24 @@ private actor HueLightFrameWriter {
         }
     }
 
-    func stop(lease: PlaybackWriterLease) {
+    func stop(lease: PlaybackWriterLease) async {
         if activeLease == lease {
             activeLease = nil
         }
+        await waitForInFlightWrites()
+    }
+
+    private func completeInFlightWrite() {
+        inFlightWrites -= 1
+        guard inFlightWrites == 0 else { return }
+        let waiters = writeIdleWaiters
+        writeIdleWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+    }
+
+    private func waitForInFlightWrites() async {
+        guard inFlightWrites > 0 else { return }
+        await withCheckedContinuation { writeIdleWaiters.append($0) }
     }
 }
 

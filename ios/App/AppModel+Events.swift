@@ -93,6 +93,9 @@ extension AppModel {
       }
     }
     if batch.requiresInventoryRefresh { scheduleInventoryRefreshFromEvents() }
+    Task { [weak self] in
+      await self?.reconcileAcceptedRestore()
+    }
     if playback.snapshot.mode == .bridge,
        playback.snapshot.phase == .accepted,
        selectedArea?.lights.contains(where: { $0.dynamicStatus == "dynamic_palette" }) == true {
@@ -120,6 +123,7 @@ extension AppModel {
         let values = try await self.client.inventory(profile: profile, credential: credential)
         guard self.eventRefreshGeneration == generation, self.profile?.bridgeID == profile.bridgeID else { return }
         self.areas = values
+        await self.reconcileAcceptedRestore()
         if !values.contains(where: { $0.id == self.selectedAreaID }) {
           self.selectedAreaID = values.first?.id
           try await self.persistence.saveSelectedAreaID(self.selectedAreaID, bridgeID: profile.bridgeID)

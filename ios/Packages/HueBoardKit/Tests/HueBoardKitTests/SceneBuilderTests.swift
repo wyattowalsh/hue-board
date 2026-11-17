@@ -7,6 +7,7 @@ final class SceneBuilderTests: XCTestCase {
         dynamic: Bool = true,
         streaming: Bool = false,
         limit: Double = 100,
+        minimum: Double = 0.1,
         colorTemperature: Int? = nil
     ) -> HueLight {
         .init(
@@ -26,7 +27,8 @@ final class SceneBuilderTests: XCTestCase {
                 dynamicPalette: dynamic,
                 streaming: streaming
             ),
-            outputLimit: limit
+            outputLimit: limit,
+            minimumBrightness: minimum
         )
     }
 
@@ -56,6 +58,28 @@ final class SceneBuilderTests: XCTestCase {
         let object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(draft.create))
             as? [String: Any]
         XCTAssertEqual(object?["auto_dynamic"] as? Bool, true)
+    }
+
+    func testOmitsLightsWhoseMinimumExceedsTheSharedCeiling() throws {
+        let contract = try HueBoardContractLoader.load()
+        let preset = try XCTUnwrap(contract.preset(id: "ion-eclipse"))
+        let area = HueArea(
+            id: .init(rawValue: "room"),
+            kind: .room,
+            name: "Room",
+            lights: [
+                light("high-minimum", limit: 100, minimum: 40),
+                light("low-ceiling", limit: 20, minimum: 1),
+            ]
+        )
+        let draft = try HueSceneBuilder.build(
+            area: area,
+            preset: preset,
+            contract: contract,
+            brightness: 80
+        )
+        XCTAssertEqual(draft.animatedLightIDs.map(\.rawValue), ["low-ceiling"])
+        XCTAssertEqual(draft.create.actions.first?.action.dimming?.brightness, 20)
     }
 
     func testRejectUnsupported() throws {

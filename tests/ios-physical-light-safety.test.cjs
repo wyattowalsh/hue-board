@@ -52,7 +52,7 @@ test('Reduce Light Motion bounds engine behavior and keeps emergency controls av
   assert.match(rest,/duration >= 4_500/);
   const app=read('ios/App/AppModel.swift');
   assert.match(app,/func presentConnection\(\)/);
-  assert.match(app,/var canTurnOffNow: Bool \{ isReady && !foreignRecoveryPending \}/);
+  assert.match(app,/var canTurnOffNow: Bool \{ isReady && !foreignRecoveryPending && !emergencyOffInFlight \}/);
   assert.match(app,/isReady && !foreignRecoveryPending && playback\.snapshot\.mode != \.bridge/);
   assert.doesNotMatch(app,/canUseEverydayControls: Bool \{\n    isReady && !hasRestorePoint/);
   const recovery=read('ios/App/AppModel+Recovery.swift');
@@ -60,6 +60,13 @@ test('Reduce Light Motion bounds engine behavior and keeps emergency controls av
   assert.match(recovery,/Reconnect that Bridge and restore it before changing lights/);
   assert.match(read('ios/App/AppModel+Live.swift'),/Saved restore state belongs to a different Bridge/);
   assert.match(read('ios/App/Views/Components.swift'),/!model\.foreignRecoveryPending && \(model\.hasRestorePoint/);
+  assert.match(read('ios/App/Views/LightsView.swift'),/another Bridge is still pending/);
+  assert.match(read('ios/App/AppModel+Live.swift'),/restoreAcceptedAt = Date\(\)/);
+  assert.doesNotMatch(read('ios/App/AppModel+Live.swift'),/saveRestoreJournal\(nil\)/);
+  assert.match(read('ios/App/AppModel+Recovery.swift'),/Bridge readback matches the saved baseline/);
+  assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardKit/Models.swift'),/self\.minimumBrightness=min\(max\(minimumBrightness,0\.1\),100\)/);
+  assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/PhysicalLightSafetyStore.swift'),/try\? save\(\.failedClosed\)/);
+  assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/HueLightFrameTransports.swift'),/waitForInFlightWrites/);
   assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardKit/PhysicalLightSafety.swift'),/static let failedClosed/);
   assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/PhysicalLightSafetyStore.swift'),/return \.failedClosed/);
   assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardKit/HueAPI.swift'),/minimumBrightness:reportedMinimum/);

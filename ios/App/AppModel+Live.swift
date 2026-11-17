@@ -224,15 +224,17 @@ extension AppModel {
       await finishDirectControl(lease)
 
       if failures.isEmpty {
-        try await persistence.saveRestoreJournal(nil)
+        var accepted = journal
+        accepted.restoreAcceptedAt = Date()
+        try await persistence.saveRestoreJournal(accepted)
         try await persistence.saveLiveDescriptor(nil)
         try await persistence.saveLiveStatus(.idle)
-        hasRestorePoint = false
-        restoreAreaID = nil
         liveProgress = 0
-        playback.stop("Static restore commands accepted for \(journal.snapshots.count) lights.")
-        note = playback.snapshot.message
         try await loadInventory(profile: profile, credential: credential)
+        if hasRestorePoint {
+          playback.fail("Static restore commands accepted. The baseline stays until Bridge readback matches it.")
+          note = playback.snapshot.message
+        }
       } else {
         playback.fail("Restore failed for \(failures.count) lights; the baseline was retained.")
         errorMessage = playback.snapshot.message

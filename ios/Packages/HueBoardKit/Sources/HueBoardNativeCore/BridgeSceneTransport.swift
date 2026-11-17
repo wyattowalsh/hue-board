@@ -33,6 +33,8 @@ public actor BridgeSceneTransport: LightingTransport {
     private var plan: PreparedPlan?
     private var activeLease: PlaybackWriterLease?
     private var currentOutcome: BridgeSceneOutcome = .idle
+    private var bridgeCallsInFlight = 0
+    private var bridgeCallWaiters: [CheckedContinuation<Void, Never>] = []
 
     public init(
         client: any HueBridgePlaybackClient,
@@ -71,11 +73,13 @@ public actor BridgeSceneTransport: LightingTransport {
             throw PlaybackCoordinationError.staleLease(lease)
         }
 
-        let areas = try await client.inventory(
-            profile: profile,
-            credential: credential,
-            outputLimits: [:]
-        )
+        let areas = try await trackBridgeCall {
+            try await client.inventory(
+                profile: profile,
+                credential: credential,
+                outputLimits: [:]
+            )
+        }
         guard let area = areas.first(where: { $0.id == request.scope.areaID }) else {
             throw HueBoardError.missingResource("The selected area is no longer available.")
         }
@@ -92,11 +96,13 @@ public actor BridgeSceneTransport: LightingTransport {
             areaID: area.id
         )
         if let id = existingSceneID {
-            let scene = try await client.sceneIfPresent(
-                id: id,
-                profile: profile,
-                credential: credential
-            )
+            let scene = try await trackBridgeCall {
+                try await client.sceneIfPresent(
+                    id: id,
+                    profile: profile,
+                    credential: credential
+                )
+            }
             if scene?.group?.resourceID != area.id
                 || scene?.group?.resourceType != area.kind.rawValue
             {
@@ -133,20 +139,24 @@ public actor BridgeSceneTransport: LightingTransport {
             try requireActive(lease)
             if let existing = sceneID {
                 mutationAttempted = true
-                try await client.updateScene(
-                    id: existing,
-                    scene: plan.draft.update,
-                    profile: profile,
-                    credential: credential
-                )
+                try await trackBridgeCall {
+                    try await client.updateScene(
+                        id: existing,
+                        scene: plan.draft.update,
+                        profile: profile,
+                        credential: credential
+                    )
+                }
                 try requireActive(lease)
             } else {
                 mutationAttempted = true
-                sceneID = try await client.createScene(
-                    plan.draft.create,
-                    profile: profile,
-                    credential: credential
-                )
+                sceneID = try await trackBridgeCall {
+                    try await client.createScene(
+                        plan.draft.create,
+                        profile: profile,
+                        credential: credential
+                    )
+                }
                 try requireActive(lease)
                 if let sceneID {
                     try await persistence.saveSceneID(
@@ -162,11 +172,13 @@ public actor BridgeSceneTransport: LightingTransport {
             }
             try requireActive(lease)
             recallAttempted = true
-            try await client.recallScene(
-                id: sceneID,
-                profile: profile,
-                credential: credential
-            )
+            try await trackBridgeCall {
+                try await client.recallScene(
+                    id: sceneID,
+                    profile: profile,
+                    credential: credential
+                )
+            }
             try requireActive(lease)
             currentOutcome = .accepted(sceneID: sceneID)
         } catch {
@@ -198,6 +210,26 @@ public actor BridgeSceneTransport: LightingTransport {
             activeLease = nil
             plan = nil
         }
+        await waitForBridgeCallsToFinish()
+    }
+
+    private func trackBridgeCall<T>(_ operation: () async throws -> T) async throws -> T {
+        bridgeCallsInFlight += 1
+        defer { completeBridgeCall() }
+        return try await operation()
+    }
+
+    private func completeBridgeCall() {
+        bridgeCallsInFlight -= 1
+        guard bridgeCallsInFlight == 0 else { return }
+        let waiters = bridgeCallWaiters
+        bridgeCallWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+    }
+
+    private func waitForBridgeCallsToFinish() async {
+        guard bridgeCallsInFlight > 0 else { return }
+        await withCheckedContinuation { bridgeCallWaiters.append($0) }
     }
 
     public func outcome() -> BridgeSceneOutcome {

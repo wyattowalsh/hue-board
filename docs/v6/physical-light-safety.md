@@ -23,6 +23,8 @@ A baseline saved for a different Bridge stays visible after another Bridge conne
 
 ## Limits
 
-A corrupt safety record is quarantined and replaced with the fail-closed settings: Reduce Light Motion on, the 80% dynamic cap, and consent required again.
+A corrupt safety record is quarantined and replaced with the fail-closed settings: Reduce Light Motion on, the 80% dynamic cap, and consent required again. That fail-closed record stays in effect on later launches until the user saves a new choice.
+
+Native Stop & restore keeps the baseline until a later Bridge read of the same lights matches power and brightness. A Bridge acknowledgement alone does not retire it. Scriptable restore uses the same rule and ignores a sample that started before the acknowledgement, including a streaming sample.
 
 These controls are a conservative product policy, not a medical certification or guarantee. The supported physical-light envelope still requires real-device and real-fixture qualification under issues #4, #17, and #18.

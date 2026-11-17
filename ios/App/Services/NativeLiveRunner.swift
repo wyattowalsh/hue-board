@@ -64,6 +64,7 @@ actor NativeLiveRunner {
 
       var actions: [HueResourceID: HueLightAction] = [:]
       for (index, light) in lights.enumerated() {
+        guard light.minimumBrightness <= light.outputLimit else { continue }
         let position = Double(index) / Double(max(1, lights.count))
         let sampled = try await engine.sample(
           time: elapsed,
@@ -79,11 +80,13 @@ actor NativeLiveRunner {
           dynamics: .init(duration: transition)
         )
       }
-      sequence &+= 1
-      try await submit(
-        LightingFrame(sequence: sequence, generatedAt: Date(), actions: actions)
-      )
-      writes += actions.count
+      if !actions.isEmpty {
+        sequence &+= 1
+        try await submit(
+          LightingFrame(sequence: sequence, generatedAt: Date(), actions: actions)
+        )
+        writes += actions.count
+      }
       let current = started.duration(to: clock.now).seconds
       await progress(
         .init(
