@@ -35,12 +35,17 @@ struct PlaybackBanner: View {
             Text(title).font(.headline)
             Text(model.playbackSnapshot.message).font(.caption).foregroundStyle(.secondary).lineLimit(3)
           }
+          .accessibilityElement(children:.combine)
           Spacer()
           if model.hasRestorePoint || model.playbackSnapshot.phase == .running || model.requiresRecovery {
             Button("Stop & restore") { Task{await model.stopAndRestore()} }
               .buttonStyle(.borderedProminent)
               .disabled(model.isBusy)
           }
+          Button("Turn off now", role: .destructive) { Task { await model.turnOffNow() } }
+            .buttonStyle(.bordered)
+            .disabled(!model.canTurnOffNow)
+            .accessibilityHint("Stops Hue Board playback and turns eligible lights off. The saved baseline stays available.")
         }
         if model.playbackSnapshot.phase == .running && model.playbackSnapshot.progress > 0 {
           ProgressView(value:model.playbackSnapshot.progress)
@@ -48,7 +53,6 @@ struct PlaybackBanner: View {
       }
       .padding(12)
       .background(.ultraThinMaterial)
-      .accessibilityElement(children:.combine)
     }
   }
   private var title:String{
@@ -57,7 +61,7 @@ struct PlaybackBanner: View {
     case .liveForeground:"Ambient Live · foreground"
     case .liveContinued:"Ambient Live · continued"
     case .stopping:"Restoring"
-    case .idle:"Recovery"
+    case .idle, .failed:"Recovery"
     }
   }
 }
@@ -128,19 +132,24 @@ struct ScenePreview: View {
   let contract:HueBoardContract
   let selected:Bool
   var body:some View{
-    TimelineView(.animation(minimumInterval:1.0/20.0,paused:false)){context in
-      Canvas{graphics,size in
-        let settings=HueEngineSettings.from(preset:preset,brightness:75)
-        for index in 0..<9 {
-          let position=Double(index)/9
-          let frame=HueEngine.sample(time:context.date.timeIntervalSinceReferenceDate,position:position,settings:settings)
-          let width=size.width/9
-          graphics.fill(Path(roundedRect:CGRect(x:CGFloat(index)*width,y:0,width:width+1,height:size.height),cornerRadius:4),with:.color(Color(red:frame.color.red,green:frame.color.green,blue:frame.color.blue)))
+    let colors=paletteColors
+    HStack(spacing:0){
+      if colors.isEmpty {
+        Rectangle().fill(Color.secondary.opacity(0.35))
+      } else {
+        ForEach(Array(colors.enumerated()), id:\.offset) { _, color in
+          Rectangle().fill(Color(red:color.red, green:color.green, blue:color.blue))
         }
       }
     }
     .frame(height:74)
     .clipShape(RoundedRectangle(cornerRadius:16))
     .overlay(RoundedRectangle(cornerRadius:16).stroke(selected ? .primary : .clear,lineWidth:2))
+    .accessibilityElement(children:.ignore)
+    .accessibilityLabel("Design illustration for \(preset.name). It does not change lights.")
+  }
+
+  private var paletteColors:[RGB]{
+    (try? contract.palette(index:preset.palette)?.decodedColors()) ?? []
   }
 }

@@ -27,7 +27,7 @@ function makeController(cfg,group,options={}) {
   }
   session.states=session.states||{};session.delegated=session.delegated||{};
   // Sanitize persistence: never replay arbitrary payloads from an old saved file.
-  for(const id of Object.keys(session.states)){const l=byId.get(id),a=l&&validatedSnapshot(session.states[id]?.action,l);if(a)session.states[id]={...session.states[id],action:a};else delete session.states[id];}
+  for(const id of Object.keys(session.states)){const light=byId.get(id);if(!light)continue;const action=validatedSnapshot(session.states[id]?.action,light);if(action)session.states[id]={...session.states[id],action};else delete session.states[id];}
   for(const id of Object.keys(session.delegated))if(!byId.has(id))delete session.delegated[id];
   let recoveryRequired=Object.keys(session.states).length>0;
   const sceneRegistry=read(V3_SCENES,{});
@@ -204,7 +204,7 @@ function makeController(cfg,group,options={}) {
       try{await write(id,record.action,'restore',token);delete session.states[id];delete session.delegated[id];delete held[id];persist();}
       catch(e){if(errorKind(e)==='cancelled')throw e;errors.push(layout.order.indexOf(id)+1);restoreFailures.push({id,error:shortError(e)});log('restore',shortError(e),id);if(errorKind(e)==='auth'||errorKind(e)==='network')break;}
     }
-    persist();check(token);mode='paused';recoveryRequired=false;note=errors.length?'Some restore commands failed. Remaining snapshots are retained; tap Restore to retry.':'Static restore commands accepted. Prior animations are not resumed.';
+    persist();check(token);mode='paused';recoveryRequired=errors.length>0||Object.keys(session.states).length>0;note=errors.length?'Some restore commands failed. Remaining snapshots are retained; tap Restore to retry.':'Static restore commands accepted. Prior animations are not resumed.';
     if(errors.length)controlError=errors.length+' lamp restore command(s) failed.';
   }
 
@@ -284,7 +284,7 @@ function makeController(cfg,group,options={}) {
       const eligible=layout.order.some(id=>layout.selected.includes(id)&&byId.get(id)?.mode!=='streaming'&&capabilities(byId.get(id)).color&&capabilities(byId.get(id)).dynamic&&!['task','anchor'].includes(layout.placements[id].role));
       if(!eligible){controlError='No selected color lights support a Bridge dynamic palette. Choose another room or run Live Studio while Scriptable stays open.';return;}
     }
-    if(command==='applyPreset'){try{update({settings:applyLibraryPreset(settings,payload)});note='Preset applied without starting playback. Master brightness and room limits retained.';}catch(e){controlError=shortError(e);}return;}
+    if(command==='applyPreset'){if(mode==='live'){note='Pause Live Studio before previewing another look. Nothing was sent.';return;}try{update({settings:applyLibraryPreset(settings,payload)});note='Preset applied without starting playback. Master brightness and room limits retained.';}catch(e){controlError=shortError(e);}return;}
     if(command==='stopSequence'){sequence.enabled=false;sequence.armed=false;note='Cue sequence stopped; the current live look continues.';return;}
     if(command==='startSequence'){
       const ids=settings.sequenceIds.filter(id=>PRESET_LIBRARY.some(p=>p.id===id));
@@ -313,11 +313,12 @@ function makeController(cfg,group,options={}) {
       const name=String(payload||'').trim().slice(0,48);if(!name)return;const list=command==='savePreset'?presets:rooms,item=command==='savePreset'?{schema:3,name,settings:clone(settings)}:{schema:3,name,layout:clone(layout)};
       const i=list.findIndex(v=>v.name===name);if(i>=0)list[i]=item;else list.push(item);if(list.length>20)list.shift();persistPrefs(true);note='Saved '+name;return;}
     if(command==='loadPreset'||command==='loadRoom'){
+      if(mode==='live'){note='Pause Live Studio before loading a saved look. Nothing was sent.';return;}
       const list=command==='loadPreset'?presets:rooms,item=list.find(v=>v.name===payload);if(!item)return;update({settings:command==='loadPreset'?item.settings:settings,layout:command==='loadRoom'?item.layout:layout});note='Loaded '+item.name+'. No new show was started.';return;}
     if(command==='restoreArchive'){
       if(job||Object.keys(session.delegated).length){controlError='Pause and stop Bridge effects before recovering an archived baseline.';return;}
       const entry=journal.history.filter(v=>v.area===area).find(v=>v.session.id===payload);if(!entry)return;
-      pause();const current=clone(session);session=clone(entry.session);session.delegated=session.delegated||{};for(const id of Object.keys(session.states||{})){const light=byId.get(id),action=light&&validatedSnapshot(session.states[id]?.action,light);if(action)session.states[id].action=action;else delete session.states[id];}for(const id of Object.keys(session.delegated))if(!byId.has(id))delete session.delegated[id];journal.history.push({area,archivedAt:now(),session:current});journal.history=journal.history.slice(-6);recoveryRequired=true;persist();note='Archived restore point selected. Review its timestamp before Restore.';return;
+      pause();const current=clone(session);session=clone(entry.session);session.delegated=session.delegated||{};for(const id of Object.keys(session.states||{})){const light=byId.get(id);if(!light)continue;const action=validatedSnapshot(session.states[id]?.action,light);if(action)session.states[id].action=action;else delete session.states[id];}for(const id of Object.keys(session.delegated))if(!byId.has(id))delete session.delegated[id];journal.history.push({area,archivedAt:now(),session:current});journal.history=journal.history.slice(-6);recoveryRequired=true;persist();note='Archived restore point selected. Review its timestamp before Restore.';return;
     }
     if(!['live','bridge','background','restore','stopBridge'].includes(command))return;
     epoch++;pending={command,token:epoch};controlError='';mode=command==='restore'?'restoring':command==='stopBridge'?'stopping':'preparing';

@@ -10,6 +10,19 @@ const contract=JSON.parse(fs.readFileSync(path.join(resources,'hue-board-contrac
 const golden=JSON.parse(fs.readFileSync(path.join(resources,'engine-golden.json'),'utf8'));
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 
+test('bundled engine runtime matches src/engine.js and its manifest',()=>{
+  const engine=fs.readFileSync(path.join(root,'src/engine.js'));
+  const bridge=Buffer.from('globalThis.HueBoardEngineBridge={clean:function(settings){return ENGINE.clean(settings);},sample:function(time,position,settings,surge){const f=ENGINE.sample(time,position,ENGINE.clean(settings),surge||0);return {rgb:f.rgb,brightness:f.b};},xy:function(rgb,gamut){return ENGINE.xy(rgb,gamut||null);}};\n');
+  const runtimePath=path.join(root,'ios/Packages/HueBoardKit/Sources/HueBoardAppleEngine/Resources/engine-runtime.js');
+  const runtime=fs.readFileSync(runtimePath);
+  const manifest=JSON.parse(fs.readFileSync(path.join(path.dirname(runtimePath),'engine-manifest.json'),'utf8'));
+  assert.ok(runtime.subarray(0,engine.length).equals(engine));
+  assert.ok(runtime.subarray(engine.length).equals(bridge));
+  assert.equal(manifest.schema,1);
+  assert.equal(manifest.release,require('../package.json').version);
+  assert.equal(manifest.sha256,crypto.createHash('sha256').update(runtime).digest('hex'));
+});
+
 test('native contract mirrors JavaScript definitions',()=>{
   assert.equal(contract.schema,1);
   assert.equal(contract.release,require('../package.json').version);

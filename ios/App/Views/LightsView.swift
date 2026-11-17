@@ -14,11 +14,12 @@ struct LightsView: View {
               Button("Turn on"){Task{await model.setAreaPower(true)}}.buttonStyle(.borderedProminent)
               Button("Turn off"){Task{await model.setAreaPower(false)}}.buttonStyle(.bordered)
               Spacer()
-              Button("Turn off now",role:.destructive){Task{await model.turnOffNow()}}
-                .buttonStyle(.bordered)
-                .disabled(!model.canTurnOffNow)
             }
             .disabled(!model.canUseEverydayControls)
+            Button("Turn off now",role:.destructive){Task{await model.turnOffNow()}}
+              .buttonStyle(.bordered)
+              .disabled(!model.canTurnOffNow)
+              .accessibilityHint("Stops Hue Board playback and turns eligible lights off. The saved baseline stays available.")
             VStack(alignment:.leading){
               HStack{Text("Brightness");Spacer();Text("\(Int(model.brightness))%").monospacedDigit()}
               Slider(value:$model.brightness,in:1...100,step:1){editing in if !editing { Task{await model.setAreaBrightness(model.brightness)} }}

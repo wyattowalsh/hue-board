@@ -27,6 +27,7 @@ test('Reduce Light Motion bounds engine behavior and keeps emergency controls av
   const runner=read('ios/App/Services/NativeLiveRunner.swift');
   const settings=read('ios/App/Views/SettingsView.swift');
   const lights=read('ios/App/Views/LightsView.swift');
+  const banner=read('ios/App/Views/Components.swift');
   assert.match(policy,/speed = min\(result\.speed, 0\.55\)/);
   assert.match(policy,/energy = min\(result\.energy, 45\)/);
   assert.match(policy,/return max\(8_000, count \* 800\)/);
@@ -34,6 +35,12 @@ test('Reduce Light Motion bounds engine behavior and keeps emergency controls av
   assert.match(settings,/Reduce Light Motion/);
   assert.match(settings,/not a medical guarantee/);
   assert.match(lights,/Turn off now/);
+  assert.match(banner,/Button\("Turn off now"/);
+  assert.match(banner,/case \.idle, \.failed:"Recovery"/);
+  const everyday=lights.slice(lights.indexOf('Everyday control'), lights.indexOf('Brightness'));
+  const powerRow=everyday.slice(0, everyday.indexOf('.disabled(!model.canUseEverydayControls)'));
+  assert.doesNotMatch(powerRow,/Turn off now/);
+  assert.doesNotMatch(banner,/HueEngine\.sample/);
 });
 
 test('ordinary static controls are not subject to dynamic brightness cap',()=>{

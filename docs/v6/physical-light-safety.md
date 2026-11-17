@@ -17,7 +17,7 @@ The warning tells users to start at low brightness, avoid looking directly at la
 
 ## Emergency behavior
 
-`Turn off now` remains available during playback. It cancels Hue Board's active writer lease, targets only eligible lights in the selected or recoverable scope, reports unresolved lights, and retains the restore baseline.
+`Turn off now` remains available during playback from the playback banner on every tab and from the Lights screen, outside the everyday controls that playback disables. It cancels Hue Board's active writer lease, targets only eligible lights in the selected or recoverable scope, reports unresolved lights, and retains the restore baseline. The scene list shows a static palette illustration. That illustration does not sample the shared engine and does not write lights.
 
 ## Limits
 
