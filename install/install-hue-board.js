@@ -2,8 +2,8 @@
 // Installs code only; never removes the Hue Bridge authorization or saved settings.
 const APP = 'Hue Board';
 const VERSION = '5.3.0';
-const REVISION = '82140cc3ee1141799acdb0a01bc5e03f69118f75';
-const EXPECTED_SHA256 = '9fcef3778fe93d0f46f61975103931cb7ac967ee12738b6cdb3d192a8757ab05';
+const REVISION = '908f84f73fa54045d44306c33e312876aded362b';
+const EXPECTED_SHA256 = 'ffbed528e9e84ccda0103f6520b938534aa63946636654df7d10a3a0d3a7cf36';
 const URL = `https://raw.githubusercontent.com/wyattowalsh/hue-board/${REVISION}/dist/hue-board.js`;
 
 
