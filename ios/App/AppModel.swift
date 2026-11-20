@@ -7,7 +7,7 @@ import Observation
 @MainActor
 @Observable
 final class AppModel {
-  enum Tab: Hashable { case lights, scenes, live }
+  enum Tab: Hashable { case lights, scenes, live, room }
   enum PendingDynamicAction: Equatable {
     case bridge(presetID: String)
     case ambient
@@ -30,7 +30,20 @@ final class AppModel {
   var credential: HueBridgeCredential?
   var areas: [HueArea] = []
   var selectedAreaID: HueResourceID?
+  var roomLayout: HueRoomLayout?
+  var roomLayoutIssue: String?
+  var focusedFixtureID: HueResourceID?
+  var roomLayoutScope: String?
   var selectedPresetID: String
+  // An editable Studio draft. Editing it never sends a Bridge command.
+  var studioSettings: HueEngineSettings = .init()
+  var savedStudioDocuments: [HueSceneDocument] = []
+  var studioLibraryIssue: String?
+  var cueIDs: [String] = ["ion-eclipse", "plasma-turbine", "deep-orbit"]
+  var cueHoldSeconds: Double = 90
+  var cueOrder: HueCueOrder = .forward
+  var isCueSequenceEnabled = false
+  var currentCueStatus: String?
   var brightness = 60.0
   var liveDuration: TimeInterval = 15 * 60
   var playback = HuePlaybackMachine()
@@ -71,6 +84,8 @@ final class AppModel {
   @ObservationIgnored nonisolated let playbackCoordinator = PlaybackCoordinator()
   @ObservationIgnored nonisolated let localDiscovery = HueLocalDiscovery()
   @ObservationIgnored let keychain = KeychainVault()
+  @ObservationIgnored let studioDocumentStore = StudioDocumentStore()
+  @ObservationIgnored let roomLayoutStore = HueRoomLayoutStore()
   @ObservationIgnored var activePlaybackLease: PlaybackWriterLease?
   @ObservationIgnored var foregroundLiveTask: Task<Void, Never>?
   @ObservationIgnored var eventTask: Task<Void, Never>?
@@ -86,6 +101,16 @@ final class AppModel {
       preconditionFailure("Hue Board native resources are invalid: \(error.localizedDescription)")
     }
     selectedPresetID = contract.presets.first?.id ?? "ion-eclipse"
+    if let preset = contract.presets.first {
+      studioSettings = HueEngineSettings.from(preset: preset, brightness: brightness)
+    }
+    do {
+      savedStudioDocuments = try studioDocumentStore.load(contract: contract)
+    } catch {
+      // Preserve malformed or incompatible storage for recovery; never
+      // replace it with a new empty library after a decode failure.
+      studioLibraryIssue = error.localizedDescription
+    }
   }
 
   var selectedArea: HueArea? {
@@ -96,6 +121,14 @@ final class AppModel {
   }
 
   var selectedPreset: HuePreset? { contract.preset(id: selectedPresetID) }
+
+  // Load is deliberately explicit. Choosing a Bridge scene must not silently
+  // replace a user's in-progress Studio composition.
+  func loadPresetIntoStudio(_ preset: HuePreset) {
+    guard !isLiveRunning else { return }
+    selectedPresetID = preset.id
+    studioSettings = HueEngineSettings.from(preset: preset, brightness: brightness)
+  }
   var isReady: Bool { connectionState == .ready && profile != nil && credential != nil }
   var playbackSnapshot: HuePlaybackSnapshot { playback.snapshot }
   var eventStreamStatus: String {
@@ -110,7 +143,8 @@ final class AppModel {
   }
   var canSwitchArea: Bool { !hasRestorePoint && !isLiveRunning && !isBusy }
   var canUseEverydayControls: Bool {
-    isReady && !foreignRecoveryPending && playback.snapshot.mode != .bridge && !isLiveRunning && !isBusy
+    isReady && !requiresRecovery && playback.snapshot.mode != .bridge
+      && !isLiveRunning && !isBusy
   }
   var canTurnOffNow: Bool { isReady && !foreignRecoveryPending && !emergencyOffInFlight }
   var requiresRecovery: Bool {
@@ -124,7 +158,24 @@ final class AppModel {
       && (!hasRestorePoint || restoreAreaID == selectedAreaID)
   }
   var canStartLive: Bool {
-    isReady && !hasRestorePoint && playback.snapshot.mode != .bridge && !requiresRecovery && !isBusy
+    guard isReady, !hasRestorePoint, playback.snapshot.mode != .bridge,
+          !requiresRecovery, !isBusy, roomLayoutIssue == nil,
+          let area = selectedArea, let roomLayout else { return false }
+    guard !roomLayout.selectedEntries(in: area).isEmpty else { return false }
+    if isCueSequenceEnabled {
+      let sequence = HueCueSequence(
+        presetIDs: cueIDs,
+        holdSeconds: cueHoldSeconds,
+        order: cueOrder,
+        seed: studioSettings.seed
+      )
+      return (try? sequence.validate(contract: contract)) != nil
+    }
+    return true
+  }
+  var canEditRoomLayout: Bool {
+    isReady && !isBusy && !isLiveRunning && !hasRestorePoint
+      && playback.snapshot.mode != .bridge && !requiresRecovery && !foreignRecoveryPending
   }
   var canForgetBridge: Bool {
     profile != nil && !hasRestorePoint && !foreignRecoveryPending && !isLiveRunning && !isBusy

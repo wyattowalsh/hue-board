@@ -106,7 +106,7 @@ struct LightRow: View {
       }
       Spacer()
       if light.capabilities.streaming { Label("Streaming",systemImage:"waveform").font(.caption).foregroundStyle(.orange) }
-      else { Text(light.isOn ? "\(Int(light.brightness))%":"Off").font(.callout.monospacedDigit()) }
+      else { Text(light.isOn ? (light.brightness.map { "\(Int($0))%" } ?? "On") : "Off").font(.callout.monospacedDigit()) }
     }
     .accessibilityElement(children:.combine)
   }
@@ -127,29 +127,93 @@ func swiftUIColor(_ xy:HueXY?)->Color{
   return Color(red:min(1,gamma(1.656492*X-0.354851*Y-0.255038*Z)),green:min(1,gamma(-0.707196*X+1.655397*Y+0.036152*Z)),blue:min(1,gamma(0.051713*X-0.121364*Y+1.011530*Z)))
 }
 
-struct ScenePreview: View {
-  let preset:HuePreset
-  let contract:HueBoardContract
-  let selected:Bool
-  var body:some View{
-    let colors=paletteColors
-    HStack(spacing:0){
-      if colors.isEmpty {
-        Rectangle().fill(Color.secondary.opacity(0.35))
-      } else {
-        ForEach(Array(colors.enumerated()), id:\.offset) { _, color in
-          Rectangle().fill(Color(red:color.red, green:color.green, blue:color.blue))
-        }
-      }
-    }
-    .frame(height:74)
-    .clipShape(RoundedRectangle(cornerRadius:16))
-    .overlay(RoundedRectangle(cornerRadius:16).stroke(selected ? .primary : .clear,lineWidth:2))
-    .accessibilityElement(children:.ignore)
-    .accessibilityLabel("Design illustration for \(preset.name). It does not change lights.")
-  }
+import SwiftUI
+import HueBoardKit
 
-  private var paletteColors:[RGB]{
-    (try? contract.palette(index:preset.palette)?.decodedColors()) ?? []
-  }
+struct ScenePreview: View {
+    @Environment(AppModel.self) private var model
+    @State private var sampledFrames: [HueLightFrame] = []
+
+    let preset: HuePreset
+    let contract: HueBoardContract
+    let selected: Bool
+
+    private var fallbackColors: [RGB] {
+        (try? contract.palette(index: preset.palette)?.decodedColors()) ?? []
+    }
+
+    private var previewID: String {
+        "\(preset.id):\(Int(model.effectiveDynamicBrightness)):\(model.safetySettings.reduceLightMotion)"
+    }
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 4) {
+            if sampledFrames.isEmpty {
+                ForEach(Array(fallbackColors.enumerated()), id: \.offset) { _, color in
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(
+                            red: color.red,
+                            green: color.green,
+                            blue: color.blue
+                        ))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 58)
+                }
+            } else {
+                ForEach(Array(sampledFrames.enumerated()), id: \.offset) { _, frame in
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(
+                            red: min(max(frame.color.red, 0), 1),
+                            green: min(max(frame.color.green, 0), 1),
+                            blue: min(max(frame.color.blue, 0), 1)
+                        ))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: max(12, min(67, frame.brightness)))
+                }
+            }
+        }
+        .padding(10)
+        .frame(height: 85, alignment: .bottom)
+        .frame(maxWidth: .infinity)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.08, green: 0.09, blue: 0.15),
+                    Color(red: 0.12, green: 0.14, blue: 0.23)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16)
+            .stroke(selected ? Color.primary : Color.clear, lineWidth: 2))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Engine snapshot for \(preset.name). Preview only; no lights changed.")
+        .task(id: previewID) {
+            sampledFrames = []
+            let settings = PhysicalLightSafetyPolicy.adjustedEngineSettings(
+                HueEngineSettings.from(
+                    preset: preset,
+                    brightness: model.effectiveDynamicBrightness
+                ),
+                safety: model.safetySettings
+            )
+            var samples: [HueLightFrame] = []
+            for index in 0..<8 {
+                if Task.isCancelled { return }
+                do {
+                    samples.append(try await model.engine.sample(
+                        time: 19,
+                        position: Double(index) / 8,
+                        settings: settings,
+                        surge: 0
+                    ))
+                } catch {
+                    return
+                }
+            }
+            if !Task.isCancelled { sampledFrames = samples }
+        }
+    }
 }

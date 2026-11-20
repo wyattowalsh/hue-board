@@ -580,7 +580,7 @@ public enum HueSceneDocumentCodec {
         if let colors = legacy.customColors,
            colors.count == 4,
            colors.allSatisfy({ (try? RGB(hex: $0)) != nil }) {
-            customColors = colors.map(\.uppercased)
+            customColors = colors.map { $0.uppercased() }
         } else {
             if legacy.customColors != nil { warnings.append("Replaced invalid custom colors with defaults.") }
             customColors = defaults.customColors

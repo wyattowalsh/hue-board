@@ -1,7 +1,9 @@
 import SwiftUI
+import HueBoardKit
 
 struct LightsView: View {
   @Environment(AppModel.self) private var model
+  @State private var selectedLight: HueLight?
   var body:some View{
     @Bindable var model=model
     Group{
@@ -22,8 +24,17 @@ struct LightsView: View {
               .accessibilityHint("Stops Hue Board playback and turns eligible lights off. The saved baseline stays available.")
             VStack(alignment:.leading){
               HStack{Text("Brightness");Spacer();Text("\(Int(model.brightness))%").monospacedDigit()}
-              Slider(value:$model.brightness,in:1...100,step:1){editing in if !editing { Task{await model.setAreaBrightness(model.brightness)} }}
+              Slider(value: $model.brightness, in: 1...100, step: 1)
                 .disabled(!model.canUseEverydayControls)
+              Button("Apply brightness & turn on") {
+                Task { await model.setAreaBrightness(model.brightness) }
+              }
+              .buttonStyle(.borderedProminent)
+              .disabled(!model.canUseEverydayControls)
+              .accessibilityHint("Sends the selected brightness only after this button is pressed.")
+              Text("Moving the slider edits the value only. It never writes to lights until Apply is pressed.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             if model.foreignRecoveryPending {
               Text("A saved baseline for another Bridge is still pending. Reconnect that Bridge and restore it before changing lights here.")
@@ -35,7 +46,20 @@ struct LightsView: View {
           }
           if let area=model.selectedArea {
             Section("\(area.name) · \(area.lights.count) lights"){
-              ForEach(area.lights){LightRow(light:$0)}
+              ForEach(area.lights) { light in
+                Button {
+                  selectedLight = light
+                } label: {
+                  HStack {
+                    LightRow(light: light)
+                    Image(systemName: "slider.horizontal.3")
+                      .font(.caption)
+                      .foregroundStyle(.secondary)
+                  }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Edit \(light.name)")
+              }
             }
           }
           Section {
@@ -46,6 +70,9 @@ struct LightsView: View {
       }
     }
     .navigationTitle("Lights")
+    .sheet(item: $selectedLight) { light in
+      LightDetailSheet(light: light).environment(model)
+    }
     .toolbar {
       ToolbarItem(placement:.topBarTrailing){Button{model.isConnectionSheetPresented=true}label:{Image(systemName:"dot.radiowaves.left.and.right")}.accessibilityLabel("Bridge connection")}
       ToolbarItem(placement:.topBarTrailing){Button{Task{await model.refreshInventory()}}label:{Image(systemName:"arrow.clockwise")}.disabled(!model.isReady||model.isBusy).accessibilityLabel("Refresh Bridge state")}

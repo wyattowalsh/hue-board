@@ -6,7 +6,7 @@ import HueBoardNativeCore
 extension AppModel {
   func startNativeLive() async {
     guard canStartLive, let profile, let credential, let area = selectedArea,
-      let preset = selectedPreset
+      let preset = selectedPreset, let spatialSnapshot = roomLayout
     else { return }
     guard !requiresDynamicLightConsent(for: .ambient) else { return }
     isBusy = true
@@ -22,10 +22,15 @@ extension AppModel {
       guard let freshArea = freshAreas.first(where: { $0.id == area.id }) else {
         throw HueBoardError.missingResource("The selected area is no longer available.")
       }
+      try spatialSnapshot.validate(for: freshArea)
       let touched = Set(
-        freshArea.lights.filter {
-          $0.capabilities.color && $0.capabilities.dimming && !$0.capabilities.streaming
-        }.map(\.id))
+        spatialSnapshot.selectedEntries(in: freshArea).map { $0.0.id }
+      )
+      guard !touched.isEmpty else {
+        throw HueBoardError.unsupported(
+          "No selected color lights remain eligible for this Studio layout."
+        )
+      }
       try await ensureRestoreJournal(profile: profile, area: freshArea, touchedIDs: touched)
 
       let transport = RestAmbientTransport(
@@ -48,6 +53,23 @@ extension AppModel {
       let duration = liveDuration
       let brightness = effectiveDynamicBrightness
       let safetySettings = safetySettings
+      let cueSnapshot: HueCueSequence? = isCueSequenceEnabled
+        ? HueCueSequence(
+            presetIDs: cueIDs,
+            holdSeconds: cueHoldSeconds,
+            order: cueOrder,
+            seed: studioSettings.seed
+          )
+        : nil
+      if let cueSnapshot {
+        try cueSnapshot.validate(contract: contract)
+      }
+      let contract = contract
+      let studioSnapshot: HueEngineSettings = {
+        var captured = studioSettings
+        captured.brightness = brightness
+        return captured
+      }()
       let descriptor = LiveSessionDescriptor(
         profile: profile,
         area: freshArea,
@@ -64,8 +86,10 @@ extension AppModel {
         do {
           try await runner.run(
             area: freshArea,
-            preset: preset,
-            brightness: brightness,
+            layout: spatialSnapshot,
+            settings: studioSnapshot,
+            cueSequence: cueSnapshot,
+            contract: contract,
             duration: duration,
             safetySettings: safetySettings,
             submit: { frame in
@@ -73,9 +97,13 @@ extension AppModel {
             }
           ) { progress in
             guard await playbackCoordinator.isCurrent(ownedLease) else { return }
+            let cueLabel = progress.cue.map { cue -> String in
+              let name = contract.preset(id: cue.presetID)?.name ?? "Unknown cue"
+              return "Cue \(cue.position + 1)/\(cue.count): \(name) · \(Int(cue.remaining))s"
+            }
             update(
               progress.fraction,
-              "\(Int(progress.fraction * 100))% · \(Int(progress.remaining))s remaining"
+              cueLabel ?? "\(Int(progress.fraction * 100))% · \(Int(progress.remaining))s remaining"
             )
             try? await persistence.saveLiveStatus(
               .init(
@@ -89,8 +117,9 @@ extension AppModel {
             await MainActor.run {
               guard model.value?.activePlaybackLease == ownedLease else { return }
               model.value?.liveProgress = progress.fraction
+              model.value?.currentCueStatus = cueLabel
               model.value?.playback.updateLiveProgress(progress.fraction)
-              model.value?.note = "Ambient Live · \(Int(progress.fraction * 100))%"
+              model.value?.note = cueLabel ?? "Studio Live · \(Int(progress.fraction * 100))%"
             }
           }
           try await playbackCoordinator.finish(ownedLease)
@@ -107,6 +136,7 @@ extension AppModel {
             guard model.value?.activePlaybackLease == ownedLease else { return }
             model.value?.activePlaybackLease = nil
             model.value?.playback.finishLive()
+            model.value?.currentCueStatus = nil
             model.value?.note = "Ambient Live finished. Restore the saved baseline when ready."
           }
         } catch is CancellationError {
@@ -187,6 +217,7 @@ extension AppModel {
     guard let profile, let credential, !isBusy else { return }
     isBusy = true
     playback.beginStopping()
+    currentCueStatus = nil
     foregroundLiveTask?.cancel()
     foregroundLiveTask = nil
     ContinuedLiveCoordinator.shared.cancel()

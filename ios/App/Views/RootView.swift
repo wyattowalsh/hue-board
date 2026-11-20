@@ -16,8 +16,12 @@ struct RootView: View {
                 .tag(AppModel.Tab.scenes)
 
             NavigationStack { LiveView() }
-                .tabItem { Label("Live", systemImage: "waveform.path") }
+                .tabItem { Label("Studio", systemImage: "waveform.path") }
                 .tag(AppModel.Tab.live)
+
+            NavigationStack { RoomLayoutView() }
+                .tabItem { Label("Room", systemImage: "circle.hexagongrid") }
+                .tag(AppModel.Tab.room)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlaybackBanner()

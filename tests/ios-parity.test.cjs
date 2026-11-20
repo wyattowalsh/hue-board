@@ -67,6 +67,7 @@ test('native app source preserves no-write-on-open and complete restore gates',(
   const connection=read('ios/App/AppModel+Connection.swift');
   const recovery=read('ios/App/AppModel+Recovery.swift');
   const everyday=read('ios/App/AppModel+Everyday.swift');
+  const lightsView=read('ios/App/Views/LightsView.swift');
   const bridgeTransport=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/BridgeSceneTransport.swift');
   const journal=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/RestoreJournal+Capture.swift');
   const lookup=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/HueBridgeClient+SceneLookup.swift');
@@ -88,6 +89,13 @@ test('native app source preserves no-write-on-open and complete restore gates',(
   assert.match(journal,/!existing\.contains\(\$0\.id\)/);
   assert.match(everyday,/targetIDs = journal\.capturedLightIDs/);
   assert.match(everyday,/No emergency-off command was accepted/);
+  assert.match(lightsView,/Button\("Apply brightness & turn on"\)/);
+  assert.match(lightsView,/Moving the slider edits the value only/);
+  assert.doesNotMatch(lightsView,/Slider\([^\n]+\)\{editing/);
+  assert.doesNotMatch(lightsView,/onEditingChanged/);
+  const brightnessApply=lightsView.indexOf('Button("Apply brightness & turn on")');
+  const brightnessWrite=lightsView.indexOf('model.setAreaBrightness',brightnessApply);
+  assert.ok(brightnessApply>=0&&brightnessWrite>brightnessApply);
   assert.match(lookup,/message\.contains\("HTTP 404"\)/);
   const captureIndex=bridgeTransport.indexOf('try await ensureRestoreJournal(');
   const updateIndex=bridgeTransport.indexOf('client.updateScene(');
@@ -108,7 +116,9 @@ test('native app keeps credentials out of source and in Keychain',()=>{
   assert.doesNotMatch(source,/(?:manualHost|host)\s*=\s*["'](?:10|192\.168|172\.(?:1[6-9]|2\d|3[01]))\.\d+\.\d+["']/);
   assert.match(read('ios/App/Services/KeychainVault.swift'),/kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly/);
   const bridgeClient=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/HueBridgeClient.swift');
-  assert.match(bridgeClient,/generateclientkey: false/);
+  assert.match(bridgeClient,/HuePairingRequest\(devicetype: "hue_board#iphone"\)/);
+  assert.doesNotMatch(bridgeClient,/generateclientkey: false\)/);
+  assert.doesNotMatch(bridgeClient,/let generateclientkey: Bool/);
   assert.doesNotMatch(bridgeClient,/prefix\(160\)/);
   assert.match(bridgeClient,/resourceType == "scene"/);
   assert.doesNotMatch(bridgeClient,/response\.data\.first\?\.resourceID/);
@@ -122,7 +132,13 @@ test('native local transport verifies bridge identity and pins its certificate',
   const connection=read('ios/App/AppModel+Connection.swift');
   const sheet=read('ios/App/Views/ConnectionSheet.swift');
   const plist=read('ios/App/Info.plist');
-  assert.match(tls,/SecPolicyCreateSSL\(true, observation\.bridgeID/);
+  // Hue certificates can bind the Bridge ID by Common Name without a DNS SAN.
+  // Require explicit ID/pin validation plus hostname-independent SSL policy.
+  assert.match(tls,/SecCertificateCopyCommonName\(leaf,/);
+  assert.match(tls,/expectedBridgeID: expectedBridgeID,/);
+  assert.match(tls,/pinnedSHA256: pinnedSHA256/);
+  assert.match(tls,/SecPolicyCreateSSL\(true, nil\)/);
+  assert.match(tls,/SecTrustEvaluateWithError\(trust,/);
   assert.match(tls,/SecTrustSetAnchorCertificates\(/);
   assert.match(tls,/pinnedSHA256/);
   assert.match(tls,/certificate changed/i);
@@ -170,7 +186,7 @@ test('native project includes exact engine and explicit continued-processing con
   assert.match(coordinator,/request\.strategy = \.fail/);
   assert.match(plist,/com\.wyattowalsh\.HueBoard\.live/);
   assert.match(plist,/NSLocalNetworkUsageDescription/);
-  const runner=read('ios/App/Services/NativeLiveRunner.swift');
+  const runner=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/NativeLiveRunner.swift');
   assert.match(runner,/minimumCycleSeconds/);
   assert.match(runner,/Task\.sleep\(\s*for:/);
   const transports=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/HueLightFrameTransports.swift');

@@ -148,7 +148,13 @@ final class HueBridgeTrustDelegate: NSObject, URLSessionDelegate, URLSessionTask
                 pinnedSHA256: pinnedSHA256
             )
 
-            let policy = SecPolicyCreateSSL(true, observation.bridgeID as CFString)
+            // Older Hue Bridge certificates identify the Bridge in their Common Name
+            // but have no DNS Subject Alternative Name. Apple rejects a hostname-bound
+            // SSL policy for those certificates even when that Common Name matches.
+            // We explicitly check the Bridge ID and SHA-256 pin above; the API Bridge
+            // ID is checked by the caller before pairing. Keep SSL trust evaluation
+            // for certificate validity and server use, without an inapplicable DNS name.
+            let policy = SecPolicyCreateSSL(true, nil)
             guard SecTrustSetPolicies(trust, policy) == errSecSuccess,
                   SecTrustSetAnchorCertificates(trust, [leaf] as CFArray) == errSecSuccess,
                   SecTrustSetAnchorCertificatesOnly(trust, true) == errSecSuccess

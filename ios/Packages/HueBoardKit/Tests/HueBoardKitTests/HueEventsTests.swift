@@ -33,7 +33,9 @@ final class HueEventsTests: XCTestCase {
                 color: true,
                 colorTemperature: true,
                 dynamicPalette: true
-            )
+            ),
+            temperatureMinimumMirek: 153,
+            temperatureMaximumMirek: 454
         )
         let updated = base.applying(try XCTUnwrap(batch.resources.first))
         XCTAssertFalse(updated.isOn)
@@ -43,6 +45,9 @@ final class HueEventsTests: XCTestCase {
         XCTAssertTrue(updated.capabilities.streaming)
         XCTAssertEqual(updated.name, base.name)
         XCTAssertEqual(updated.outputLimit, base.outputLimit)
+        XCTAssertEqual(updated.supportedTemperatureRange, 153...454)
+        XCTAssertEqual(updated.temperatureMinimumMirek, base.temperatureMinimumMirek)
+        XCTAssertEqual(updated.temperatureMaximumMirek, base.temperatureMaximumMirek)
     }
 
     func testParserSupportsMultilineDataAndStructuralRefresh() throws {

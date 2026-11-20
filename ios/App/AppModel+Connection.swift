@@ -207,6 +207,10 @@ extension AppModel {
         credential = nil
         areas = []
         selectedAreaID = nil
+        roomLayout = nil
+        roomLayoutScope = nil
+        roomLayoutIssue = nil
+        focusedFixtureID = nil
         pendingProfile = nil
         discoveredBridges = []
         manualHost = ""
@@ -237,6 +241,7 @@ extension AppModel {
             selectedAreaID = values.first?.id
             try await persistence.saveSelectedAreaID(selectedAreaID, bridgeID: profile.bridgeID)
         }
+        loadCurrentRoomLayout()
         try await loadRecoveryState()
         await reconcileAcceptedRestore()
     }

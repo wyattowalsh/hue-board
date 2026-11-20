@@ -14,6 +14,7 @@ extension AppModel {
     do {
       try await loadRecoveryState()
       if let profile { try await persistence.saveSelectedAreaID(id, bridgeID: profile.bridgeID) }
+      loadCurrentRoomLayout()
     } catch {
       selectedAreaID = previous
       errorMessage = "Could not review restore state for the selected area: \(error.localizedDescription)"

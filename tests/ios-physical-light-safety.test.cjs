@@ -24,7 +24,7 @@ test('dynamic playback requires persisted first-use consent',()=>{
 
 test('Reduce Light Motion bounds engine behavior and keeps emergency controls available',()=>{
   const policy=read('ios/Packages/HueBoardKit/Sources/HueBoardKit/PhysicalLightSafety.swift');
-  const runner=read('ios/App/Services/NativeLiveRunner.swift');
+  const runner=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/NativeLiveRunner.swift');
   const settings=read('ios/App/Views/SettingsView.swift');
   const lights=read('ios/App/Views/LightsView.swift');
   const banner=read('ios/App/Views/Components.swift');
@@ -32,7 +32,9 @@ test('Reduce Light Motion bounds engine behavior and keeps emergency controls av
   assert.match(policy,/energy = min\(result\.energy, 45\)/);
   assert.match(policy,/return max\(8_000, count \* 800\)/);
   assert.match(runner,/adjustedEngineSettings/);
-  assert.match(runner,/elapsed \* patternSpeed/);
+  assert.match(runner,/sampleTime \* patternSpeed/);
+  assert.match(runner,/placement\.role\.isStatic \? 0 : cueTime/);
+  assert.match(runner,/selectedCue\?\.settings \?\? requestedSettings/);
   assert.match(read('ios/App/AppModel+BridgePlayback.swift'),/outputLimits: preservedOutputCeilings\(\)/);
   assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/BridgeSceneTransport.swift'),/outputLimits: outputLimits/);
   assert.doesNotMatch(read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/BridgeSceneTransport.swift'),/outputLimits: \[:\]/);
@@ -57,7 +59,7 @@ test('Reduce Light Motion bounds engine behavior and keeps emergency controls av
   const app=read('ios/App/AppModel.swift');
   assert.match(app,/func presentConnection\(\)/);
   assert.match(app,/var canTurnOffNow: Bool \{ isReady && !foreignRecoveryPending && !emergencyOffInFlight \}/);
-  assert.match(app,/isReady && !foreignRecoveryPending && playback\.snapshot\.mode != \.bridge/);
+  assert.match(app,/isReady && !requiresRecovery && playback\.snapshot\.mode != \.bridge/);
   assert.doesNotMatch(app,/canUseEverydayControls: Bool \{\n    isReady && !hasRestorePoint/);
   const recovery=read('ios/App/AppModel+Recovery.swift');
   assert.match(recovery,/foreignRecoveryPending = true/);

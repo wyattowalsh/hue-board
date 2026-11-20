@@ -4,6 +4,12 @@ import FoundationNetworking
 #endif
 import HueBoardKit
 
+// The standard Hue application-key request does not need an Entertainment client key.
+// Some Bridge firmware rejects an explicit `generateclientkey: false` value.
+struct HuePairingRequest: Encodable {
+    let devicetype: String
+}
+
 private final class RedirectRejectingDelegate: NSObject, URLSessionTaskDelegate,
     @unchecked Sendable
 {
@@ -149,17 +155,13 @@ public actor HueBridgeClient {
 
     public func pair(profile: BridgeProfile) async throws -> HueBridgeCredential {
         try requirePinned(profile)
-        struct Request: Encodable {
-            let devicetype: String
-            let generateclientkey: Bool
-        }
         let response = try await requestData(
             profile: profile,
             method: "POST",
             path: "/api",
             credential: nil,
             body: try encoder.encode(
-                Request(devicetype: "hue_board#iphone", generateclientkey: false)
+                HuePairingRequest(devicetype: "hue_board#iphone")
             )
         )
         let rows = try decoder.decode([HuePairingEntry].self, from: response.data)
@@ -217,6 +219,7 @@ public actor HueBridgeClient {
         profile: BridgeProfile,
         credential: HueBridgeCredential
     ) async throws -> HueResourceID {
+        auditWrite("createScene")
         let response: HueAPIResponse<HueResourceAcknowledgement> = try await v2(
             profile: profile,
             method: "POST",
@@ -236,6 +239,7 @@ public actor HueBridgeClient {
         profile: BridgeProfile,
         credential: HueBridgeCredential
     ) async throws {
+        auditWrite("updateScene")
         let response: HueAPIResponse<HueResourceAcknowledgement> = try await v2(
             profile: profile,
             method: "PUT",
@@ -251,6 +255,7 @@ public actor HueBridgeClient {
         profile: BridgeProfile,
         credential: HueBridgeCredential
     ) async throws {
+        auditWrite("recallScene")
         let response: HueAPIResponse<HueResourceAcknowledgement> = try await v2(
             profile: profile,
             method: "PUT",
@@ -267,6 +272,7 @@ public actor HueBridgeClient {
         profile: BridgeProfile,
         credential: HueBridgeCredential
     ) async throws {
+        auditWrite("updateLight")
         try await pacer.wait()
         let response: HueAPIResponse<HueResourceAcknowledgement> = try await v2(
             profile: profile,
@@ -276,6 +282,15 @@ public actor HueBridgeClient {
             body: action
         )
         try acknowledge(response.data, id: id)
+    }
+
+    private func auditWrite(_ operation: String) {
+        #if DEBUG
+        guard ProcessInfo.processInfo.environment["HUE_BOARD_WRITE_AUDIT"] == "1" else {
+            return
+        }
+        print("HUE_BOARD_WRITE_ATTEMPT operation=\(operation)")
+        #endif
     }
 
     private struct Empty: Encodable {}

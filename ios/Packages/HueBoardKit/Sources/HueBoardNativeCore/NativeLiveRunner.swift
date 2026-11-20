@@ -1,25 +1,28 @@
 import Foundation
 import HueBoardKit
 
-struct NativeLiveProgress: Equatable, Sendable {
-  let fraction: Double
-  let elapsed: TimeInterval
-  let remaining: TimeInterval
-  let writes: Int
+public struct NativeLiveProgress: Equatable, Sendable {
+  public let fraction: Double
+  public let elapsed: TimeInterval
+  public let remaining: TimeInterval
+  public let writes: Int
+  public let cue: HueCueAtTime?
 }
 
-actor NativeLiveRunner {
+public actor NativeLiveRunner {
   private let engine: any HueEngineSampling
   private var running = false
 
-  init(engine: any HueEngineSampling) {
+  public init(engine: any HueEngineSampling) {
     self.engine = engine
   }
 
-  func run(
+  public func run(
     area: HueArea,
-    preset: HuePreset,
-    brightness: Double,
+    layout: HueRoomLayout,
+    settings requestedSettings: HueEngineSettings,
+    cueSequence: HueCueSequence?,
+    contract: HueBoardContract,
     duration: TimeInterval,
     safetySettings: PhysicalLightSafetySettings,
     submit: @escaping @Sendable (LightingFrame) async throws -> Void,
@@ -28,10 +31,9 @@ actor NativeLiveRunner {
     guard !running else {
       throw HueBoardError.unsupported("An Ambient Live session is already running.")
     }
-    let lights = area.lights.filter {
-      $0.capabilities.color && $0.capabilities.dimming && !$0.capabilities.streaming
-    }
-    guard !lights.isEmpty else {
+    try layout.validate(for: area)
+    let selected = layout.selectedEntries(in: area)
+    guard !selected.isEmpty else {
       throw HueBoardError.unsupported(
         "No non-streaming color lights are available for Ambient Live."
       )
@@ -42,14 +44,13 @@ actor NativeLiveRunner {
     running = true
     defer { running = false }
 
-    let settings = PhysicalLightSafetyPolicy.adjustedEngineSettings(
-      HueEngineSettings.from(preset: preset, brightness: brightness),
-      safety: safetySettings
-    )
+    if let cueSequence {
+      try cueSequence.validate(contract: contract)
+    }
     let clock = ContinuousClock()
     let started = clock.now
     let transition = PhysicalLightSafetyPolicy.restTransitionMilliseconds(
-      lightCount: lights.count,
+      lightCount: selected.count,
       settings: safetySettings
     )
     let minimumCycleSeconds = Double(transition) / 1_000
@@ -62,21 +63,37 @@ actor NativeLiveRunner {
       let elapsed = started.duration(to: cycleStarted).seconds
       if elapsed >= duration { break }
 
+      let selectedCue = try cueSequence?.settings(
+        at: elapsed,
+        contract: contract,
+        base: requestedSettings
+      )
+      let settings = PhysicalLightSafetyPolicy.adjustedEngineSettings(
+        selectedCue?.settings ?? requestedSettings,
+        safety: safetySettings
+      )
+      let cueTime = selectedCue?.cue.slotElapsed ?? elapsed
+
       var actions: [HueResourceID: HueLightAction] = [:]
-      for (index, light) in lights.enumerated() {
-        guard light.minimumBrightness <= light.outputLimit else { continue }
-        let position = Double(index) / Double(max(1, lights.count))
+      for (light, placement) in selected {
+        let sampleTime = placement.role.isStatic ? 0 : cueTime
         let patternSpeed = settings.speed.isFinite ? max(settings.speed, 0) : 0
+        let position = placement.role == .accent
+          ? (placement.phase + 0.25).truncatingRemainder(dividingBy: 1)
+          : placement.phase
         let sampled = try await engine.sample(
-          time: elapsed * patternSpeed,
+          time: sampleTime * patternSpeed,
           position: position,
           settings: settings,
           surge: 0
         )
+        guard let brightness = placement.brightness(
+          for: sampled.brightness, light: light
+        ) else { continue }
         let xy = try await engine.xy(sampled.color, gamut: light.gamut)
         actions[light.id] = HueLightAction(
           on: .init(on: true),
-          dimming: .init(brightness: min(max(sampled.brightness, light.minimumBrightness), light.outputLimit)),
+          dimming: .init(brightness: brightness),
           color: .init(xy: xy),
           dynamics: .init(duration: transition)
         )
@@ -94,7 +111,8 @@ actor NativeLiveRunner {
           fraction: min(1, current / duration),
           elapsed: current,
           remaining: max(0, duration - current),
-          writes: writes
+          writes: writes,
+          cue: selectedCue?.cue
         )
       )
 
@@ -106,7 +124,13 @@ actor NativeLiveRunner {
         )
       }
     }
-    await progress(.init(fraction: 1, elapsed: duration, remaining: 0, writes: writes))
+    await progress(.init(
+      fraction: 1,
+      elapsed: duration,
+      remaining: 0,
+      writes: writes,
+      cue: nil
+    ))
   }
 }
 

@@ -29,12 +29,12 @@ The native SwiftUI app is the primary product direction for Hue Board. Scriptabl
 
 ## Architecture
 
-- `HueBoardKit`: platform-neutral Hue models, API/event decoding, scene payloads, restore snapshots, playback state and generated parity resources.
+- `HueBoardKit`: platform-neutral Hue models, API/event decoding, scene payloads, restore snapshots, spatial layouts, cue plans, playback state and generated parity resources.
 - `HueBoardAppleEngine`: SHA-256-verified JavaScriptCore adapter around the exact shared Hue Board engine runtime.
-- `HueBoardNativeCore`: persistence, private-host validation, Bridge-ID-aware certificate trust and pinning, redirect rejection, Hue pairing, inventory, event streaming and writes.
+- `HueBoardNativeCore`: persistence, private-host validation, Bridge-ID-aware certificate trust and pinning, redirect rejection, Hue pairing, inventory, event streaming, writes, and the single-session Live sampler.
 - `AppModel`: one-writer main-actor orchestration split into connection, reconnect, events, everyday controls, Bridge Play, Native Live and recovery extensions.
-- `App/Services`: Bonjour discovery, Keychain credentials, low-rate Native Live runner and iOS 26 continued-processing lease management.
-- `App/Views`: Lights, Scenes, Live, connection, playback/recovery status and Settings surfaces.
+- `App/Services`: Bonjour discovery, Keychain credentials, validated saved-mix storage, and iOS 26 continued-processing lease management.
+- `App/Views`: Lights, Scenes, Studio, Room layout, individual light controls, cue/library controls, connection, playback/recovery status and Settings surfaces.
 - `project.yml`: deterministic XcodeGen source. The generated `.xcodeproj` is intentionally ignored.
 
 ## Generate and verify
@@ -80,24 +80,25 @@ The generated contract covers **32 looks, 24 patterns and 19 palettes**. `script
 
 On Apple test hosts, `HueBoardAppleEngineTests` executes those 512 cases through JavaScriptCore and must reproduce the same digest. Eight named anchor cases remain in the manifest for readable diagnostics. The bundled engine runtime has its own independent SHA-256 integrity check before execution.
 
-## Verified in the current non-Xcode environment
+## Local candidate evidence (November 17, 2026)
 
-- Swift 6.2 harnesses compile the platform-neutral certificate identity and pin-validation logic, including the Apple-specific trust branch against Security/CryptoKit API-shape stubs.
-- Independent JavaScript and Swift canonical-format passes reproduce the same 512-frame parity digest.
-- Native source parsing and cross-file API-shape checks have covered the SwiftUI model split, connection/recovery paths and continued-processing coordinator.
-- Static Node gates cover generated parity, no-write-on-open, Keychain use, pinned TLS, Bonjour, bounded SSE parsing, baseline-before-scene-mutation ordering, baseline expansion, emergency-off retention, reconnect-without-repairing and explicit destructive-reset consent.
-- Existing JavaScript regression and synthetic timing suites check the controller that the pinned v5.3.0 installer publishes.
+This section describes tests actually run against a **local, uncommitted development worktree**. It is not the published GitHub release.
 
-These checks are useful but do not substitute for the exact Xcode target, Apple Security implementation, simulator, or physical-device tests.
+- Xcode 27.2 signed generic iPhoneOS Debug build: passed, code signature verified. **This spatial/cue candidate has not been installed on the physical iPhone.**
+- Swift package tests: nine spatial/cue model and persistence tests passed, plus two synthetic Native Live frame tests with no Bridge writes.
+- JavaScript controller and native structural regression suite: 201/201 passed.
+- The earlier native candidate had six passing iOS simulator tests, but after these changes the new simulator app-level test execution stalled during Apple test launch. Build-for-testing passed; the current UI/runtime tests are **unverified**, not passed.
+- Previous physical-iPhone installation, launch, and Hue Bridge pairing applied to the *earlier* native build. They cannot qualify new spatial controls or cue playback.
 
-## Not yet verified
+## Remaining release gates
 
-- Exact Xcode/iOS semantic typechecking, simulator build, code signing, installation or launch.
-- Real Hue Bridge certificate chains and rotations, pairing, Bonjour, event-stream behavior, firmware resource variations, scene creation, lock-screen continuation or physical output.
-- VoiceOver, Dynamic Type extremes, Reduce Motion, landscape, battery/thermal behavior and multiple competing Hue controllers.
-- High-rate Hue Entertainment streaming. The current Native Live REST fallback deliberately revisits each light no faster than its long transition horizon; an Entertainment transport is required for high-rate temporal fidelity.
+- Repeat current UI/app tests to completion on a working simulator, or verify their equivalent on a connected physical device; inspect screenshots of the actual new screens.
+- Validate tap/drag interactions, scene filtering, saved mixes, and VoiceOver/Dynamic Type/Reduce Motion with rendered evidence.
+- With explicit user-started sessions, test spatial selection, output trims/ceilings, ordered/shuffled cues, custom palette editing, stop/restore, interruptions, and Bridge readback on the real iPhone/Bridge. No automatic light writes on opening or browsing.
+- Validate reconnect and restored baseline behavior after termination and certificate rotation. Do not assume a successful Hue API acknowledgment measures physical emitted light.
+- High-rate Entertainment streaming, Hue Entertainment layout import, gradient-strip editing, and saved Hue scene copying remain unsupported.
 
-Do not call this App Store-ready until the Xcode and physical-device matrix passes.
+Do not call this parity-complete or App Store-ready before the applicable physical-device gates pass.
 
 ## Current parity
 
@@ -110,5 +111,10 @@ Do not call this App Store-ready until the Xcode and physical-device matrix pass
 | Exact 24-pattern engine | Yes | Shared JavaScriptCore runtime plus 512-frame digest gate |
 | Shared-engine Live samples | Foreground REST | Low-rate REST fallback, foreground or bounded continued processing on iOS 26+ |
 | Static restore baseline | Yes | Expands safely for newly touched lights; partial failures retained |
-| Hue layout editor, gradients, cue sequencer, saved-scene copy | Yes | Planned |
+| Individual per-light power, brightness, color, white controls | Yes | New native editing sheet with capability and temperature-range gating |
+| Local spatial editor (fixture selection, positions, phase, roles, trim, ceilings) | Yes | New native room-scoped editor; direct Hue layout import not implemented |
+| Saved Studio mixes | Yes | New validated, scope-free local scene documents; not synced to other devices |
+| Custom four-color palettes and engine-sampled thumbnails | Yes | New editable Studio palette and sampled visual previews; no optical-output claims |
+| Cue sequencing | Yes | New ordered/seeded-shuffle cues within one bounded Native Live lease; still requires device verification |
+| Hue layout import, gradient-strip editing, saved Hue scene copying | Yes | Not yet implemented |
 | Hue Entertainment high-rate streaming | No | Required future transport for exact temporal choreography |

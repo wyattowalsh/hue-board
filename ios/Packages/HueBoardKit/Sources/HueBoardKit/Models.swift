@@ -91,11 +91,27 @@ public struct HueLight: Codable, Equatable, Identifiable, Sendable {
     public let capabilities: HueLightCapabilities
     public let outputLimit: Double
     public let minimumBrightness: Double
-    public init(id: HueResourceID, ownerID: HueResourceID?, name: String, isOn: Bool, brightness: Double?, color: HueXY?, colorTemperatureMirek: Int?, dynamicStatus: String? = nil, gamut: HueGamut?, capabilities: HueLightCapabilities, outputLimit: Double = 100, minimumBrightness: Double = 0.1) {
+    public let temperatureMinimumMirek: Int?
+    public let temperatureMaximumMirek: Int?
+
+    // Use only limits reported by the Hue Bridge. Do not invent a valid range
+    // for a light whose capabilities are incomplete.
+    public var supportedTemperatureRange: ClosedRange<Int>? {
+        guard capabilities.colorTemperature,
+              let minimum = temperatureMinimumMirek,
+              let maximum = temperatureMaximumMirek,
+              minimum > 0, maximum >= minimum
+        else { return nil }
+        return minimum...maximum
+    }
+
+    public init(id: HueResourceID, ownerID: HueResourceID?, name: String, isOn: Bool, brightness: Double?, color: HueXY?, colorTemperatureMirek: Int?, dynamicStatus: String? = nil, gamut: HueGamut?, capabilities: HueLightCapabilities, outputLimit: Double = 100, minimumBrightness: Double = 0.1, temperatureMinimumMirek: Int? = nil, temperatureMaximumMirek: Int? = nil) {
         self.id=id; self.ownerID=ownerID; self.name=name; self.isOn=isOn; self.brightness=brightness; self.color=color
         self.colorTemperatureMirek=colorTemperatureMirek; self.dynamicStatus=dynamicStatus; self.gamut=gamut; self.capabilities=capabilities
         self.outputLimit=min(max(outputLimit,1),100)
         self.minimumBrightness=min(max(minimumBrightness,0.1),100)
+        self.temperatureMinimumMirek=temperatureMinimumMirek
+        self.temperatureMaximumMirek=temperatureMaximumMirek
     }
 }
 
@@ -143,7 +159,15 @@ public struct HueEngineSettings: Codable, Equatable, Sendable {
     }
 }
 
-public struct HueLightFrame: Codable, Equatable, Sendable { public let color: RGB; public let brightness: Double }
+public struct HueLightFrame: Codable, Equatable, Sendable {
+    public let color: RGB
+    public let brightness: Double
+
+    public init(color: RGB, brightness: Double) {
+        self.color = color
+        self.brightness = brightness
+    }
+}
 
 public protocol HueEngineSampling: Sendable {
     func sample(time: Double, position: Double, settings: HueEngineSettings, surge: Double) async throws -> HueLightFrame

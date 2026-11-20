@@ -18,6 +18,22 @@ final class NativeCoreTests: XCTestCase {
         XCTAssertThrowsError(try BridgeProfile(bridgeID: bridgeID, host: "8.8.8.8"))
     }
 
+    func testPairingRequestOmitsEntertainmentClientKeyFlag() throws {
+        let data = try JSONEncoder().encode(
+            HuePairingRequest(devicetype: "hue_board#iphone")
+        )
+        let payload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: data) as? [String: String]
+        )
+        XCTAssertEqual(payload, ["devicetype": "hue_board#iphone"])
+        XCTAssertNil(payload["generateclientkey"])
+
+        let response = Data(#"[{"success":{"username":"example-app-key"}}]"#.utf8)
+        let entries = try JSONDecoder().decode([HuePairingEntry].self, from: response)
+        XCTAssertEqual(entries.first?.success?.username, "example-app-key")
+        XCTAssertNil(entries.first?.success?.clientKey)
+    }
+
     func testLegacyProfileDecodesWithoutPinAndCanBeUpgraded() throws {
         let data = Data(
             """

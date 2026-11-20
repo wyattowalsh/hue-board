@@ -144,7 +144,9 @@ public extension HueLight {
             gamut: event.color?.gamut ?? gamut,
             capabilities: updatedCapabilities,
             outputLimit: outputLimit,
-            minimumBrightness: minimumBrightness
+            minimumBrightness: minimumBrightness,
+            temperatureMinimumMirek: temperatureMinimumMirek,
+            temperatureMaximumMirek: temperatureMaximumMirek
         )
     }
 }

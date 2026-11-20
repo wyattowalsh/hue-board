@@ -41,9 +41,6 @@ targets:
         - HueBoardAppTests
         - HueBoardUITests
       gatherCoverageData: true
-      configVariants:
-        - Debug
-        - Release
 
   HueBoardAppTests:
     type: bundle.unit-test
