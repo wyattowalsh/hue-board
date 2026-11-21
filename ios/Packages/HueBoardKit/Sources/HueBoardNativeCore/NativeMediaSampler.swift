@@ -28,6 +28,9 @@ public actor NativeMediaSampler {
             throw HueBoardError.unsupported("Choose a local audio or video file.")
         }
         let asset = AVURLAsset(url: url)
+    if try await asset.load(.hasProtectedContent) {
+      throw HueBoardError.unsupported("Choose an unprotected audio or video file in Files.")
+    }
         let duration = try await asset.load(.duration).seconds
         let audio = try await asset.loadTracks(withMediaType: .audio).first
         let video = try await asset.loadTracks(withMediaType: .video).first
@@ -133,7 +136,10 @@ public actor NativeMediaSampler {
         guard reader.status != .failed else {
             throw HueBoardError.unsupported("Hue Board could not decode the selected clip's audio.")
         }
-        guard count > 0, energy > 0 else { return 0 }
+    guard count > 0 else {
+      throw HueBoardError.unsupported("This part of the file has no readable audio samples.")
+    }
+    guard energy > 0 else { return 0 }
         let dBFS = 20 * log10(sqrt(energy / Double(count)))
         return min(max((dBFS + 50) / 45, 0), 1)
     }

@@ -9,6 +9,7 @@ extension AppModel {
       let preset = selectedPreset, let spatialSnapshot = roomLayout
     else { return }
     guard !requiresDynamicLightConsent(for: .ambient) else { return }
+    let previewDrain = studioInputPreview.stop()
     let startID = UUID()
     let input = studioLiveInput
     let mediaURL = studioMediaURL
@@ -45,6 +46,8 @@ extension AppModel {
     var startupDescriptorID: UUID?
 
     do {
+      await previewDrain?.value
+      try checkStudioLiveStartup(startID)
       if let cueSnapshot { try cueSnapshot.validate(contract: contract) }
       let freshAreas = try await client.inventory(
         profile: profile,
@@ -56,9 +59,7 @@ extension AppModel {
         throw HueBoardError.missingResource("The selected area is no longer available.")
       }
       try spatialSnapshot.validate(for: freshArea)
-      let selected = spatialSnapshot.selectedEntries(in: freshArea).filter {
-        $0.0.minimumBrightness <= safetySettings.maximumDynamicBrightness
-      }
+      let selected = spatialSnapshot.selectedEntries(in: freshArea, brightnessLimit: brightness)
       guard !selected.isEmpty else {
         throw HueBoardError.unsupported(
           "No selected color lights are available within the current brightness limit."
@@ -303,12 +304,14 @@ extension AppModel {
   }
 
   func cancelStudioLiveSetupAndCapture() {
+    studioInputPreview.stop()
     liveStartupID = nil
     stopStudioCapture()
   }
 
   func setStudioSceneBackgrounded(_ backgrounded: Bool) {
     studioSceneIsBackgrounded = backgrounded
+    if backgrounded { studioInputPreview.stop() }
     guard backgrounded, studioCaptureSessionID != nil else { return }
     if liveStartupID != nil { isBusy = false }
     cancelStudioLiveSetupAndCapture()

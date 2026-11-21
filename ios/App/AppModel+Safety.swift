@@ -1,5 +1,6 @@
 import Foundation
 import HueBoardKit
+import HueBoardNativeCore
 
 @MainActor
 extension AppModel {
@@ -14,7 +15,7 @@ extension AppModel {
     var updated = safetySettings
     updated.warningAcknowledged = true
     do {
-      try await safetyStore.save(updated)
+      try PhysicalLightSafetyStore.saveSynchronously(updated, defaults: setupDefaults)
       safetySettings = updated
       let action = pendingDynamicAction
       pendingDynamicAction = nil
@@ -62,7 +63,7 @@ extension AppModel {
 
   private func saveSafetySettings(_ value: PhysicalLightSafetySettings) async {
     do {
-      try await safetyStore.save(value)
+      try PhysicalLightSafetyStore.saveSynchronously(value, defaults: setupDefaults)
       safetySettings = value
     } catch {
       errorMessage = "Could not save physical-light safety settings: \(error.localizedDescription)"

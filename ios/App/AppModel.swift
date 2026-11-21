@@ -26,7 +26,9 @@ final class AppModel {
     case ready
   }
 
-  var selectedTab: Tab = .lights
+  var selectedTab: Tab = .lights {
+    didSet { if selectedTab != .live { studioInputPreview.stop() } }
+  }
   var connectionState: ConnectionState = .disconnected
   var discoveredBridges: [HueBridgeCandidate] = []
   var manualHost = ""
@@ -39,11 +41,10 @@ final class AppModel {
   var roomLayoutIssue: String?
   var focusedFixtureID: HueResourceID?
   var roomLayoutScope: String?
+  var roomDiscoveryRevision: UInt64 = 0
   var selectedPresetID: String
-  private(set) var favoritePresetIDs = Set(
-    UserDefaults.standard.stringArray(forKey: AppModel.favoritePresetsKey) ?? []
-  )
-  static let favoritePresetsKey = "hue-board.native.favorite-presets.v1"
+  var favoritePresetIDs: Set<String> = []
+  var setupStorageIssue: String?
   // An editable Studio draft. Editing it never sends a Bridge command.
   var studioSettings: HueEngineSettings = .init()
   var savedStudioDocuments: [HueSceneDocument] = []
@@ -91,13 +92,14 @@ final class AppModel {
 
   @ObservationIgnored nonisolated let client = HueBridgeClient()
   @ObservationIgnored nonisolated let eventClient = HueEventStreamClient()
-  @ObservationIgnored nonisolated let persistence = AppPersistence.shared
-  @ObservationIgnored nonisolated let safetyStore = PhysicalLightSafetyStore.shared
+  @ObservationIgnored nonisolated let persistence: AppPersistence
+  @ObservationIgnored let setupDefaults: UserDefaults
   @ObservationIgnored nonisolated let playbackCoordinator = PlaybackCoordinator()
   @ObservationIgnored nonisolated let localDiscovery = HueLocalDiscovery()
   @ObservationIgnored let keychain = KeychainVault()
-  @ObservationIgnored let studioDocumentStore = StudioDocumentStore()
-  @ObservationIgnored let roomLayoutStore = HueRoomLayoutStore()
+  @ObservationIgnored let studioDocumentStore: StudioDocumentStore
+  @ObservationIgnored let roomLayoutStore: HueRoomLayoutStore
+  let studioInputPreview = StudioInputPreviewSession()
   @ObservationIgnored let studioMicrophone = StudioMicrophone()
   @ObservationIgnored let studioMedia = StudioMedia()
   @ObservationIgnored var liveStartupID: UUID?
@@ -109,7 +111,15 @@ final class AppModel {
   @ObservationIgnored var eventMonitorGeneration = 0
   @ObservationIgnored var eventRefreshGeneration = 0
 
-  init() {
+  init(
+    setupDefaults: UserDefaults = .standard,
+    roomLayoutStore: HueRoomLayoutStore? = nil,
+    persistence: AppPersistence = .shared
+  ) {
+    self.setupDefaults = setupDefaults
+    self.roomLayoutStore = roomLayoutStore ?? HueRoomLayoutStore(defaults: setupDefaults)
+    self.studioDocumentStore = StudioDocumentStore(defaults: setupDefaults)
+    self.persistence = persistence
     do {
       contract = try HueBoardContractLoader.load()
       engine = try JavaScriptHueEngine()
@@ -119,6 +129,15 @@ final class AppModel {
     selectedPresetID = contract.presets.first?.id ?? "ion-eclipse"
     if let preset = contract.presets.first {
       studioSettings = HueEngineSettings.from(preset: preset, brightness: brightness)
+    }
+    do {
+      try SetupImportTransaction.recover(defaults: setupDefaults)
+      favoritePresetIDs = try SetupImportTransaction.loadFavorites(defaults: setupDefaults)
+    } catch {
+      setupStorageIssue = error.localizedDescription
+      safetySettings = .failedClosed
+      errorMessage = "Could not load the local setup: \(error.localizedDescription)"
+      return
     }
     do {
       savedStudioDocuments = try studioDocumentStore.load(contract: contract)
@@ -147,8 +166,12 @@ final class AppModel {
   }
 
   func saveFavoritePresets(_ ids: Set<String>) {
-    UserDefaults.standard.set(ids.sorted(), forKey: Self.favoritePresetsKey)
-    favoritePresetIDs = ids
+    do {
+      try SetupImportTransaction.saveFavorites(ids, defaults: setupDefaults)
+      favoritePresetIDs = ids
+    } catch {
+      errorMessage = "Could not save favorites: \(error.localizedDescription)"
+    }
   }
 
   func toggleFavoritePreset(_ id: String) {
@@ -170,7 +193,7 @@ final class AppModel {
   }
   var canSwitchArea: Bool { !hasRestorePoint && !isLiveRunning && !isBusy }
   var canUseEverydayControls: Bool {
-    isReady && !requiresRecovery && playback.snapshot.mode != .bridge
+    isReady && setupStorageIssue == nil && !requiresRecovery && playback.snapshot.mode != .bridge
       && !isLiveRunning && !isBusy
   }
   var canTurnOffNow: Bool { isReady && !foreignRecoveryPending && !emergencyOffInFlight }
@@ -181,16 +204,18 @@ final class AppModel {
       || (playback.snapshot.phase == .failed && hasRestorePoint)
   }
   var canPlayScene: Bool {
-    isReady && !isLiveRunning && !isBusy && !requiresRecovery
+    isReady && setupStorageIssue == nil && !isLiveRunning && !isBusy && !requiresRecovery
       && (!hasRestorePoint || restoreAreaID == selectedAreaID)
   }
   var canStartLive: Bool {
-    guard isReady, !hasRestorePoint, playback.snapshot.mode != .bridge,
+    guard isReady, setupStorageIssue == nil, !hasRestorePoint, playback.snapshot.mode != .bridge,
           !requiresRecovery, !isBusy, roomLayoutIssue == nil,
           let area = selectedArea, let roomLayout else { return false }
-    guard !roomLayout.selectedEntries(in: area).isEmpty else { return false }
+    let eligible = roomLayout.selectedEntries(in: area, brightnessLimit: effectiveDynamicBrightness)
+    guard !eligible.isEmpty else { return false }
     if studioLiveInput != .engine {
-      guard !studioSceneIsBackgrounded, !safetySettings.reduceLightMotion else { return false }
+      guard !studioSceneIsBackgrounded, !safetySettings.reduceLightMotion,
+            eligible.contains(where: { !$0.1.role.isStatic }) else { return false }
       if studioLiveInput == .media, studioMediaURL == nil { return false }
     }
     if isCueSequenceEnabled {
@@ -205,7 +230,7 @@ final class AppModel {
     return true
   }
   var canEditRoomLayout: Bool {
-    isReady && !isBusy && !isLiveRunning && !hasRestorePoint
+    isReady && setupStorageIssue == nil && !isBusy && !isLiveRunning && !hasRestorePoint
       && playback.snapshot.mode != .bridge && !requiresRecovery && !foreignRecoveryPending
   }
   var canForgetBridge: Bool {

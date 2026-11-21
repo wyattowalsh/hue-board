@@ -143,6 +143,8 @@ extension AppModel {
           self.selectedAreaID = values.first?.id
           try await self.persistence.saveSelectedAreaID(self.selectedAreaID, bridgeID: profile.bridgeID)
         }
+        guard self.eventRefreshGeneration == generation, !Task.isCancelled else { return }
+        self.loadCurrentRoomLayout()
       } catch {
         guard self.eventRefreshGeneration == generation else { return }
         self.eventStreamDetail = "Push updates remain connected, but structural refresh failed: \(error.localizedDescription)"

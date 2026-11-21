@@ -1,6 +1,4 @@
-import AVKit
 import SwiftUI
-import UniformTypeIdentifiers
 import HueBoardKit
 
 struct LiveView: View {
@@ -9,7 +7,6 @@ struct LiveView: View {
     @State private var composeExpanded = true
     @State private var sculptExpanded = true
     @State private var advancedExpanded = false
-    @State private var isChoosingMedia = false
 
     private enum StudioSection: String, CaseIterable {
         case preview = "Preview"
@@ -36,7 +33,7 @@ struct LiveView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    StudioEnginePreview().id(StudioSection.preview)
+                    StudioRehearsalView().id(StudioSection.preview)
 
                     VStack(spacing: 16) {
                         sourcePresetPicker
@@ -76,11 +73,7 @@ struct LiveView: View {
                 }
             }
         }
-        .fileImporter(
-            isPresented: $isChoosingMedia,
-            allowedContentTypes: [.audio, .movie, .video],
-            onCompletion: selectMedia
-        )
+
     }
 
     private var sourcePresetPicker: some View {
@@ -185,7 +178,7 @@ struct LiveView: View {
     private var playbackControls: some View {
         @Bindable var model = model
         return VStack(alignment: .leading, spacing: 12) {
-            liveInputControls
+            StudioInputPreviewSection()
             StudioSlider(title: "Session duration", value: $model.liveDuration, range: 300...3_600, step: 300, unit: "s")
                 .disabled(model.isBusy || model.isLiveRunning)
             Button {
@@ -216,67 +209,7 @@ struct LiveView: View {
         }
     }
 
-    private var liveInputControls: some View {
-        @Bindable var model = model
-        return VStack(alignment: .leading, spacing: 8) {
-            Picker("Live input", selection: $model.studioLiveInput) {
-                ForEach(AppModel.StudioLiveInput.allCases, id: \.self) { input in
-                    Text(input.rawValue).tag(input)
-                }
-            }
-            .pickerStyle(.menu)
-            .accessibilityIdentifier("studio-live-input")
 
-            switch model.studioLiveInput {
-            case .engine:
-                EmptyView()
-            case .microphone:
-                Text("Start enables the microphone for this session. Hue Board uses sound level and saves no recording.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            case .media:
-                Button("Choose audio or video", systemImage: "folder") {
-                    isChoosingMedia = true
-                }
-                if let url = model.studioMediaURL {
-                    Label(url.lastPathComponent, systemImage: "doc")
-                        .font(.subheadline)
-                        .lineLimit(2)
-                }
-                if model.isLiveRunning, model.studioMedia.hasVideo,
-                   let player = model.studioMedia.player {
-                    VideoPlayer(player: player)
-                        .frame(height: 180)
-                        .clipShape(.rect(cornerRadius: 12))
-                        .allowsHitTesting(false)
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("Selected video playback")
-                }
-                Text("Start plays the selected file. The session ends when the clip or the selected duration ends.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            if model.studioLiveInput != .engine {
-                Text(model.safetySettings.reduceLightMotion
-                     ? "Reduce Light Motion keeps Studio playback on the engine. Select Engine to start."
-                     : "Keep Hue Board on screen. This input stops in the background.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .disabled(model.isBusy || model.isLiveRunning)
-    }
-
-    private func selectMedia(_ result: Result<URL, Error>) {
-        switch result {
-        case .success(let url):
-            model.studioMediaURL = url
-        case .failure(let error):
-            if (error as? CocoaError)?.code != .userCancelled {
-                model.errorMessage = "Could not select media. \(error.localizedDescription)"
-            }
-        }
-    }
 }
 
 private struct StudioSlider: View {
@@ -304,85 +237,6 @@ private struct StudioSlider: View {
             Slider(value: $value, in: range, step: step)
                 .accessibilityLabel(title)
                 .accessibilityValue(formattedValue)
-        }
-    }
-}
-
-private struct StudioEnginePreview: View {
-    @Environment(AppModel.self) private var model
-    @State private var frames: [HueLightFrame] = []
-
-    private var previewSettings: HueEngineSettings {
-        var draft = model.studioSettings
-        draft.brightness = model.effectiveDynamicBrightness
-        return PhysicalLightSafetyPolicy.adjustedEngineSettings(
-            draft, safety: model.safetySettings
-        )
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Label("Engine preview", systemImage: "sparkles")
-                    .font(.subheadline.weight(.semibold))
-                    .accessibilityAddTraits(.isHeader)
-                Spacer()
-                Text("No light writes")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            HStack(alignment: .bottom, spacing: 4) {
-                ForEach(0..<12, id: \.self) { index in
-                    let frame = index < frames.count ? frames[index] : nil
-                    RoundedRectangle(cornerRadius: 7)
-                        .fill(frame.map {
-                            Color(
-                                red: min(max($0.color.red, 0), 1),
-                                green: min(max($0.color.green, 0), 1),
-                                blue: min(max($0.color.blue, 0), 1)
-                            )
-                        } ?? Color.secondary.opacity(0.25))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: frame.map { max(12, min(100, $0.brightness)) } ?? 16)
-                }
-            }
-            .frame(height: 112, alignment: .bottom)
-            .accessibilityHidden(true)
-            Text("A snapshot of the shared pattern engine. Your fixture output will vary.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .padding(16)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(red: 0.10, green: 0.12, blue: 0.22),
-                    Color(red: 0.08, green: 0.09, blue: 0.12)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 20)
-        )
-        .foregroundStyle(.white)
-        .task(id: previewSettings) {
-            let settings = previewSettings
-            var next: [HueLightFrame] = []
-            for index in 0..<12 {
-                if Task.isCancelled { return }
-                do {
-                    next.append(try await model.engine.sample(
-                        time: 19,
-                        position: Double(index) / 12,
-                        settings: settings,
-                        surge: 0
-                    ))
-                } catch {
-                    if !Task.isCancelled { frames = [] }
-                    return
-                }
-            }
-            if !Task.isCancelled { frames = next }
         }
     }
 }

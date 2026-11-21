@@ -19,7 +19,7 @@ public struct HueLiveSignal: Equatable, Sendable {
     }
   }
 
-  fileprivate func applying(to frame: HueLightFrame, brightnessLimit: Double) -> HueLightFrame {
+  func applying(to frame: HueLightFrame, brightnessLimit: Double) -> HueLightFrame {
     let lift = min(8, max(0, frame.brightness) * 0.12) * level
     let brightness = min(frame.brightness + lift, brightnessLimit)
     guard let color else { return .init(color: frame.color, brightness: brightness) }
@@ -69,10 +69,11 @@ public actor NativeLiveRunner {
     guard !running else {
       throw HueBoardError.unsupported("An Ambient Live session is already running.")
     }
-    try layout.validate(for: area)
-    let brightnessLimit = safetySettings.maximumDynamicBrightness
-    let selected = layout.selectedEntries(in: area).filter { $0.0.minimumBrightness <= brightnessLimit }
-    guard !selected.isEmpty else {
+    let planner = try StudioFramePlanner(
+      area: area, layout: layout, settings: requestedSettings, cueSequence: cueSequence,
+      contract: contract, safety: safetySettings
+    )
+    guard planner.fixtureCount > 0 else {
       throw HueBoardError.unsupported(
         "No non-streaming color lights are available within the current brightness limit."
       )
@@ -83,18 +84,11 @@ public actor NativeLiveRunner {
     running = true
     defer { running = false }
 
-    if let cueSequence {
-      try cueSequence.validate(contract: contract)
-    }
     let clock = ContinuousClock()
     let started = clock.now
-    let transition = PhysicalLightSafetyPolicy.restTransitionMilliseconds(
-      lightCount: selected.count,
-      settings: safetySettings
-    )
+    let transition = planner.transitionMilliseconds
     let minimumCycleSeconds = Double(transition) / 1_000
-    let sampleSignal = !safetySettings.reduceLightMotion
-      && selected.contains { !$0.1.role.isStatic } ? signal : nil
+    let sampleSignal = planner.acceptsSignal ? signal : nil
     var writes = 0
     var sequence: UInt64 = 0
 
@@ -104,45 +98,17 @@ public actor NativeLiveRunner {
       let elapsed = started.duration(to: cycleStarted).seconds
       if elapsed >= duration { break }
 
-      let selectedCue = try cueSequence?.settings(
-        at: elapsed,
-        contract: contract,
-        base: requestedSettings
-      )
-      let settings = PhysicalLightSafetyPolicy.adjustedEngineSettings(
-        selectedCue?.settings ?? requestedSettings,
-        safety: safetySettings
-      )
-      let cueTime = selectedCue?.cue.slotElapsed ?? elapsed
       let transitionSignal = try await sampleSignal?(elapsed)
       try Task.checkCancellation()
       if started.duration(to: clock.now).seconds >= duration { break }
 
-      var actions: [HueResourceID: HueLightAction] = [:]
-      for (light, placement) in selected {
-        let sampleTime = placement.role.isStatic ? 0 : cueTime
-        let patternSpeed = settings.speed.isFinite ? max(settings.speed, 0) : 0
-        let position = placement.role == .accent
-          ? (placement.phase + 0.25).truncatingRemainder(dividingBy: 1)
-          : placement.phase
-        let sampled = try await engine.sample(
-          time: sampleTime * patternSpeed,
-          position: position,
-          settings: settings,
-          surge: 0
-        )
-        let adapted = placement.role.isStatic
-          ? sampled
-          : transitionSignal?.applying(to: sampled, brightnessLimit: settings.brightness) ?? sampled
-        guard let brightness = placement.brightness(
-          for: adapted.brightness, light: light
-        ) else { continue }
-        let xy = try await engine.xy(adapted.color, gamut: light.gamut)
-        actions[light.id] = HueLightAction(
-          on: .init(on: true),
-          dimming: .init(brightness: min(brightness, brightnessLimit)),
-          color: .init(xy: xy),
-          dynamics: .init(duration: transition)
+      let frame = try await planner.frame(
+        at: elapsed, duration: duration, signal: transitionSignal, engine: engine
+      )
+      let actions = frame.targets.mapValues { target in
+        HueLightAction(
+          on: .init(on: true), dimming: .init(brightness: target.brightness),
+          color: .init(xy: target.xy), dynamics: .init(duration: transition)
         )
       }
       try Task.checkCancellation()
@@ -161,7 +127,7 @@ public actor NativeLiveRunner {
           elapsed: current,
           remaining: max(0, duration - current),
           writes: writes,
-          cue: selectedCue?.cue
+          cue: frame.cue
         )
       )
 

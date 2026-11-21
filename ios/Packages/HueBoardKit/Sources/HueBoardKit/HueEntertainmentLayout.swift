@@ -76,7 +76,7 @@ public struct HueRoomArrangement: Equatable, Identifiable, Sendable {
         services: [HueEntertainmentServiceResource],
         in area: HueArea
     ) -> [Self] {
-        let lightIDs = Set(area.lights.map(\.id))
+        let lightCounts = Dictionary(grouping: area.lights, by: \.id).mapValues(\.count)
         let servicesByID = Dictionary(grouping: services, by: \.id)
         let configurationCounts = Dictionary(grouping: configurations, by: \.id).mapValues(\.count)
 
@@ -99,7 +99,7 @@ public struct HueRoomArrangement: Equatable, Identifiable, Sendable {
             var positions: [HueResourceID: HueEntertainmentPosition] = [:]
             var rejected = Set<HueResourceID>()
             for location in configuration.locations?.serviceLocations ?? [] {
-                guard let lightID = resolveLight(from: location.service), lightIDs.contains(lightID) else { continue }
+                guard let lightID = resolveLight(from: location.service), lightCounts[lightID] == 1, !lightID.rawValue.isEmpty else { continue }
                 guard positions[lightID] == nil, let center = location.center else {
                     rejected.insert(lightID)
                     continue
@@ -125,7 +125,7 @@ public struct HueRoomArrangement: Equatable, Identifiable, Sendable {
         var updated = try layout.includingNewLights(from: area)
         for index in updated.placements.indices {
             guard let position = positions[updated.placements[index].id] else { continue }
-            // Top view: Hue X increases right and Hue Y points toward the top of the map.
+            // Top view with the front at the top. Height does not shift a fixture on the floor plan.
             updated.placements[index].x = 0.5 + 0.40 * position.x
             updated.placements[index].y = 0.5 - 0.40 * position.y
         }

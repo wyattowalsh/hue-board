@@ -5,6 +5,7 @@ import HueBoardKit
 extension AppModel {
     /// A read-only load; a damaged saved layout is never replaced automatically.
     func loadCurrentRoomLayout() {
+        roomDiscoveryRevision &+= 1
         guard let profile, let area = selectedArea else {
             roomLayout = nil
             roomLayoutScope = nil
@@ -70,5 +71,40 @@ extension AppModel {
         } catch {
             errorMessage = "Could not save the new room layout: \(error.localizedDescription)"
         }
+    }
+}
+
+struct RoomSweepPreview: Identifiable {
+    let id = UUID()
+    let scope: RoomDiscoveryScope
+    let original: HueRoomLayout
+    let proposal: HueSweepProposal
+    let area: HueArea
+}
+
+@MainActor
+extension AppModel {
+    func previewRoomSweep() throws -> RoomSweepPreview {
+        guard let scope = roomDiscoveryScope, let layout = roomLayout, let area = selectedArea else {
+            throw HueBoardError.unsupported("Choose a room on an idle, connected Bridge to preview a sweep.")
+        }
+        return .init(scope: scope, original: layout,
+                     proposal: HueSweepProposal(layout: layout, in: area, brightnessLimit: effectiveDynamicBrightness),
+                     area: area)
+    }
+
+    func canSaveRoomSweep(_ preview: RoomSweepPreview) -> Bool {
+        guard preview.scope == roomDiscoveryScope, let area = selectedArea, let layout = roomLayout,
+              layout == preview.original, !preview.proposal.changes.isEmpty else { return false }
+        return preview.proposal == HueSweepProposal(layout: layout, in: area, brightnessLimit: effectiveDynamicBrightness)
+    }
+
+    func saveRoomSweep(_ preview: RoomSweepPreview) throws {
+        guard canSaveRoomSweep(preview), let area = selectedArea, let profile else {
+            throw HueBoardError.unsupported("The room or its moving fixtures changed. Preview the sweep again.")
+        }
+        try roomLayoutStore.save(preview.proposal.layout, bridgeID: profile.bridgeID, area: area)
+        roomLayout = preview.proposal.layout
+        note = "Saved sweep phases for this room."
     }
 }

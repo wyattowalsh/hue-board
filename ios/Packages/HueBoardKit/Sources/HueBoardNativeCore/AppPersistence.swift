@@ -87,6 +87,28 @@ public actor AppPersistence {
         }
     }
 
+    /// File import inspects the authoritative records without migrating a fresh install,
+    /// quarantining bytes, or consulting the actor's cached playback state.
+    public func isIdleForLocalImport() throws -> Bool {
+        guard defaults.object(forKey: Key.recoveryV2) == nil else { return false }
+        if defaults.object(forKey: Key.stateV2) != nil {
+            guard let bytes = defaults.data(forKey: Key.stateV2) else { return false }
+            let state = try decodeEnvelope(NativeAppState.self, from: bytes, key: Key.stateV2, quarantineFailures: false)
+            return state.liveDescriptor == nil
+                && state.liveStatus.state != .starting && state.liveStatus.state != .running
+        }
+        // The old records remain on disk after successful migration. They are authoritative
+        // only when there is no v2 state record.
+        guard defaults.object(forKey: Key.legacyRestoreJournal) == nil,
+              defaults.object(forKey: Key.legacyLiveDescriptor) == nil else { return false }
+        if defaults.object(forKey: Key.legacyLiveStatus) != nil {
+            guard let bytes = defaults.data(forKey: Key.legacyLiveStatus) else { return false }
+            let status = try decoder().decode(LiveSessionStatus.self, from: bytes)
+            return status.state != .starting && status.state != .running
+        }
+        return true
+    }
+
     public func loadRestoreJournal() throws -> RestoreJournal? {
         if let journal = try readRecoveryEnvelope() { return journal }
         do { _ = try loadState() } catch { return nil }
@@ -365,13 +387,14 @@ public actor AppPersistence {
     private func decodeEnvelope<Value: Codable & Sendable>(
         _ type: Value.Type,
         from data: Data,
-        key: String
+        key: String,
+        quarantineFailures: Bool = true
     ) throws -> Value {
         let envelope: PersistenceEnvelope<Value>
         do {
             envelope = try decoder().decode(PersistenceEnvelope<Value>.self, from: data)
         } catch {
-            quarantine(data, key: key, reason: error.localizedDescription)
+            if quarantineFailures { quarantine(data, key: key, reason: error.localizedDescription) }
             throw PersistenceError.corruptRecord(key)
         }
         guard envelope.schemaVersion == NativePersistenceVersion.currentSchema else {
@@ -380,7 +403,7 @@ public actor AppPersistence {
         let payloadData = try encoder().encode(envelope.payload)
         let digest = PersistenceChecksum.sha256Hex(payloadData)
         guard digest == envelope.payloadSHA256 else {
-            quarantine(data, key: key, reason: "SHA-256 mismatch")
+            if quarantineFailures { quarantine(data, key: key, reason: "SHA-256 mismatch") }
             throw PersistenceError.checksumMismatch(key)
         }
         return envelope.payload

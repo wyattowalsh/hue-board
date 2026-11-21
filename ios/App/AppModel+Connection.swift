@@ -9,7 +9,9 @@ extension AppModel {
         isBusy = true
         defer { isBusy = false }
         do {
-            safetySettings = await safetyStore.load()
+            if setupStorageIssue == nil {
+                safetySettings = PhysicalLightSafetyStore.loadSynchronously(defaults: setupDefaults)
+            }
             guard let savedProfile = try await persistence.loadProfile() else {
                 isConnectionSheetPresented = true
                 return

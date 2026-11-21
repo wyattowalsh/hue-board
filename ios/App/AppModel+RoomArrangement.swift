@@ -3,7 +3,7 @@ import HueBoardKit
 import HueBoardNativeCore
 
 struct RoomArrangementPreview: Identifiable {
-    let scope: String
+    let scope: RoomDiscoveryScope
     let area: HueArea
     let arrangement: HueRoomArrangement
     let originalLayout: HueRoomLayout
@@ -14,30 +14,27 @@ struct RoomArrangementPreview: Identifiable {
 
 @MainActor
 extension AppModel {
-    var canImportRoomArrangement: Bool { editableArrangementScope != nil }
-
-    private var editableArrangementScope: String? {
-        guard canEditRoomLayout, roomLayoutIssue == nil, roomLayout != nil,
+    var roomDiscoveryScope: RoomDiscoveryScope? {
+        guard canEditRoomLayout, roomLayoutIssue == nil, roomLayout != nil, credential != nil,
               let profile, let area = selectedArea,
               roomLayoutScope == "\(profile.bridgeID)/\(area.id.rawValue)" else { return nil }
-        return roomLayoutScope
+        return .init(bridgeID: profile.bridgeID, areaID: area.id,
+                     fixtureIDs: Set(area.lights.map(\.id)), revision: roomDiscoveryRevision)
     }
 
-    func fetchRoomArrangements() async throws -> [HueRoomArrangement] {
-        guard let scope = editableArrangementScope, let profile, let credential, let area = selectedArea else {
-            throw HueBoardError.unsupported("Select a room or zone on a connected, idle Bridge before reading saved Hue layouts.")
+    func fetchRoomArrangements(in scope: RoomDiscoveryScope) async throws -> HueRoomDiscovery {
+        guard roomDiscoveryScope == scope, let profile, let credential, let area = selectedArea else {
+            throw HueBoardError.unsupported("Select a room or zone on a connected, idle Bridge to read saved Hue layouts.")
         }
-        let arrangements = try await client.roomArrangements(profile: profile, credential: credential, in: area)
+        let result = try await client.roomDiscovery(profile: profile, credential: credential, in: area)
         try Task.checkCancellation()
-        guard editableArrangementScope == scope else {
-            throw HueBoardError.unsupported("The room or playback state changed. Read its saved Hue layouts again.")
-        }
-        return arrangements
+        guard roomDiscoveryScope == scope else { throw CancellationError() }
+        return result
     }
 
-    func previewRoomArrangement(_ arrangement: HueRoomArrangement) throws -> RoomArrangementPreview {
-        guard let scope = editableArrangementScope, let area = selectedArea, let layout = roomLayout else {
-            throw HueBoardError.unsupported("A room layout preview requires a connected, idle Bridge and a valid local layout.")
+    func previewRoomArrangement(_ arrangement: HueRoomArrangement, from scope: RoomDiscoveryScope) throws -> RoomArrangementPreview {
+        guard roomDiscoveryScope == scope, let area = selectedArea, let layout = roomLayout else {
+            throw HueBoardError.unsupported("The room changed. Read its layouts again.")
         }
         return RoomArrangementPreview(
             scope: scope,
@@ -49,7 +46,7 @@ extension AppModel {
     }
 
     func canSaveRoomArrangement(_ preview: RoomArrangementPreview) -> Bool {
-        editableArrangementScope == preview.scope && roomLayout == preview.originalLayout
+        roomDiscoveryScope == preview.scope && roomLayout == preview.originalLayout
     }
 
     func saveRoomArrangement(_ preview: RoomArrangementPreview) throws {

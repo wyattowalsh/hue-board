@@ -8,6 +8,7 @@ private enum EndFixtureFrame: Error { case captured }
 private actor SyntheticHueSampler: HueEngineSampling {
     private let brightness: Double
     private var positions: [Double] = []
+    private var times: [Double] = []
     private var patterns: [String] = []
     private var colors: [RGB] = []
 
@@ -21,6 +22,7 @@ private actor SyntheticHueSampler: HueEngineSampling {
         settings: HueEngineSettings,
         surge: Double
     ) async throws -> HueLightFrame {
+        times.append(time)
         positions.append(position)
         patterns.append(settings.showA)
         return HueLightFrame(
@@ -34,6 +36,7 @@ private actor SyntheticHueSampler: HueEngineSampling {
         return .init(x: 0.3, y: 0.35)
     }
 
+    func recordedTimes() -> [Double] { times }
     func recordedPositions() -> [Double] { positions }
     func recordedPatterns() -> [String] { patterns }
     func recordedColors() -> [RGB] { colors }
@@ -64,7 +67,7 @@ private actor SyntheticSignalSource {
 }
 
 final class HueSpatialFrameTests: XCTestCase {
-    private func light(_ id: String) -> HueLight {
+    private func light(_ id: String, minimum: Double = 5) -> HueLight {
         HueLight(
             id: .init(rawValue: id), ownerID: nil, name: id,
             isOn: true, brightness: 45,
@@ -74,7 +77,7 @@ final class HueSpatialFrameTests: XCTestCase {
                 power: true, dimming: true, color: true,
                 colorTemperature: false, dynamicPalette: true
             ),
-            outputLimit: 70, minimumBrightness: 5
+            outputLimit: 70, minimumBrightness: minimum
         )
     }
 
@@ -336,6 +339,92 @@ final class HueSpatialFrameTests: XCTestCase {
             let count = await recorder.count()
             XCTAssertEqual(count, 2)
         }
+    }
+
+    func testRehearsalAndLiveExcludeHardwareFloorAboveMasterAndIncludeEquality() async throws {
+        let area = HueArea(
+            id: .init(rawValue: "floor"), kind: .room, name: "Floor",
+            lights: [light("eligible", minimum: 15), light("ineligible", minimum: 20)]
+        )
+        let layout = HueRoomLayout.startingLayout(for: area)
+        let safety = PhysicalLightSafetySettings(maximumDynamicBrightness: 80)
+        let planner = try StudioFramePlanner(
+            area: area, layout: layout, settings: .init(brightness: 15), cueSequence: nil,
+            contract: HueBoardContractLoader.load(), safety: safety
+        )
+        XCTAssertEqual(planner.fixtureCount, 1)
+        let eligible = area.lights[0].id
+        let signal = HueLiveSignal(level: 1)
+        let forecast = try await planner.frame(
+            at: 0, duration: 5, signal: signal, engine: SyntheticHueSampler(brightness: 6)
+        )
+        let sent = try await captureSignalFrame(
+            area: area, layout: layout, sampler: SyntheticHueSampler(brightness: 6),
+            source: SyntheticSignalSource(signal), masterBrightness: 15, safety: safety
+        )
+        XCTAssertEqual(Set(forecast.targets.keys), [eligible])
+        XCTAssertEqual(Set(sent.actions.keys), [eligible])
+        XCTAssertEqual(forecast.targets[eligible]?.brightness, 15)
+        XCTAssertEqual(sent.actions[eligible]?.dimming?.brightness, forecast.targets[eligible]?.brightness)
+        XCTAssertEqual(sent.actions[eligible]?.color?.xy, forecast.targets[eligible]?.xy)
+        XCTAssertEqual(sent.actions[eligible]?.dynamics?.duration, planner.transitionMilliseconds)
+
+        let empty = layout.selectedEntries(in: area, brightnessLimit: 14)
+        XCTAssertTrue(empty.isEmpty)
+        let recorder = SyntheticFrameRecorder()
+        do {
+            try await NativeLiveRunner(engine: SyntheticHueSampler()).run(
+                area: area, layout: layout, settings: .init(brightness: 14),
+                cueSequence: nil, contract: HueBoardContractLoader.load(), duration: 5,
+                safetySettings: safety, submit: { await recorder.record($0) }, progress: { _ in }
+            )
+            XCTFail("An ineligible room must not start")
+        } catch HueBoardError.unsupported { }
+        let count = await recorder.count()
+        XCTAssertEqual(count, 0)
+    }
+
+    func testRehearsalKeepsCoincidentFixturesSeparateAndUsesCueLocalTime() async throws {
+        let area = HueArea(
+            id: .init(rawValue: "coincident"), kind: .room, name: "Coincident",
+            lights: [light("wash"), light("accent"), light("anchor")]
+        )
+        var layout = HueRoomLayout.startingLayout(for: area)
+        for i in layout.placements.indices {
+            layout.placements[i].x = 0.5
+            layout.placements[i].y = 0.5
+        }
+        layout.placements[0].phase = 0.4
+        layout.placements[1].phase = 0.8
+        layout.placements[1].role = .accent
+        layout.placements[2].phase = 0.2
+        layout.placements[2].role = .anchor
+        let contract = try HueBoardContractLoader.load()
+        let presets = Array(contract.presets.prefix(2))
+        let cues = HueCueSequence(presetIDs: presets.map(\.id), holdSeconds: 30, order: .forward, seed: 5)
+        let planner = try StudioFramePlanner(
+            area: area, layout: layout, settings: .init(), cueSequence: cues, contract: contract, safety: .default
+        )
+        let sampler = SyntheticHueSampler()
+        let first = try await planner.frame(at: 29.999, duration: 60, signal: nil, engine: sampler)
+        let next = try await planner.frame(at: 30, duration: 60, signal: nil, engine: sampler)
+        let end = try await planner.frame(at: 60, duration: 60, signal: nil, engine: sampler)
+        XCTAssertEqual(first.targets.count, 3)
+        XCTAssertEqual(first.cue?.presetID, presets[0].id)
+        XCTAssertEqual(next.cue?.presetID, presets[1].id)
+        XCTAssertEqual(next.cue?.slotElapsed, 0)
+        XCTAssertTrue(end.ended)
+        XCTAssertNil(end.cue)
+        XCTAssertTrue(end.targets.isEmpty)
+        let positions = await sampler.recordedPositions()
+        let times = await sampler.recordedTimes()
+        XCTAssertEqual(times, [29.999 * presets[0].speed, 29.999 * presets[0].speed, 0, 0, 0, 0])
+        XCTAssertEqual(positions.count, 6)
+        for (value, expected) in zip(positions, [0.4, 0.05, 0.2, 0.4, 0.05, 0.2]) {
+            XCTAssertEqual(value, expected, accuracy: 1e-10)
+        }
+        let rewound = try await planner.frame(at: 29.999, duration: 60, signal: nil, engine: sampler)
+        XCTAssertEqual(rewound, first)
     }
 
     private func captureSignalFrame(

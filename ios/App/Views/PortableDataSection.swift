@@ -8,10 +8,22 @@ struct PortableDataSection: View {
     @State private var isExporting = false
     @State private var isReadingFile = false
     @State private var review: ImportReview?
+    @State private var setupSheet: SetupSheet?
     @State private var exportFile: HuePortableFile?
     @State private var exportName = "Hue Board"
     @State private var feedback: String?
     @State private var failure: String?
+
+    private enum SetupSheet: Identifiable {
+        case export, review(HueSetupDocument)
+
+        var id: String {
+            switch self {
+            case .export: "export"
+            case .review: "review"
+            }
+        }
+    }
 
     private struct ImportReview {
         let value: HuePortableData
@@ -20,10 +32,16 @@ struct PortableDataSection: View {
 
     var body: some View {
         Section {
-            Button("Import file", systemImage: "square.and.arrow.down") {
+            Button("Export setup", systemImage: "square.and.arrow.up") {
+                setupSheet = .export
+            }
+            .accessibilityIdentifier("setup-export")
+
+            Button("Import setup or file", systemImage: "square.and.arrow.down") {
                 isImporting = true
             }
             .disabled(!model.canImportPortableData || isReadingFile)
+            .accessibilityIdentifier("setup-import")
 
             Menu {
                 Button("Studio draft") { export(model.portableStudioDraft, name: "Studio Draft") }
@@ -37,7 +55,7 @@ struct PortableDataSection: View {
                 }
                 Button("Physical-light safety preferences") { export(model.portableSafety, name: "Safety Preferences") }
             } label: {
-                Label("Export file", systemImage: "square.and.arrow.up")
+                Label("Export one section", systemImage: "square.and.arrow.up")
             }
 
             if isReadingFile {
@@ -51,11 +69,25 @@ struct PortableDataSection: View {
         } header: {
             Text("Import and export")
         } footer: {
-            Text("Files transfer local data. A layout can be imported into its original room or zone.")
+            Text("Setup files can include your room layout and lighting limits. You choose what to share.")
+        }
+        .sheet(item: $setupSheet) { sheet in
+            switch sheet {
+            case .export:
+                SetupExportView(available: model.availableSetupExportSections) {
+                    feedback = "Setup exported."
+                }
+            case .review(let setup):
+                SetupImportReviewView(setup: setup) {
+                    feedback = "Setup imported."
+                }
+            }
         }
         .fileImporter(isPresented: $isImporting, allowedContentTypes: [.json], onCompletion: readFile)
         .fileExporter(isPresented: $isExporting, document: exportFile, contentType: .json, defaultFilename: exportName) { result in
-            if case .failure(let error) = result { failure = error.localizedDescription }
+            if case .failure(let error) = result, !HuePortableFile.isCancellation(error) {
+                failure = error.localizedDescription
+            }
         }
         .alert("Import Hue Board file", isPresented: reviewPresented, presenting: review) { pending in
             Button("Import") {
@@ -102,9 +134,13 @@ struct PortableDataSection: View {
                 let url = try result.get()
                 let data = try await Task.detached(priority: .userInitiated) { try HuePortableFile.read(from: url) }.value
                 let value = try HuePortableDataCodec.decode(data, contract: model.contract)
-                review = .init(value: value, message: try model.reviewPortableImport(value))
+                if case .setup(let setup) = value {
+                    setupSheet = .review(setup)
+                } else {
+                    review = .init(value: value, message: try model.reviewPortableImport(value))
+                }
             } catch {
-                failure = error.localizedDescription
+                if !HuePortableFile.isCancellation(error) { failure = error.localizedDescription }
             }
         }
     }
@@ -117,5 +153,12 @@ struct PortableDataSection: View {
         } catch {
             failure = error.localizedDescription
         }
+    }
+}
+
+extension HuePortableFile {
+    static func isCancellation(_ error: Error) -> Bool {
+        let cocoa = error as NSError
+        return cocoa.domain == NSCocoaErrorDomain && cocoa.code == NSUserCancelledError
     }
 }

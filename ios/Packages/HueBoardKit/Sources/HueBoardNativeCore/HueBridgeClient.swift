@@ -209,16 +209,24 @@ public actor HueBridgeClient {
         credential: HueBridgeCredential,
         in area: HueArea
     ) async throws -> [HueRoomArrangement] {
+        let discovery = try await roomDiscovery(profile: profile, credential: credential, in: area)
+        return discovery.arrangements
+    }
+
+    public func roomDiscovery(
+        profile: BridgeProfile,
+        credential: HueBridgeCredential,
+        in area: HueArea
+    ) async throws -> HueRoomDiscovery {
         try requirePinned(profile)
         guard HueBridgeTLSIdentity.normalizeBridgeID(credential.bridgeID) == profile.bridgeID else {
             throw HueBoardError.authorization("The saved credential belongs to another Hue Bridge.")
         }
-        async let configurationResources: [HueEntertainmentConfigurationResource] = resources(
-            "entertainment_configuration", profile: profile, credential: credential)
-        async let serviceResources: [HueEntertainmentServiceResource] = resources(
-            "entertainment", profile: profile, credential: credential)
-        let (configurations, services) = try await (configurationResources, serviceResources)
-        return HueRoomArrangement.matching(configurations: configurations, services: services, in: area)
+        return try await RoomDiscoveryReader.read(in: area) {
+            try await self.resources("entertainment_configuration", profile: profile, credential: credential)
+        } services: {
+            try await self.resources("entertainment", profile: profile, credential: credential)
+        }
     }
 
     public func scene(

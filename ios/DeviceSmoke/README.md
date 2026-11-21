@@ -66,6 +66,33 @@ Verbose failure diagnostics are disabled because their optional device
 collection stalled in the source session. Assertions and screenshot attachments
 remain enabled.
 
+## Candidate selectors
+
+Use the existing-installation selector above for the build 6 comparison. The
+following selectors target the new candidate. Use one complete selector as
+the value of `-only-testing` per run and give each run a new result path.
+Identify the installed artifact and start a fresh audited Debug process for
+each selector. Preflight and verify post-state as described above.
+
+| Selector under `HueBoardDeviceSmoke/` | What it exercises |
+| --- | --- |
+| `BrowseRoomDiscovery/testBrowseSavedRoomLayoutsWithoutLightActions` | Opens Room and waits for the Bridge inventory. A match opens a preview and cancels. An empty or nonoverlapping result has its own screenshot. Match and orientation qualification requires a room with a known saved Entertainment layout. |
+| `BrowseStudioRehearsal/testStepRoomRehearsalWithoutLightActions` | Opens the room rehearsal, steps the preview clock forward and back to zero, and opens the accessible fixture target list. Use a paired room with fixtures. |
+| `BrowseStudioInputsAndSetup/testBrowseInputChoicesAndSetupWithoutLightActions` | Inspects the input choices, selects Local media, cancels the system picker and returns to Engine. Opens Export setup, changes the draft switch in the export form and cancels. Opens Import and cancels without selecting a file. |
+
+On a paired personal installation these selectors browse, change transient
+view state and cancel local previews. Keep attachments in private storage.
+The picker checks leave personal media and setup files unopened. Microphone
+permission, sensor readings, hardware output and restore have separate tests.
+
+Use a simulator or an isolated test profile with synthetic fixture names, media,
+setup files and limits for the full import and local-edit demonstration. On that
+profile save the matching positions, scrub a two-cue rehearsal, preview the
+synthetic local clip with the microphone off, export, and compare the local
+data to the expected changes. Keep the write audit active through the entire
+demonstration. A paired user's local layout or draft requires specific approval
+for those edits and a verified way to return to its original state.
+
 ## Evidence limits
 
 For the no-write result, match the confirmed audit activation marker and zero

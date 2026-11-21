@@ -41,6 +41,7 @@ public enum HuePortableData: Equatable, Sendable {
     case favorites([String])
     case roomLayout(HueRoomLayout)
     case safety(HueSafetyPreferences)
+    case setup(HueSetupDocument)
 }
 
 public enum HuePortableDataCodec {
@@ -81,6 +82,7 @@ public enum HuePortableDataCodec {
         case .favorites(let ids): try encodePayload(ids, as: .favorites)
         case .roomLayout(let layout): try encodePayload(layout, as: .roomLayout)
         case .safety(let preferences): try encodePayload(preferences, as: .safety)
+        case .setup(let setup): try HueSetupCodec.encode(setup)
         }
         try checkSize(data)
         return data
@@ -90,6 +92,9 @@ public enum HuePortableDataCodec {
         try checkSize(data)
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw HueBoardError.invalidResponse("Choose a Hue Board JSON document.")
+        }
+        if root["format"] as? String == HueSetupCodec.format {
+            return .setup(try HueSetupCodec.decode(root: root, contract: contract))
         }
         guard root["format"] as? String == format else {
             let result = try HueSceneDocumentCodec.decode(data, contract: contract)
@@ -132,8 +137,10 @@ public enum HuePortableDataCodec {
         }
     }
 
-    private static func validate(_ value: HuePortableData, contract: HueBoardContract) throws {
+    static func validate(_ value: HuePortableData, contract: HueBoardContract) throws {
         switch value {
+        case .setup(let setup):
+            try HueSetupCodec.validate(setup, contract: contract)
         case .studioDraft(let draft):
             try HueSceneDocumentCodec.validate(draft.settings, contract: contract)
             try validatePortableColors(draft.settings.customColors)

@@ -12,7 +12,7 @@ test('dynamic playback requires persisted first-use consent',()=>{
   const live=read('ios/App/AppModel+Live.swift');
   const rootView=read('ios/App/Views/RootView.swift');
   assert.match(model,/pendingDynamicAction/);
-  assert.match(safety,/safetyStore\.save/);
+  assert.match(safety,/try PhysicalLightSafetyStore\.saveSynchronously\(updated\)\s+safetySettings = updated/);
   const store=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/PhysicalLightSafetyStore.swift');
   assert.match(store,/payloadSHA256/);
   assert.match(store,/quarantine/);
@@ -31,10 +31,12 @@ test('Reduce Light Motion bounds engine behavior and keeps emergency controls av
   assert.match(policy,/speed = min\(result\.speed, 0\.55\)/);
   assert.match(policy,/energy = min\(result\.energy, 45\)/);
   assert.match(policy,/return max\(8_000, count \* 800\)/);
-  assert.match(runner,/adjustedEngineSettings/);
-  assert.match(runner,/sampleTime \* patternSpeed/);
-  assert.match(runner,/placement\.role\.isStatic \? 0 : cueTime/);
-  assert.match(runner,/selectedCue\?\.settings \?\? requestedSettings/);
+  const planner=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/StudioFramePlanner.swift');
+  assert.match(runner,/try await planner\.frame\(/);
+  assert.match(planner,/adjustedEngineSettings/);
+  assert.match(planner,/sampleTime \* patternSpeed/);
+  assert.match(planner,/placement\.role\.isStatic \? 0 : cueTime/);
+  assert.match(planner,/selectedCue\?\.settings \?\? requestedSettings/);
   assert.match(read('ios/App/AppModel+BridgePlayback.swift'),/outputLimits: preservedOutputCeilings\(\)/);
   assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/BridgeSceneTransport.swift'),/outputLimits: outputLimits/);
   assert.doesNotMatch(read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/BridgeSceneTransport.swift'),/outputLimits: \[:\]/);
@@ -59,7 +61,7 @@ test('Reduce Light Motion bounds engine behavior and keeps emergency controls av
   const app=read('ios/App/AppModel.swift');
   assert.match(app,/func presentConnection\(\)/);
   assert.match(app,/var canTurnOffNow: Bool \{ isReady && !foreignRecoveryPending && !emergencyOffInFlight \}/);
-  assert.match(app,/isReady && !requiresRecovery && playback\.snapshot\.mode != \.bridge/);
+  assert.match(app,/var canUseEverydayControls: Bool \{\s*isReady && setupStorageIssue == nil && !requiresRecovery && playback\.snapshot\.mode != \.bridge/);
   assert.doesNotMatch(app,/canUseEverydayControls: Bool \{\n    isReady && !hasRestorePoint/);
   const recovery=read('ios/App/AppModel+Recovery.swift');
   assert.match(recovery,/foreignRecoveryPending = true/);
@@ -80,7 +82,7 @@ test('Reduce Light Motion bounds engine behavior and keeps emergency controls av
   assert.doesNotMatch(restore,/saveRestoreJournal\(nil\)/);
   assert.match(recovery,/Bridge readback matches the saved baseline/);
   assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardKit/Models.swift'),/self\.minimumBrightness=min\(max\(minimumBrightness,0\.1\),100\)/);
-  assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/PhysicalLightSafetyStore.swift'),/try\? save\(\.failedClosed\)/);
+  assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/PhysicalLightSafetyStore.swift'),/withRecoveredSettings\(defaults: defaults\)[\s\S]*?let safe = try Self\.encoded\(\.failedClosed\)\s+defaults\.set\(data, forKey: Key\.quarantine\)\s+defaults\.set\(safe, forKey: Key\.settings\)/);
   assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/HueLightFrameTransports.swift'),/waitForInFlightWrites/);
   assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardKit/PhysicalLightSafety.swift'),/static let failedClosed/);
   assert.match(read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/PhysicalLightSafetyStore.swift'),/return \.failedClosed/);

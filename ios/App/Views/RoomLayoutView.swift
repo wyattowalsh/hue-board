@@ -4,6 +4,7 @@ import HueBoardKit
 struct RoomLayoutView: View {
     @Environment(AppModel.self) private var model
     @State private var showResetConfirmation = false
+    @State private var sweepPreview: RoomSweepPreview?
 
     private var activePlacement: HueFixturePlacement? {
         model.roomLayout?.placements.first(where: { $0.id == model.focusedFixtureID })
@@ -14,17 +15,21 @@ struct RoomLayoutView: View {
             if !model.isReady {
                 ConnectPrompt()
             } else {
-                ScrollView {
+                ScrollViewReader { reader in
+                  ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         StatusCard()
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Room, not a list.")
+                            Text("Room arrangement")
                                 .font(.title2.bold())
                                 .accessibilityAddTraits(.isHeader)
                             Text("Arrange lights by position and phase. Editing the map never changes your bulbs.")
                                 .foregroundStyle(.secondary)
                         }
                         AreaPicker()
+                        if model.roomLayout != nil {
+                            RoomArrangementSection { reader.scrollTo("room-map", anchor: .top) }
+                        }
 
                         if let issue = model.roomLayoutIssue {
                             Label(issue, systemImage: "exclamationmark.triangle.fill")
@@ -62,6 +67,16 @@ struct RoomLayoutView: View {
                             }
                             .padding(16)
                             .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 20))
+
+                            .id("room-map")
+
+                            Button("Use positions for sweep", systemImage: "arrow.right") {
+                                do { sweepPreview = try model.previewRoomSweep() }
+                                catch { model.errorMessage = error.localizedDescription }
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(model.roomDiscoveryScope == nil)
+                            .accessibilityIdentifier("room-sweep-preview")
 
                             VStack(alignment: .leading, spacing: 16) {
                                 Picker("Fixture", selection: Binding(
@@ -129,9 +144,6 @@ struct RoomLayoutView: View {
                             .padding(16)
                             .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 20))
 
-                            RoomArrangementSection()
-                                .id(model.roomLayoutScope)
-
                             Button("Reset to evenly spaced ring", role: .destructive) {
                                 showResetConfirmation = true
                             }
@@ -160,9 +172,11 @@ struct RoomLayoutView: View {
                         }
                     }
                     .padding()
+                  }
                 }
             }
         }
+        .sheet(item: $sweepPreview) { RoomSweepSheet(preview: $0) }
         .navigationTitle("Room")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -211,99 +225,13 @@ struct RoomLayoutView: View {
     }
 }
 
-private struct RoomArrangementSection: View {
-    @Environment(AppModel.self) private var model
-    @State private var arrangements: [HueRoomArrangement]?
-    @State private var preview: RoomArrangementPreview?
-    @State private var isLoading = false
-    @State private var feedback: String?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Saved Hue layouts", systemImage: "square.stack")
-                .font(.headline)
-                .accessibilityAddTraits(.isHeader)
-            Text("Find saved Hue Entertainment positions for fixtures in this room. Apple Home provides room membership through its public API.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Button("Find saved Hue layouts", systemImage: "arrow.down.circle") {
-                Task { await fetchArrangements() }
-            }
-            .buttonStyle(.bordered)
-            .disabled(!model.canImportRoomArrangement || isLoading)
-
-            if isLoading {
-                ProgressView("Reading saved layouts")
-            } else if let arrangements {
-                if arrangements.isEmpty {
-                    Text("No saved Hue layout matched fixtures in this room.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(arrangements) { arrangement in
-                    Button {
-                        do {
-                            preview = try model.previewRoomArrangement(arrangement)
-                            feedback = nil
-                        } catch {
-                            feedback = error.localizedDescription
-                        }
-                    } label: {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(arrangement.name)
-                                .font(.subheadline.weight(.semibold))
-                            Text(arrangement.matchedCount == 1
-                                 ? "1 matching fixture" : "\(arrangement.matchedCount) matching fixtures")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .buttonStyle(.bordered)
-                    .accessibilityHint("Preview these positions")
-                    .disabled(!model.canImportRoomArrangement)
-                }
-            }
-            if let feedback {
-                Text(feedback)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(16)
-        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 20))
-        .sheet(item: $preview) { current in
-            RoomArrangementPreviewSheet(preview: current) {
-                feedback = "Saved matching positions to this room."
-            }
-        }
-    }
-
-    private func fetchArrangements() async {
-        guard !isLoading else { return }
-        isLoading = true
-        feedback = nil
-        arrangements = nil
-        defer { isLoading = false }
-        do {
-            arrangements = try await model.fetchRoomArrangements()
-        } catch is CancellationError {
-            return
-        } catch {
-            feedback = error.localizedDescription
-        }
-    }
-}
-
-private struct RoomArrangementPreviewSheet: View {
+struct RoomArrangementPreviewSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var focusedID: HueResourceID?
     @State private var failure: String?
 
     let preview: RoomArrangementPreview
-    let onSave: () -> Void
 
     var body: some View {
         NavigationStack {
@@ -341,18 +269,19 @@ private struct RoomArrangementPreviewSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .accessibilityIdentifier("room-layout-cancel")
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save positions") {
                         do {
                             try model.saveRoomArrangement(preview)
-                            onSave()
                             dismiss()
                         } catch {
                             failure = error.localizedDescription
                         }
                     }
                     .disabled(!model.canSaveRoomArrangement(preview))
+                    .accessibilityIdentifier("room-layout-save")
                 }
             }
         }

@@ -1,6 +1,6 @@
 import Foundation
 
-enum PersistenceChecksum {
+package enum PersistenceChecksum {
     private static let constants: [UInt32] = [
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
         0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -20,7 +20,7 @@ enum PersistenceChecksum {
         0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
     ]
 
-    static func sha256Hex(_ data: Data) -> String {
+    package static func sha256Hex(_ data: Data) -> String {
         var bytes = Array(data)
         let bitLength = UInt64(bytes.count) * 8
         bytes.append(0x80)

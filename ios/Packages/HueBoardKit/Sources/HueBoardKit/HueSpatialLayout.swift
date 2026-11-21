@@ -138,11 +138,14 @@ public struct HueRoomLayout: Codable, Equatable, Sendable {
         return result
     }
 
-    public func selectedEntries(in area: HueArea) -> [(HueLight, HueFixturePlacement)] {
+    public func selectedEntries(
+        in area: HueArea, brightnessLimit: Double = 100
+    ) -> [(HueLight, HueFixturePlacement)] {
+        guard areaID == area.id, brightnessLimit.isFinite else { return [] }
         let byID = Dictionary(uniqueKeysWithValues: area.lights.map { ($0.id, $0) })
         return placements.compactMap { placement in
             guard placement.selected,
-                  let light = byID[placement.id],
+                  let light = byID[placement.id], light.minimumBrightness <= brightnessLimit,
                   light.capabilities.color, light.capabilities.dimming,
                   !light.capabilities.streaming,
                   placement.brightness(for: light.brightness ?? 50, light: light) != nil

@@ -1,10 +1,12 @@
 import Foundation
 import HueBoardKit
+import HueBoardNativeCore
 
 @MainActor
 extension AppModel {
     var canImportPortableData: Bool {
-        !isBusy && !isLiveRunning && !hasRestorePoint && !requiresRecovery
+        setupStorageIssue == nil && studioInputPreview.isIdle && liveStartupID == nil && activePlaybackLease == nil
+            && !isBusy && !isLiveRunning && !hasRestorePoint && !requiresRecovery
             && playbackSnapshot.mode != .bridge && !emergencyOffInFlight
     }
 
@@ -31,6 +33,8 @@ extension AppModel {
     func reviewPortableImport(_ value: HuePortableData) throws -> String {
         try requireIdleTransfer()
         switch value {
+        case .setup:
+            throw HueBoardError.unsupported("Select setup sections to review their changes.")
         case .studioDraft:
             return "Replace the current Studio draft, including its palette, cues and session duration?"
         case .customPalette:
@@ -62,6 +66,8 @@ extension AppModel {
     func applyPortableImport(_ value: HuePortableData) async throws {
         try requireIdleTransfer()
         switch value {
+        case .setup:
+            throw HueBoardError.unsupported("Review and confirm your selected setup sections first.")
         case .studioDraft(let draft):
             applyStudioSceneSettings(draft.settings)
             selectedPresetID = draft.sourceLookID
@@ -91,18 +97,18 @@ extension AppModel {
             let updated = preferences.applying(to: safetySettings)
             isBusy = true
             defer { isBusy = false }
-            try await safetyStore.save(updated)
+            try PhysicalLightSafetyStore.saveSynchronously(updated)
             safetySettings = updated
         }
     }
 
-    private func requireIdleTransfer() throws {
+    func requireIdleTransfer() throws {
         guard canImportPortableData else {
             throw HueBoardError.unsupported("Imports require idle playback and resolved recovery.")
         }
     }
 
-    private func mergedLibrary(_ documents: [HueSceneDocument]) throws -> [HueSceneDocument] {
+    func mergedLibrary(_ documents: [HueSceneDocument]) throws -> [HueSceneDocument] {
         guard studioLibraryIssue == nil else {
             throw HueBoardError.unsupported("The saved Studio library has an unresolved validation error. Import preserves the existing data.")
         }

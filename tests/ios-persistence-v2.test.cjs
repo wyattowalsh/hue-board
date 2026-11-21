@@ -9,7 +9,7 @@ const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 test('native persistence v2 is versioned, integrity checked, backed up, and quarantined', () => {
   const persistence = read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/AppPersistence.swift');
   const models = read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/PersistenceModels.swift');
-  const checksum = read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/PersistenceChecksum.swift');
+  const checksum = read('ios/Packages/HueBoardKit/Sources/HueBoardKit/PersistenceChecksum.swift');
 
   assert.match(persistence, /hue-board\.native\.state\.v2/);
   assert.match(persistence, /hue-board\.native\.recovery\.v2/);
