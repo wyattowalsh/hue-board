@@ -124,7 +124,7 @@ public struct LiveSessionDescriptor: Codable, Equatable, Sendable, Identifiable 
         areaKind = area.kind
         self.presetID = presetID
         self.brightness = min(max(brightness, 5), 100)
-        self.duration = min(max(duration, 60), 3_600)
+        self.duration = duration.isFinite && duration > 0 ? min(duration, 3_600) : 60
         self.startedAt = startedAt
     }
 }

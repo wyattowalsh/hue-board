@@ -42,7 +42,10 @@ test('saved Bridge retry reuses Keychain state and suppresses duplicate pairing'
 
 test('passive event monitoring stops in background while continued Live remains separate', () => {
   const rootView = read('ios/App/Views/RootView.swift');
-  assert.match(rootView, /case \.background:/);
-  assert.match(rootView, /model\.stopEventMonitoring\(\)/);
-  assert.match(rootView, /continued-processing task is separate/i);
+  assert.match(rootView, /case \.background:\s+model\.setStudioSceneBackgrounded\(true\)\s+model\.stopEventMonitoring\(\)/);
+  const live = read('ios/App/AppModel+Live.swift');
+  const backgroundHandler = live.slice(live.indexOf('func setStudioSceneBackgrounded'), live.indexOf('func stopAndRestore'));
+  assert.match(backgroundHandler, /guard backgrounded, studioCaptureSessionID != nil/);
+  assert.match(backgroundHandler, /foregroundLiveTask\?\.cancel\(\)/);
+  assert.doesNotMatch(backgroundHandler, /ContinuedLiveCoordinator/);
 });

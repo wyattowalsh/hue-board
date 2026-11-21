@@ -38,9 +38,7 @@ extension AppModel {
       )
       try await playbackCoordinator.finish(lease)
     } catch {
-      if await playbackCoordinator.isCurrent(lease) {
-        _ = await playbackCoordinator.stopCurrent(reason: .failed)
-      }
+      _ = await playbackCoordinator.stopCurrent(reason: .failed, matching: lease)
       throw error
     }
   }
@@ -73,7 +71,7 @@ extension AppModel {
       do {
         try await playbackCoordinator.finish(lease)
       } catch {
-        _ = await playbackCoordinator.stopCurrent(reason: .failed)
+        _ = await playbackCoordinator.stopCurrent(reason: .failed, matching: lease)
       }
     }
   }

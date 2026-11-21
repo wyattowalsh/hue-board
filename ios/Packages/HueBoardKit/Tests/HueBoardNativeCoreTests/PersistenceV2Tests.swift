@@ -198,7 +198,7 @@ final class PersistenceV2Tests: XCTestCase {
             profile: profile, area: area, presetID: "first", brightness: 30, duration: 60, startedAt: startedAt
         )
         let second = LiveSessionDescriptor(
-            profile: profile, area: area, presetID: "second", brightness: 30, duration: 60, startedAt: startedAt
+            profile: profile, area: area, presetID: "second", brightness: 30, duration: 12.5, startedAt: startedAt
         )
         let firstProgress = LiveSessionStatus(
             sessionID: first.id, state: .running, progress: 0.25, message: "Running", updatedAt: startedAt
@@ -220,6 +220,7 @@ final class PersistenceV2Tests: XCTestCase {
         let replacementStatus = try await replacementReader.loadLiveStatus()
         XCTAssertFalse(savedStaleStatus)
         XCTAssertEqual(replacementDescriptor?.id, second.id)
+        XCTAssertEqual(replacementDescriptor?.duration, 12.5)
         XCTAssertEqual(replacementStatus.sessionID, second.id)
         XCTAssertEqual(replacementStatus.state, .starting)
 

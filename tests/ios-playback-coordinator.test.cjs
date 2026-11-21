@@ -14,7 +14,8 @@ test('playback coordinator defines a single writer epoch and stale lease gate', 
   assert.match(coordinator, /private var active: ActiveWriter\?/);
   assert.match(coordinator, /PlaybackCoordinationError\.busy/);
   assert.match(coordinator, /PlaybackCoordinationError\.staleLease/);
-  assert.match(coordinator, /stopCurrent\(reason:/);
+  assert.match(coordinator, /func stopCurrent\(\s*reason:\s*PlaybackStopReason,/);
+  assert.match(coordinator, /matching lease: PlaybackWriterLease\?/);
   assert.match(contract, /struct PlaybackWriterLease/);
   assert.match(contract, /struct PlaybackOperationID/);
   assert.match(contract, /struct WriterEpoch/);
