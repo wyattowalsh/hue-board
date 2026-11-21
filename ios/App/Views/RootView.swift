@@ -66,17 +66,18 @@ struct RootView: View {
             await model.bootstrap()
             if scenePhase == .active { model.startEventMonitoring() }
         }
-        .onChange(of: scenePhase) { _, phase in
+        .onChange(of: scenePhase, initial: true) { _, phase in
             switch phase {
             case .active:
+                model.setStudioSceneBackgrounded(false)
                 model.startEventMonitoring()
             case .background:
-                // Ambient Live's explicit continued-processing task is separate.
-                // Passive readback should not consume background execution time.
+                model.setStudioSceneBackgrounded(true)
                 model.stopEventMonitoring()
             case .inactive:
                 break
             @unknown default:
+                model.setStudioSceneBackgrounded(true)
                 model.stopEventMonitoring()
             }
         }

@@ -14,6 +14,8 @@
     <key>LSRequiresIPhoneOS</key><true/>
     <key>NSLocalNetworkUsageDescription</key>
     <string>Hue Board discovers and connects directly to your Philips Hue Bridge on your home network.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Hue Board measures live microphone levels in Studio to animate your selected lights. Audio stays on this iPhone.</string>
     <key>NSBonjourServices</key>
     <array><string>_hue._tcp</string></array>
     <key>BGTaskSchedulerPermittedIdentifiers</key>

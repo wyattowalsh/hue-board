@@ -6,7 +6,9 @@ The native SwiftUI app is the primary product direction for Hue Board. Scriptabl
 
 - **Play** validates a saved scene identity, captures every light the next operation may touch, creates or updates a compatible Hue Bridge dynamic scene, recalls it, and then lets the Bridge continue independently of the phone.
 - **Native Live** samples the same deterministic JavaScript engine bundled with Scriptable through JavaScriptCore. The current transport uses conservative, long REST transitions; sessions are explicitly user-started and duration-bounded.
-- On iOS 18–25, Native Live is foreground-only. On iOS 26+, it requests `BGContinuedProcessingTask` after the user taps Start. The system displays progress and can cancel or expire the task.
+- **Live input** in Studio can use the animation alone, a microphone, or a local audio or video file. The microphone contributes a level. Local media contributes a level and, for video, a frame color. Signals update at the existing Live transition rate within the configured brightness limits.
+- On iOS 18–25, Native Live is foreground-only. On iOS 26+, animation-only sessions request `BGContinuedProcessingTask` after the user taps Start. The system displays progress and can cancel or expire the task.
+- Microphone and local media sessions use foreground playback on every supported iOS version. Capture or media access begins at Start, ends when Hue Board backgrounds, and leaves the saved baseline available. Hue Board stores no recorded microphone audio. Local media runs inside Hue Board. Cross-app audio and screen capture are outside this implementation.
 - Force-quitting the app ends continued processing. It is not an unlimited daemon.
 - Opening, verifying, pairing, reconnecting, refreshing, browsing, and changing tabs never write to lights.
 
@@ -31,6 +33,10 @@ The native SwiftUI app is the primary product direction for Hue Board. Scriptabl
 ## Browse and compose
 
 Scenes and Studio work offline. Search looks or edit a draft locally. Play and Start require a ready Bridge and the usual playback checks. Use **Jump to section** in Studio to reach the palette, cues or library, and use **Position X** and **Position Y** in Room for precise placement or as an alternative to dragging.
+
+In Room, **Find saved Hue layouts** reads positions from saved Hue Entertainment areas. Select a layout to preview the matching fixtures, then save its positions locally. Existing trims, ceilings, roles, phases, and unassigned fixture positions stay intact. Ordinary Hue rooms and Apple Home rooms provide room membership. Hue Board uses the Entertainment configuration as its source of saved fixture coordinates.
+
+Under Studio **Playback**, choose **Microphone** or **Media file** to use an input with Live. Audio uses the phone's input or the selected file, and video files supply a tint from the current frame. Reduce Light Motion suppresses input modulation.
 
 ## Architecture
 
@@ -151,10 +157,12 @@ Do not call this parity-complete or App Store-ready before the applicable physic
 | Shared-engine Live samples | Foreground REST | Low-rate REST fallback, foreground or bounded continued processing on iOS 26+ |
 | Static restore baseline | Yes | Expands for newly touched lights and checks active color during readback; incomplete restores retain the baseline |
 | Individual per-light power, brightness, color, white controls | Yes | New native editing sheet with capability and temperature-range gating |
-| Local spatial editor (fixture selection, positions, phase, roles, trim, ceilings) | Yes | New native room-scoped editor; direct Hue layout import not implemented |
+| Local spatial editor (fixture selection, positions, phase, roles, trim, ceilings) | Yes | Room-scoped editor and explicit import of matching Hue Entertainment positions |
 | Saved Studio mixes | Yes | Validated, scope-free local scene documents with JSON import and export |
 | Custom four-color palettes and engine-sampled thumbnails | Yes | New editable Studio palette and sampled visual previews; no optical-output claims |
 | Cue sequencing | Yes | New ordered/seeded-shuffle cues within one bounded Native Live lease; still requires device verification |
 | Settings and design portability | Scene documents and local preferences | JSON files for Studio drafts, palettes, cues, saved mixes, favorites, room layouts, and lighting safety preferences |
-| Hue layout import, gradient-strip editing, saved Hue scene copying | Yes | Not yet implemented |
+| Microphone and audio/video inputs | Microphone response | Opt-in microphone and local audio/video through foreground Native Live. Physical validation pending |
+| Apple Home spatial geometry, cross-app screen or audio capture | No | Unavailable in this build |
+| Gradient-strip editing and saved Hue scene copying | Yes | Not yet implemented |
 | Hue Entertainment high-rate streaming | No | Required future transport for exact temporal choreography |

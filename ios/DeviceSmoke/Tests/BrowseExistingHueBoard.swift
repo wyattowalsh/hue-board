@@ -6,8 +6,9 @@ final class BrowseExistingHueBoard: XCTestCase {
         continueAfterFailure = false
     }
 
-    private func capture(_ name: String, in app: XCUIApplication) {
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+    private func capture(_ name: String, in app: XCUIApplication, includeKeyboard: Bool = false) {
+        let screenshot = includeKeyboard ? XCUIScreen.main.screenshot() : app.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
@@ -62,15 +63,27 @@ final class BrowseExistingHueBoard: XCTestCase {
         let jump = app.buttons["studio-section-jump"]
         if jump.exists && jump.isHittable {
             jump.tap()
-            let section = app.buttons[menuItem]
+            let button = app.buttons[menuItem]
+            let section = button.waitForExistence(timeout: 1) ? button : app.menuItems[menuItem]
             XCTAssertTrue(section.waitForExistence(timeout: 5))
             section.tap()
+            let heading = app.staticTexts[title]
+            XCTAssertTrue(
+                heading.wait(for: \.isHittable, toEqual: true, timeout: 5),
+                "The Studio section did not scroll into view."
+            )
+        } else {
+            reveal(app.staticTexts[title], in: app)
         }
-        reveal(app.staticTexts[title], in: app)
     }
 
     func testBrowsePairedInstallationWithoutLightActions() throws {
         let app = XCUIApplication(bundleIdentifier: "com.wyattowalsh.HueBoard.dev")
+        let initialState = app.state
+        XCTAssertTrue(
+            [.runningForeground, .runningBackground, .runningBackgroundSuspended].contains(initialState),
+            "Start a fresh audited Debug process before running this test."
+        )
         app.activate()
         XCTAssertTrue(app.tabBars.buttons["Lights"].waitForExistence(timeout: 15))
         for title in ["Lights", "Scenes", "Studio", "Room"] {
@@ -93,6 +106,11 @@ final class BrowseExistingHueBoard: XCTestCase {
 
         app.tabBars.buttons["Scenes"].tap()
         XCTAssertTrue(app.staticTexts["Find your next look."].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            sceneCount(32, in: app).waitForExistence(timeout: 5),
+            "Expected all looks before typing. Start a fresh audited Debug process for each run."
+        )
+        let usesInlineSearch = app.textFields["scene-search"].exists
         capture("03-Scenes", in: app)
         let search = revealSceneSearch(in: app)
         search.tap()
@@ -102,17 +120,22 @@ final class BrowseExistingHueBoard: XCTestCase {
         let knownLook = "Ion Eclipse"
         search.typeText(knownLook)
         XCTAssertTrue(sceneCount(1, in: app).waitForExistence(timeout: 5))
-        capture("04-Scenes-search-match", in: app)
+        capture("04-Scenes-search-match", in: app, includeKeyboard: true)
         clearSearch(search, typed: knownLook, in: app)
         if !keyboard.exists { search.tap() }
 
         let missingLook = "zzqvnomatchcheck"
         search.typeText(missingLook)
         XCTAssertTrue(sceneCount(0, in: app).waitForExistence(timeout: 5))
-        capture("05-Scenes-empty-search", in: app)
+        if usesInlineSearch {
+            XCTAssertTrue(app.staticTexts["No matching looks"].exists)
+        }
+        capture("05-Scenes-empty-search", in: app, includeKeyboard: true)
         clearSearch(search, typed: missingLook, in: app)
         if app.buttons["Cancel"].exists && app.buttons["Cancel"].isHittable {
             app.buttons["Cancel"].tap()
+        } else if keyboard.buttons["Search"].exists && keyboard.buttons["Search"].isHittable {
+            keyboard.buttons["Search"].tap()
         } else if keyboard.exists {
             search.typeText(XCUIKeyboardKey.return.rawValue)
         }
@@ -140,6 +163,11 @@ final class BrowseExistingHueBoard: XCTestCase {
         reveal(app.sliders["Output trim"], in: app)
         XCTAssertTrue(app.sliders["Additional ceiling"].exists)
         capture("11-Room-fixture-controls", in: app)
+        if usesInlineSearch {
+            reveal(app.sliders["Position X"], in: app)
+            XCTAssertTrue(app.sliders["Position Y"].exists)
+            capture("12-Room-position-controls", in: app)
+        }
         XCTAssertFalse(app.buttons["Stop & restore"].exists)
         XCTAssertFalse(app.alerts.firstMatch.exists)
     }

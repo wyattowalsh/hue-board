@@ -6,6 +6,23 @@ final class HueBoardUITests: XCTestCase {
         continueAfterFailure = false
     }
 
+    private func jumpToStudioSection(_ title: String, in app: XCUIApplication) {
+        let jump = app.buttons["studio-section-jump"]
+        XCTAssertTrue(jump.wait(for: \.isHittable, toEqual: true, timeout: 5))
+        jump.tap()
+        let button = app.buttons[title]
+        let section = button.waitForExistence(timeout: 1) ? button : app.menuItems[title]
+        XCTAssertTrue(section.waitForExistence(timeout: 5))
+        section.tap()
+    }
+
+    private func capture(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     func testLaunchShowsPrimaryDestinationsWithoutStartingPlayback() {
         let app = XCUIApplication()
         app.launchEnvironment["HUE_BOARD_UI_TEST_MODE"] = "1"
@@ -46,14 +63,17 @@ final class HueBoardUITests: XCTestCase {
         search.typeText("zzqvnomatchcheck")
         XCTAssertEqual(app.staticTexts["scene-match-count"].label, "0 matching looks")
         XCTAssertTrue(app.staticTexts["No matching looks"].exists)
+        capture("Scenes-empty-search")
 
         app.buttons["scene-search-clear"].tap()
         XCTAssertEqual(app.staticTexts["scene-match-count"].label, "32 matching looks")
         search.tap()
-        search.typeText("Ion Eclipse" + XCUIKeyboardKey.return.rawValue)
+        let look = "Plasma Turbine"
+        search.typeText(look + XCUIKeyboardKey.return.rawValue)
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
         XCTAssertEqual(app.staticTexts["scene-match-count"].label, "1 matching look")
-        XCTAssertTrue(app.staticTexts["Ion Eclipse"].exists)
-        let compose = app.buttons["compose-ion-eclipse"]
+        XCTAssertTrue(app.staticTexts[look].exists)
+        let compose = app.buttons["compose-plasma-turbine"]
         if !compose.isHittable { app.swipeUp() }
         XCTAssertTrue(compose.isHittable)
         let play = app.buttons["Play"].firstMatch
@@ -61,20 +81,29 @@ final class HueBoardUITests: XCTestCase {
         XCTAssertFalse(play.isEnabled)
         compose.tap()
         XCTAssertTrue(app.staticTexts["Engine preview"].waitForExistence(timeout: 5))
-        let jump = app.buttons["studio-section-jump"]
-        XCTAssertTrue(jump.exists)
-        jump.tap()
-        app.buttons["Palette"].tap()
+        XCTAssertTrue(app.staticTexts["No light writes"].exists)
+        jumpToStudioSection("Composition", in: app)
+        let sourcePreset = app.buttons.matching(NSPredicate(
+            format: "label == %@ OR (label BEGINSWITH %@ AND (label CONTAINS %@ OR value == %@))",
+            look, "Source preset", look, look
+        )).firstMatch
+        XCTAssertTrue(sourcePreset.wait(for: \.isHittable, toEqual: true, timeout: 5))
+        capture("Studio-composition-loaded")
+
+        jumpToStudioSection("Palette", in: app)
         let usePalette = app.buttons["studio-custom-palette-A"]
-        XCTAssertTrue(usePalette.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Create your own palette"].wait(
+            for: \.isHittable, toEqual: true, timeout: 5
+        ))
         if !usePalette.isHittable { app.swipeUp() }
+        XCTAssertTrue(usePalette.isHittable)
         usePalette.tap()
         XCTAssertEqual(usePalette.label, "Using in A")
+        capture("Studio-custom-palette-assigned")
 
-        jump.tap()
-        app.buttons["Playback"].tap()
+        jumpToStudioSection("Playback", in: app)
         let start = app.buttons["studio-start"]
-        XCTAssertTrue(start.waitForExistence(timeout: 5))
+        XCTAssertTrue(start.wait(for: \.isHittable, toEqual: true, timeout: 5))
         XCTAssertFalse(start.isEnabled)
         XCTAssertFalse(app.buttons["Stop & restore"].exists)
     }

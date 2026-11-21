@@ -11,9 +11,10 @@ extension AppModel {
     isBusy = true
     playback.beginBridge(presetID: preset.id)
     let replacedExistingPlayback = activePlaybackLease != nil
-    defer { isBusy = false }
+    defer { if !emergencyOffInFlight { isBusy = false } }
 
     await stopCoordinatedPlayback(reason: .replaced)
+    guard !emergencyOffInFlight, playback.snapshot.mode == .bridge else { return }
     let transport = BridgeSceneTransport(
       client: client,
       persistence: persistence,

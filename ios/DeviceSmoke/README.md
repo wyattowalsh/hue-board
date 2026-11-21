@@ -8,15 +8,13 @@ The test navigates Lights, an individual-light sheet, Scenes, Studio, and Room.
 It checks a known search result, an empty result, clearing and dismissing the
 keyboard, Studio's preview and editing sections, and Room's fixture controls.
 The runner supports the earlier navigation-bar search and the current inline
-search. It requires a connected Bridge and idle playback with no pending
-recovery. The test uses browsing controls and leaves physical actions and
-saved mixes, cues, and room layouts untouched.
+search and position sliders. All checks use browsing controls.
 
 ## Run
 
 Use Xcode 27.2+ and XcodeGen 2.46.0+. Keep the paired phone unlocked.
-Supply the actual device identifier and signing team through your local
-environment; do not commit either or copy credentials into test source.
+Supply the device identifier and signing team through your local environment.
+Keep both local.
 
 ```sh
 cd ios/DeviceSmoke
@@ -28,7 +26,19 @@ xcodebuild -project HueBoardDeviceSmoke.xcodeproj -scheme HueBoardDeviceSmoke \
   -derivedDataPath DerivedData DEVELOPMENT_TEAM="$HUE_BOARD_DEVELOPMENT_TEAM" \
   CODE_SIGN_STYLE=Automatic -allowProvisioningUpdates \
   -allowProvisioningDeviceRegistration build-for-testing
+```
 
+Before each run, identify the exact installed version and build. Verify a fresh
+on-device state copy and confirm valid checksums, idle playback, and no recovery
+journal or live-session descriptor. Keep preserved recovery backups intact.
+
+Start a fresh process for the installed Debug app with `HUE_BOARD_WRITE_AUDIT=1`
+in its environment and keep the console capture running. Confirm the
+`HUE_BOARD_WRITE_AUDIT_ACTIVE` marker before browsing. A fresh process starts in
+Lights with the default Scenes query and filters. The runner activates that
+process and checks the initial catalog count.
+
+```sh
 mkdir -p Results
 xcodebuild -project HueBoardDeviceSmoke.xcodeproj -scheme HueBoardDeviceSmoke \
   -configuration Debug -sdk iphoneos -destination "id=$HUE_BOARD_DEVICE_ID" \
@@ -41,23 +51,29 @@ xcodebuild -project HueBoardDeviceSmoke.xcodeproj -scheme HueBoardDeviceSmoke \
 ```
 
 Use a new result path for each run and retain earlier failures for diagnosis.
-Review the labeled screenshots for keyboard layout, scrolling, and clipped
-content. Check VoiceOver, accessibility text sizes, and Reduce Motion separately
-on the same installed binary.
+Export labeled screenshots to an ignored results folder.
+
+```sh
+xcrun xcresulttool export attachments --path Results/Browse.xcresult \
+  --output-path Results/Browse-attachments
+```
+
+Review search screenshots with the keyboard visible, then check scrolling,
+clipped content, and Room position controls. Check VoiceOver, accessibility
+text sizes, and iOS Reduce Motion on the same installed binary. The iOS setting
+governs Studio section-jump animation.
 Verbose failure diagnostics are disabled because their optional device
 collection stalled in the source session. Assertions and screenshot attachments
 remain enabled.
 
 ## Evidence limits
 
-A UI pass alone does not establish that no lighting writes occurred. For that
-claim, use the existing Debug `HUE_BOARD_WRITE_AUDIT=1` instrumentation, require
-its positive activation marker, check zero write-attempt markers, and inspect
-fresh on-device recovery/live-session state after the run. Keep app data and
-raw evidence local: screenshots and XCTest diagnostics can contain Bridge
-network details. Results, generated projects, and build products are ignored.
+For the no-write result, match the confirmed audit activation marker and zero
+write-attempt markers to the process that ran the completed assertions. Verify
+fresh on-device checksums and idle playback without recovery or live-session
+records after browsing. Keep app data and raw evidence local because
+screenshots and XCTest diagnostics can include private Bridge details. Results,
+generated projects and build products are ignored.
 
-The source compiled in the earlier standalone runner, but its revised full
-device pass was blocked by the locked phone. Generating this project does not
-qualify its runtime behavior. See [candidate evidence](../README.md#installed-candidate-evidence)
-for the actual installed version, partial checks, and remaining release gates.
+See the native README for the exact installed version, observed runtime results,
+and remaining release gates. [Candidate evidence](../README.md#installed-candidate-evidence)

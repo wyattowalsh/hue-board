@@ -1,8 +1,8 @@
 # Test Hue Board on a physical iPhone
 
-This is the fastest path for testing the native SwiftUI app on your own iPhone. Use a Mac with Xcode, install a development build directly, and begin with one low-risk Hue room at modest brightness.
+Use a Mac with Xcode and a paired iPhone to qualify a native development build. For an existing installation, preserve the app, pairing and recovery state. Use the [standalone DeviceSmoke runner](DeviceSmoke/README.md) for browse-only checks.
 
-The app currently targets iOS 18 or later. The native source is a development vertical slice, not an App Store or TestFlight release. Do not represent a successful installation as full Hue hardware, lifecycle, accessibility, or App Store qualification.
+The app targets iOS 18 or later. A signed development installation establishes the build can run on that phone. The checks below qualify behavior on the tested app and hardware.
 
 ## 1. Prepare the Hue system
 
@@ -18,11 +18,14 @@ Hue Board does not change lights merely by opening, discovering, verifying, pair
 
 ## 2. Prepare the exact repository checkout
 
+Use a dedicated checkout and the full candidate SHA from the qualification record.
+
 ```sh
+: "${HUE_BOARD_CANDIDATE_SHA:?Set the full candidate commit SHA}"
 git clone https://github.com/wyattowalsh/hue-board.git
 cd hue-board
-git switch main
-git pull --ff-only
+git switch --detach "$HUE_BOARD_CANDIDATE_SHA"
+test "$(git rev-parse HEAD)" = "$HUE_BOARD_CANDIDATE_SHA"
 git rev-parse HEAD
 
 corepack prepare pnpm@10.17.1 --activate
@@ -38,7 +41,7 @@ git diff --exit-code -- \
 
 Record the commit printed by `git rev-parse HEAD` in every device-test result.
 
-The pinned Scriptable artifact on `main` is v5.3.0. `pnpm build` rewrites `dist/` locally. Commit a new bundle only together with an installer pin that names the commit containing those exact bytes.
+`pnpm verify:release` checks the pinned Scriptable release and `pnpm build` rewrites `dist/` locally. Generated bundle changes require a matching installer pin before publication.
 
 ## 3. Generate the Xcode project
 
@@ -94,6 +97,8 @@ Xcode may offer to install the matching iOS platform support the first time the 
 
 ## 6. First launch and Bridge pairing
 
+Use these steps for a fresh setup. For an existing pairing, check the installed app version and preserve the current preferences and recovery backup before updating in place.
+
 1. Launch Hue Board from Xcode and allow **Local Network** access.
 2. Confirm that merely opening the app did not change any light.
 3. Open **Connect Bridge**.
@@ -108,56 +113,62 @@ The first verified connection pins the Bridge certificate fingerprint and stores
 
 ## 7. Minimum safe device-test matrix
 
-Perform these in order. Stop if the observed behavior contradicts the expected result.
+Perform these in order. Before any physical test in B–F, establish authorization for the specific room, fixtures, actions and restoration, and confirm support and single-writer ownership. Stop if the observed behavior contradicts the expected result.
 
 ### A. No-write and readback baseline
 
 - Launch Hue Board with the official Hue app visible on another device if available.
 - Confirm no light changes during launch, discovery, verification, pairing, refresh, or tab changes.
 - Confirm rooms, zones, fixture names, power state, and brightness broadly match the official Hue app.
+- Use DeviceSmoke for navigation, search, keyboard dismissal, Studio sections and Room controls on the paired installation. Capture fresh state and the Debug write audit as described in the runner guide.
+- Inspect the screenshots for clipped controls and long-content reachability. Check search and Studio section jumps at a large accessibility text size. With iOS Reduce Motion enabled, verify section jumps reach the same sections without animated scrolling. Check VoiceOver labels for search, clear, the Studio section menu, and Room position sliders.
+- In **Room**, use **Find saved Hue layouts** to check matching Hue Entertainment positions on an idle Bridge. Open a preview and cancel to check that the original layout stays in place. **Save positions** is a separate local edit that preserves fixture selection, phase, roles, trim and ceilings. Apple's public Home API supplies room membership, while the import reads positions from the Hue Bridge.
 
-**Pass:** no unexpected write and inventory/readback is credible.
+**Pass** when the requested assertions and visual checks pass, inventory and readback are credible, the audit is active with zero write attempts, and fresh state before and after browsing shows idle playback without recovery or live-session records.
 
 ### B. Everyday control
 
-- Select the small test room or zone.
-- Set area brightness to approximately 20%.
-- Toggle one noncritical light off and on.
-- Confirm the official Hue app and physical fixture reflect each accepted command.
+- Open **Lights**, select the approved room or zone, and open the individual-light sheet for one eligible fixture.
+- Set draft brightness to approximately 20%. Check that moving the draft control leaves the physical fixture unchanged.
+- Use the approved **Turn on**, **Turn off**, or **Apply brightness & turn on** action. Confirm the official Hue app and physical fixture reflect the accepted command.
+- Use **Stop & restore** as authorized and confirm the baseline returns.
 
 **Pass:** targeted fixtures change, unrelated fixtures remain unchanged, and readback converges.
 
 ### C. Automatic phone-free Bridge Play
 
 - Open **Scenes**.
-- Choose a restrained scene and tap **Play on Bridge**.
+- Choose a restrained scene and tap **Play**.
 - Wait for Hue Board to report accepted Bridge playback.
 - Lock the iPhone for at least two minutes.
 - Confirm the scene continues while the phone is locked.
-- Unlock, inspect status, then use **Stop & restore baseline**.
+- Unlock, inspect status, then use **Stop & restore**.
 
 **Pass:** accepted Play continues independently of the phone and explicit restore returns the captured static baseline. A Bridge acknowledgement is not by itself proof of emitted optical output, so inspect the actual lamps.
 
 ### D. Native Live foreground behavior
 
-- Open **Live**.
-- Select a scene, keep brightness conservative, choose the shortest available duration, and tap **Start Ambient Live**.
+- Open **Studio**.
+- Check the draft preview, custom palette, saved mix and cue controls before starting a session.
+- Select the approved composition, keep brightness conservative, choose the shortest available duration, and tap **Start Studio Live**. Use **Start cue sequence** for the approved cue test.
 - Keep Hue Board in the foreground for several transition cycles.
 - Confirm updates are smooth enough for the low-rate REST fallback and that only the selected area changes.
-- Tap **Stop & restore baseline**.
+- Tap **Stop & restore**.
 
 **Pass:** Native Live is bounded, interruptible, single-area, and recoverable. Do not expect high-rate Hue Entertainment fidelity.
 
+For separately approved Live input checks, choose **Microphone** or **Media file** under Studio **Playback**. Confirm selecting the input or a local file sends no lighting commands. With the approved fixtures and brightness limit, test permission denial, changes between quiet and loud audio, video tint, and moving Hue Board to the background. Capture and media playback should stop on backgrounding. Verify the saved baseline before continuing with further lighting actions.
+
 ### E. Native Live background behavior
 
-On iOS 26 or later:
+For animation-only Live on iOS 26 or later:
 
-- Start Ambient Live from the foreground.
+- Start Studio Live from the foreground.
 - Background the app without force-quitting it.
 - Observe the system continued-processing UI and Hue Board progress.
 - Let the session finish or cancel it, then reopen Hue Board and restore if needed.
 
-On iOS 18 through 25, Native Live is foreground-only. Use **Play on Bridge** for reliable phone-free behavior.
+On iOS 18 through 25, Native Live is foreground-only. Use **Play** in Scenes for phone-free Bridge playback.
 
 **Pass:** behavior matches the platform contract. The system may queue, cancel, or expire continued processing; force-quitting ends it.
 
@@ -165,27 +176,16 @@ On iOS 18 through 25, Native Live is foreground-only. Use **Play on Bridge** for
 
 - Start Bridge Play or Native Live, then leave Hue Board and relaunch it.
 - Confirm the app retains a recovery obligation.
-- Use **Stop & restore baseline**.
+- Use **Stop & restore**.
 - Verify unresolved fixtures remain in recovery state if any restore command fails.
 
 **Pass:** recovery survives relaunch and is never silently discarded.
 
 ## 8. Evidence to capture
 
-Attach this information to issue #4:
+Keep raw qualification evidence in ignored local storage. Record the exact source SHA, installed version and build, device model and OS, Xcode version and build, and the result for each matrix section. Keep screenshot and recording review, the audit activation and write-attempt counts, and fresh checksum/state results with that run.
 
-- Exact repository commit SHA.
-- Mac model and macOS version.
-- Xcode version and build number.
-- iPhone model and iOS version.
-- Apple signing type: Personal Team or paid team.
-- Hue Bridge model, firmware, and certificate fingerprint shown by Hue Board.
-- Test room/zone and fixture count.
-- Result for each matrix section A–F.
-- Xcode console excerpts for failures, with application keys, IP addresses, and home-specific identifiers redacted.
-- Screen recording or video of physical fixtures for playback and restoration checks.
-
-Do not publish Hue application keys, private Bridge addresses, certificate material beyond the nonsecret SHA-256 fingerprint, or household layout details.
+Use sanitized summaries for any authorized sharing. Keep preference backups, raw console logs, screenshots with household or Bridge details, credentials, device identifiers and signing data private.
 
 ## 9. Common blockers
 
@@ -201,12 +201,12 @@ Pair the iPhone with Xcode first. Developer Mode appears after pairing has been 
 
 ### Local Network prompt was denied
 
-Open iPhone **Settings > Privacy & Security > Local Network** and enable Hue Board. If the app is absent, delete the development build, reinstall from Xcode, and respond to the prompt again.
+Open iPhone **Settings > Privacy & Security > Local Network** and enable Hue Board. If the app is absent, inspect the installed app and pairing state before retrying the normal permission prompt. Preserve the paired installation and recovery data.
 
 ### Bridge discovery returns nothing
 
 - Confirm the official Hue app works on the same Wi-Fi.
-- Disable VPN routing during the test.
+- Check whether VPN routing prevents local-network access.
 - Avoid a guest network or access point with client isolation.
 - Use the private Bridge IP shown by the official Hue app and tap **Verify Bridge**.
 

@@ -12,6 +12,11 @@ final class AppModel {
     case bridge(presetID: String)
     case ambient
   }
+  enum StudioLiveInput: String, CaseIterable {
+    case engine = "Engine"
+    case microphone = "Microphone"
+    case media = "Local media"
+  }
   enum ConnectionState: Equatable {
     case disconnected
     case discovering
@@ -50,6 +55,9 @@ final class AppModel {
   var currentCueStatus: String?
   var brightness = 60.0
   var liveDuration: TimeInterval = 15 * 60
+  var studioLiveInput: StudioLiveInput = .engine
+  var studioMediaURL: URL?
+  var studioSceneIsBackgrounded = false
   var playback = HuePlaybackMachine()
   var liveProgress = 0.0
   var eventStreamConnected = false
@@ -90,6 +98,10 @@ final class AppModel {
   @ObservationIgnored let keychain = KeychainVault()
   @ObservationIgnored let studioDocumentStore = StudioDocumentStore()
   @ObservationIgnored let roomLayoutStore = HueRoomLayoutStore()
+  @ObservationIgnored let studioMicrophone = StudioMicrophone()
+  @ObservationIgnored let studioMedia = StudioMedia()
+  @ObservationIgnored var liveStartupID: UUID?
+  @ObservationIgnored var studioCaptureSessionID: UUID?
   @ObservationIgnored var activePlaybackLease: PlaybackWriterLease?
   @ObservationIgnored var foregroundLiveTask: Task<Void, Never>?
   @ObservationIgnored var eventTask: Task<Void, Never>?
@@ -177,6 +189,10 @@ final class AppModel {
           !requiresRecovery, !isBusy, roomLayoutIssue == nil,
           let area = selectedArea, let roomLayout else { return false }
     guard !roomLayout.selectedEntries(in: area).isEmpty else { return false }
+    if studioLiveInput != .engine {
+      guard !studioSceneIsBackgrounded, !safetySettings.reduceLightMotion else { return false }
+      if studioLiveInput == .media, studioMediaURL == nil { return false }
+    }
     if isCueSequenceEnabled {
       let sequence = HueCueSequence(
         presetIDs: cueIDs,

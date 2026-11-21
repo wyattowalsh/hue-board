@@ -9,29 +9,100 @@ extension AppModel {
       let preset = selectedPreset, let spatialSnapshot = roomLayout
     else { return }
     guard !requiresDynamicLightConsent(for: .ambient) else { return }
+    let startID = UUID()
+    let input = studioLiveInput
+    let mediaURL = studioMediaURL
+    let requestedDuration = liveDuration
+    let brightness = effectiveDynamicBrightness
+    let safetySettings = safetySettings
+    let cueSnapshot: HueCueSequence? = isCueSequenceEnabled
+      ? HueCueSequence(
+          presetIDs: cueIDs,
+          holdSeconds: cueHoldSeconds,
+          order: cueOrder,
+          seed: studioSettings.seed
+        )
+      : nil
+    let contract = contract
+    let studioSnapshot: HueEngineSettings = {
+      var captured = studioSettings
+      captured.brightness = brightness
+      return captured
+    }()
+
     isBusy = true
-    defer { isBusy = false }
+    liveStartupID = startID
+    if input != .engine { studioCaptureSessionID = startID }
+    var launched = false
+    defer {
+      if !launched { stopStudioCapture(sessionID: startID) }
+      if liveStartupID == startID {
+        liveStartupID = nil
+        isBusy = false
+      }
+    }
     var lease: PlaybackWriterLease?
+    var startupDescriptorID: UUID?
 
     do {
+      if let cueSnapshot { try cueSnapshot.validate(contract: contract) }
       let freshAreas = try await client.inventory(
         profile: profile,
         credential: credential,
         outputLimits: preservedOutputCeilings()
       )
+      try checkStudioLiveStartup(startID)
       guard let freshArea = freshAreas.first(where: { $0.id == area.id }) else {
         throw HueBoardError.missingResource("The selected area is no longer available.")
       }
       try spatialSnapshot.validate(for: freshArea)
-      let touched = Set(
-        spatialSnapshot.selectedEntries(in: freshArea).map { $0.0.id }
-      )
-      guard !touched.isEmpty else {
+      let selected = spatialSnapshot.selectedEntries(in: freshArea).filter {
+        $0.0.minimumBrightness <= safetySettings.maximumDynamicBrightness
+      }
+      guard !selected.isEmpty else {
         throw HueBoardError.unsupported(
-          "No selected color lights remain eligible for this Studio layout."
+          "No selected color lights are available within the current brightness limit."
         )
       }
+      if input != .engine, !selected.contains(where: { !$0.1.role.isStatic }) {
+        throw HueBoardError.unsupported("Select a fixture with a moving role in Room to use a Live input.")
+      }
+
+      let duration: TimeInterval
+      let signal: (@Sendable (TimeInterval) async throws -> HueLiveSignal)?
+      let verifyInput: @Sendable () async throws -> Void
+      switch input {
+      case .engine:
+        duration = requestedDuration
+        signal = nil
+        verifyInput = {}
+      case .microphone:
+        let microphone = studioMicrophone
+        try await microphone.start()
+        duration = requestedDuration
+        signal = { _ in
+          guard microphone.isCapturing else {
+            throw HueBoardError.unsupported("Microphone capture ended. Restore the saved baseline before starting again.")
+          }
+          return microphone.signal()
+        }
+        verifyInput = {
+          guard microphone.isCapturing else { throw CancellationError() }
+        }
+      case .media:
+        guard let mediaURL else {
+          throw HueBoardError.missingResource("Choose a local audio or video file in Studio.")
+        }
+        let media = studioMedia
+        duration = min(requestedDuration, try await media.start(url: mediaURL))
+        signal = { _ in try await media.signal() }
+        verifyInput = { try await media.verifyPlayback() }
+      }
+      try checkStudioLiveStartup(startID)
+
+      let touched = Set(selected.map { $0.0.id })
       try await ensureRestoreJournal(profile: profile, area: freshArea, touchedIDs: touched)
+      try checkStudioLiveStartup(startID)
 
       let transport = RestAmbientTransport(
         client: client,
@@ -43,33 +114,13 @@ extension AppModel {
         scope: .init(bridgeID: profile.bridgeID, areaID: freshArea.id),
         transport: .restAmbient,
         presetID: preset.id,
-        duration: liveDuration
+        duration: duration
       )
       let ownedLease = try await playbackCoordinator.begin(request, using: transport)
       lease = ownedLease
-      activePlaybackLease = ownedLease
+      try checkStudioLiveStartup(startID)
 
       let runner = NativeLiveRunner(engine: engine)
-      let duration = liveDuration
-      let brightness = effectiveDynamicBrightness
-      let safetySettings = safetySettings
-      let cueSnapshot: HueCueSequence? = isCueSequenceEnabled
-        ? HueCueSequence(
-            presetIDs: cueIDs,
-            holdSeconds: cueHoldSeconds,
-            order: cueOrder,
-            seed: studioSettings.seed
-          )
-        : nil
-      if let cueSnapshot {
-        try cueSnapshot.validate(contract: contract)
-      }
-      let contract = contract
-      let studioSnapshot: HueEngineSettings = {
-        var captured = studioSettings
-        captured.brightness = brightness
-        return captured
-      }()
       let descriptor = LiveSessionDescriptor(
         profile: profile,
         area: freshArea,
@@ -77,7 +128,10 @@ extension AppModel {
         brightness: brightness,
         duration: duration
       )
-      try await persistence.saveLiveDescriptor(descriptor)
+      try await persistence.beginLiveSession(descriptor)
+      startupDescriptorID = descriptor.id
+      try checkStudioLiveStartup(startID)
+      activePlaybackLease = ownedLease
 
       let persistence = persistence
       let playbackCoordinator = playbackCoordinator
@@ -92,11 +146,13 @@ extension AppModel {
             contract: contract,
             duration: duration,
             safetySettings: safetySettings,
+            signal: signal,
             submit: { frame in
+              try await verifyInput()
               try await playbackCoordinator.submit(frame, lease: ownedLease)
             }
           ) { progress in
-            guard await playbackCoordinator.isCurrent(ownedLease) else { return }
+            guard !Task.isCancelled, await playbackCoordinator.isCurrent(ownedLease) else { return }
             let cueLabel = progress.cue.map { cue -> String in
               let name = contract.preset(id: cue.presetID)?.name ?? "Unknown cue"
               return "Cue \(cue.position + 1)/\(cue.count): \(name) · \(Int(cue.remaining))s"
@@ -105,7 +161,7 @@ extension AppModel {
               progress.fraction,
               cueLabel ?? "\(Int(progress.fraction * 100))% · \(Int(progress.remaining))s remaining"
             )
-            try? await persistence.saveLiveStatus(
+            _ = try? await persistence.saveLiveStatusIfCurrent(
               .init(
                 sessionID: descriptor.id,
                 state: .running,
@@ -123,7 +179,10 @@ extension AppModel {
             }
           }
           try await playbackCoordinator.finish(ownedLease)
-          try? await persistence.saveLiveStatus(
+          await MainActor.run {
+            if let app = model.value { app.stopStudioCapture(sessionID: startID) }
+          }
+          _ = try? await persistence.saveLiveStatusIfCurrent(
             .init(
               sessionID: descriptor.id,
               state: .completed,
@@ -139,12 +198,13 @@ extension AppModel {
             model.value?.currentCueStatus = nil
             model.value?.note = "Ambient Live finished. Restore the saved baseline when ready."
           }
-        } catch is CancellationError {
-          if await playbackCoordinator.isCurrent(ownedLease) {
-            _ = await playbackCoordinator.stopCurrent(reason: .cancelled)
+        } catch let failure where failure is CancellationError || Task.isCancelled {
+          await MainActor.run {
+            if let app = model.value { app.stopStudioCapture(sessionID: startID) }
           }
+          _ = await playbackCoordinator.stopCurrent(reason: .cancelled, matching: ownedLease)
           let progress = await MainActor.run { model.value?.liveProgress ?? 0 }
-          try? await persistence.saveLiveStatus(
+          _ = try? await persistence.saveLiveStatusIfCurrent(
             .init(
               sessionID: descriptor.id,
               state: .cancelled,
@@ -157,17 +217,20 @@ extension AppModel {
             guard let model = model.value, model.activePlaybackLease == ownedLease else { return }
             model.activePlaybackLease = nil
             model.playback.fail(
-              "Ambient Live was cancelled by iOS. Restore the saved baseline before retrying."
+              input == .engine
+                ? "Ambient Live was cancelled by iOS. Restore the saved baseline before retrying."
+                : "Studio Live input stopped. Restore the saved baseline before starting again."
             )
             model.note = model.playback.snapshot.message
           }
           throw CancellationError()
         } catch {
-          if await playbackCoordinator.isCurrent(ownedLease) {
-            _ = await playbackCoordinator.stopCurrent(reason: .failed)
+          await MainActor.run {
+            if let app = model.value { app.stopStudioCapture(sessionID: startID) }
           }
+          _ = await playbackCoordinator.stopCurrent(reason: .failed, matching: ownedLease)
           let progress = await MainActor.run { model.value?.liveProgress ?? 0 }
-          try? await persistence.saveLiveStatus(
+          _ = try? await persistence.saveLiveStatusIfCurrent(
             .init(
               sessionID: descriptor.id,
               state: .failed,
@@ -186,7 +249,11 @@ extension AppModel {
         }
       }
 
-      if #available(iOS 26.0, *) {
+      if input != .engine {
+        _ = playback.beginLive(presetID: preset.id, duration: duration, continued: false)
+        if input == .media { studioMedia.play() }
+        startForegroundLive(work: work, reason: "\(input.rawValue) stops when Hue Board moves to the background.")
+      } else if #available(iOS 26.0, *) {
         do {
           _ = playback.beginLive(presetID: preset.id, duration: duration, continued: true)
           try ContinuedLiveCoordinator.shared.submit(
@@ -203,14 +270,49 @@ extension AppModel {
         _ = playback.beginLive(presetID: preset.id, duration: duration, continued: false)
         startForegroundLive(work: work, reason: "iOS 26 is required for continued processing.")
       }
+      launched = true
     } catch {
-      if let lease, await playbackCoordinator.isCurrent(lease) {
-        _ = await playbackCoordinator.stopCurrent(reason: .failed)
+      if let lease {
+        _ = await playbackCoordinator.stopCurrent(reason: .failed, matching: lease)
       }
+      if let startupDescriptorID {
+        _ = try? await persistence.saveLiveStatusIfCurrent(
+          .init(sessionID: startupDescriptorID, state: .cancelled, progress: 0,
+                message: "Ambient Live startup was cancelled.", updatedAt: Date())
+        )
+      }
+      guard liveStartupID == startID else { return }
       activePlaybackLease = nil
-      playback.fail(error.localizedDescription)
+      if hasRestorePoint { playback.fail(error.localizedDescription) }
+      if error is CancellationError { return }
       errorMessage = error.localizedDescription
     }
+  }
+
+  private func checkStudioLiveStartup(_ startID: UUID) throws {
+    try Task.checkCancellation()
+    guard liveStartupID == startID else { throw CancellationError() }
+  }
+
+  private func stopStudioCapture(sessionID: UUID? = nil) {
+    guard let current = studioCaptureSessionID, sessionID == nil || sessionID == current else { return }
+    studioCaptureSessionID = nil
+    studioMicrophone.stop()
+    studioMedia.stop()
+  }
+
+  func cancelStudioLiveSetupAndCapture() {
+    liveStartupID = nil
+    stopStudioCapture()
+  }
+
+  func setStudioSceneBackgrounded(_ backgrounded: Bool) {
+    studioSceneIsBackgrounded = backgrounded
+    guard backgrounded, studioCaptureSessionID != nil else { return }
+    if liveStartupID != nil { isBusy = false }
+    cancelStudioLiveSetupAndCapture()
+    foregroundLiveTask?.cancel()
+    foregroundLiveTask = nil
   }
 
   func stopAndRestore() async {
@@ -226,6 +328,7 @@ extension AppModel {
     isBusy = true
     playback.beginStopping()
     currentCueStatus = nil
+    cancelStudioLiveSetupAndCapture()
     foregroundLiveTask?.cancel()
     foregroundLiveTask = nil
     ContinuedLiveCoordinator.shared.cancel()
@@ -291,8 +394,7 @@ extension AppModel {
         var accepted = journal
         accepted.restoreAcceptedAt = Date()
         try await persistence.saveRestoreJournal(accepted)
-        try await persistence.saveLiveDescriptor(nil)
-        try await persistence.saveLiveStatus(.idle)
+        try await persistence.clearLiveSession()
         liveProgress = 0
         try await loadInventory(profile: profile, credential: credential)
         if hasRestorePoint {

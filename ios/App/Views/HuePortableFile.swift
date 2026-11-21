@@ -23,6 +23,19 @@ struct HuePortableFile: FileDocument {
     static func read(from url: URL) throws -> Data {
         let hasScopedAccess = url.startAccessingSecurityScopedResource()
         defer { if hasScopedAccess { url.stopAccessingSecurityScopedResource() } }
+
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        var coordinationError: NSError?
+        var readResult: Result<Data, Error>?
+        coordinator.coordinate(readingItemAt: url, options: [], error: &coordinationError) { fileURL in
+            readResult = Result { try readBoundedContents(from: fileURL) }
+        }
+        if let coordinationError { throw coordinationError }
+        guard let readResult else { throw CocoaError(.fileReadUnknown) }
+        return try readResult.get()
+    }
+
+    private static func readBoundedContents(from url: URL) throws -> Data {
         let input = try FileHandle(forReadingFrom: url)
         defer { try? input.close() }
 

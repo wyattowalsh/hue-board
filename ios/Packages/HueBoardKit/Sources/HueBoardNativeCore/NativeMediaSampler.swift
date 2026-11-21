@@ -56,11 +56,11 @@ public actor NativeMediaSampler {
             throw HueBoardError.unsupported("The media position is outside the selected clip.")
         }
         try Task.checkCancellation()
-        let level: Double
+        let level: Double?
         if let audioTrack {
-            level = (try? Self.audioLevel(asset: asset, track: audioTrack, at: seconds, duration: metadata.duration)) ?? 0
+            level = try? Self.audioLevel(asset: asset, track: audioTrack, at: seconds, duration: metadata.duration)
         } else {
-            level = 0
+            level = nil
         }
         let color: RGB?
         if let imageGenerator {
@@ -72,7 +72,10 @@ public actor NativeMediaSampler {
             color = nil
         }
         try Task.checkCancellation()
-        return HueLiveSignal(level: level, color: color)
+        guard level != nil || color != nil else {
+            throw HueBoardError.unsupported("Hue Board could not read a signal at this position in the selected clip.")
+        }
+        return HueLiveSignal(level: level ?? 0, color: color)
     }
 
     private static func audioLevel(
@@ -98,9 +101,13 @@ public actor NativeMediaSampler {
             AVLinearPCMIsNonInterleaved: false,
         ])
         output.alwaysCopiesSampleData = false
-        guard reader.canAdd(output) else { return 0 }
+        guard reader.canAdd(output) else {
+            throw HueBoardError.unsupported("The selected clip's audio format cannot be sampled.")
+        }
         reader.add(output)
-        guard reader.startReading() else { return 0 }
+        guard reader.startReading() else {
+            throw HueBoardError.unsupported("Hue Board could not start reading the selected clip's audio.")
+        }
         defer { reader.cancelReading() }
 
         let sampleLimit = 3_200 // 0.4 seconds at the requested 8 kHz.
@@ -122,6 +129,9 @@ public actor NativeMediaSampler {
                 energy += amplitude * amplitude
             }
             count += sampleCount
+        }
+        guard reader.status != .failed else {
+            throw HueBoardError.unsupported("Hue Board could not decode the selected clip's audio.")
         }
         guard count > 0, energy > 0 else { return 0 }
         let dBFS = 20 * log10(sqrt(energy / Double(count)))

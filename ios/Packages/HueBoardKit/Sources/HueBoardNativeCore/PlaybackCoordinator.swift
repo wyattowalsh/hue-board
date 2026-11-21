@@ -68,13 +68,17 @@ public actor PlaybackCoordinator {
         await retire(current, reason: .completed)
     }
 
-    public func stopCurrent(reason: PlaybackStopReason) async -> PlaybackWriterLease? {
+    public func stopCurrent(
+        reason: PlaybackStopReason,
+        matching expectedLease: PlaybackWriterLease? = nil
+    ) async -> PlaybackWriterLease? {
         guard let current = active else {
-            if draining != nil {
+            if let draining, expectedLease == nil || draining.lease == expectedLease {
                 await withCheckedContinuation { drainWaiters.append($0) }
             }
             return nil
         }
+        guard expectedLease == nil || current.lease == expectedLease else { return nil }
         await retire(current, reason: reason)
         return current.lease
     }

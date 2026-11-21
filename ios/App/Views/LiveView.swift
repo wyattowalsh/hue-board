@@ -1,4 +1,6 @@
+import AVKit
 import SwiftUI
+import UniformTypeIdentifiers
 import HueBoardKit
 
 struct LiveView: View {
@@ -7,6 +9,7 @@ struct LiveView: View {
     @State private var composeExpanded = true
     @State private var sculptExpanded = true
     @State private var advancedExpanded = false
+    @State private var isChoosingMedia = false
 
     private enum StudioSection: String, CaseIterable {
         case preview = "Preview"
@@ -73,6 +76,11 @@ struct LiveView: View {
                 }
             }
         }
+        .fileImporter(
+            isPresented: $isChoosingMedia,
+            allowedContentTypes: [.audio, .movie, .video],
+            onCompletion: selectMedia
+        )
     }
 
     private var sourcePresetPicker: some View {
@@ -177,7 +185,9 @@ struct LiveView: View {
     private var playbackControls: some View {
         @Bindable var model = model
         return VStack(alignment: .leading, spacing: 12) {
+            liveInputControls
             StudioSlider(title: "Session duration", value: $model.liveDuration, range: 300...3_600, step: 300, unit: "s")
+                .disabled(model.isBusy || model.isLiveRunning)
             Button {
                 Task { await model.startNativeLive() }
             } label: {
@@ -203,6 +213,68 @@ struct LiveView: View {
             Text("Studio Live sends low-rate Hue transitions. Use Stop & restore to recover your earlier light states.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    private var liveInputControls: some View {
+        @Bindable var model = model
+        return VStack(alignment: .leading, spacing: 8) {
+            Picker("Live input", selection: $model.studioLiveInput) {
+                ForEach(AppModel.StudioLiveInput.allCases, id: \.self) { input in
+                    Text(input.rawValue).tag(input)
+                }
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier("studio-live-input")
+
+            switch model.studioLiveInput {
+            case .engine:
+                EmptyView()
+            case .microphone:
+                Text("Start enables the microphone for this session. Hue Board uses sound level and saves no recording.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            case .media:
+                Button("Choose audio or video", systemImage: "folder") {
+                    isChoosingMedia = true
+                }
+                if let url = model.studioMediaURL {
+                    Label(url.lastPathComponent, systemImage: "doc")
+                        .font(.subheadline)
+                        .lineLimit(2)
+                }
+                if model.isLiveRunning, model.studioMedia.hasVideo,
+                   let player = model.studioMedia.player {
+                    VideoPlayer(player: player)
+                        .frame(height: 180)
+                        .clipShape(.rect(cornerRadius: 12))
+                        .allowsHitTesting(false)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("Selected video playback")
+                }
+                Text("Start plays the selected file. The session ends when the clip or the selected duration ends.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if model.studioLiveInput != .engine {
+                Text(model.safetySettings.reduceLightMotion
+                     ? "Reduce Light Motion keeps Studio playback on the engine. Select Engine to start."
+                     : "Keep Hue Board on screen. This input stops in the background.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .disabled(model.isBusy || model.isLiveRunning)
+    }
+
+    private func selectMedia(_ result: Result<URL, Error>) {
+        switch result {
+        case .success(let url):
+            model.studioMediaURL = url
+        case .failure(let error):
+            if (error as? CocoaError)?.code != .userCancelled {
+                model.errorMessage = "Could not select media. \(error.localizedDescription)"
+            }
         }
     }
 }

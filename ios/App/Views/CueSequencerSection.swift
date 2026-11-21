@@ -32,7 +32,7 @@ struct CueSequencerSection: View {
             }
             Toggle("Sequence these looks during Studio Live",
                    isOn: $model.isCueSequenceEnabled)
-                .disabled(model.isLiveRunning)
+                .disabled(model.isLiveRunning || (!isValid && !model.isCueSequenceEnabled))
             Text("One foreground or system-bounded Studio session. Each cue uses its preset pattern and palette, while retaining master brightness, the selected room layout, and one light writer.")
                 .font(.caption)
                 .foregroundStyle(.secondary)

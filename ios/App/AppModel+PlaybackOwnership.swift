@@ -5,12 +5,8 @@ import HueBoardNativeCore
 @MainActor
 extension AppModel {
   func stopCoordinatedPlayback(reason: PlaybackStopReason) async {
-    if let lease = activePlaybackLease, await playbackCoordinator.isCurrent(lease) {
-      _ = await playbackCoordinator.stopCurrent(reason: reason)
-    } else if await playbackCoordinator.currentLease() != nil {
-      _ = await playbackCoordinator.stopCurrent(reason: reason)
-    }
     activePlaybackLease = nil
+    _ = await playbackCoordinator.stopCurrent(reason: reason)
   }
 
   func executeDirectFrame(

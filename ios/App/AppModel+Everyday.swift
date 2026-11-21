@@ -63,6 +63,7 @@ extension AppModel {
       isBusy = false
       emergencyOffInFlight = false
     }
+    cancelStudioLiveSetupAndCapture()
     foregroundLiveTask?.cancel()
     foregroundLiveTask = nil
     ContinuedLiveCoordinator.shared.cancel()
@@ -102,6 +103,10 @@ extension AppModel {
         )
       }
 
+      if var pending = journal, pending.restoreAcceptedAt != nil {
+        pending.restoreAcceptedAt = nil
+        try await persistence.saveRestoreJournal(pending)
+      }
       let lease = try await beginDirectControl(
         profile: profile,
         credential: credential,

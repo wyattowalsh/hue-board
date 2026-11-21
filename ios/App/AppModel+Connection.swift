@@ -5,7 +5,9 @@ import HueBoardNativeCore
 @MainActor
 extension AppModel {
     func bootstrap() async {
-        guard connectionState == .disconnected else { return }
+        guard connectionState == .disconnected, !isBusy else { return }
+        isBusy = true
+        defer { isBusy = false }
         do {
             safetySettings = await safetyStore.load()
             guard let savedProfile = try await persistence.loadProfile() else {
@@ -15,6 +17,7 @@ extension AppModel {
             profile = savedProfile
             manualHost = savedProfile.displayHost
             connectionState = .connecting
+            try await loadRecoveryState()
 
             let verifiedProfile = try await client.verify(profile: savedProfile)
             if verifiedProfile != savedProfile {
@@ -40,7 +43,9 @@ extension AppModel {
             connectionState = .disconnected
             credential = nil
             errorMessage = error.localizedDescription
-            note = "Bridge verification failed closed. Re-verify or forget the saved Bridge before continuing."
+            if !hasRestorePoint && !foreignRecoveryPending {
+                note = "Could not connect to the saved Bridge. Retry the connection or verify the Bridge address."
+            }
             isConnectionSheetPresented = true
         }
     }
@@ -170,6 +175,7 @@ extension AppModel {
     private func removeBridge(_ profile: BridgeProfile, discardRecovery: Bool) async {
         isBusy = true
         stopEventMonitoring()
+        cancelStudioLiveSetupAndCapture()
         foregroundLiveTask?.cancel()
         foregroundLiveTask = nil
         ContinuedLiveCoordinator.shared.cancel()

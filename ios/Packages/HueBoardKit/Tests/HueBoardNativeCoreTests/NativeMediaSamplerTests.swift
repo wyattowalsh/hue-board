@@ -25,6 +25,25 @@ final class NativeMediaSamplerTests: XCTestCase {
         XCTAssertNil(loud.color)
     }
 
+    func testVideoFileReturnsRedTintWithoutAudio() async throws {
+        let video = try XCTUnwrap(Data(base64Encoded: solidRedMP4, options: .ignoreUnknownCharacters))
+        let url = try writeFixture(video, fileExtension: "mp4")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let sampler = NativeMediaSampler(url: url)
+        let metadata = try await sampler.prepare()
+        XCTAssertEqual(metadata.duration, 1, accuracy: 0.05)
+        XCTAssertFalse(metadata.hasAudio)
+        XCTAssertTrue(metadata.hasVideo)
+
+        let signal = try await sampler.signal(at: 0.5)
+        let tint = try XCTUnwrap(signal.color)
+        XCTAssertEqual(signal.level, 0)
+        XCTAssertGreaterThan(tint.red, 0.75)
+        XCTAssertLessThan(tint.green, 0.2)
+        XCTAssertLessThan(tint.blue, 0.2)
+    }
+
     func testMalformedFileCannotPrepare() async throws {
         let invalidWAV = Data("RIFF truncated".utf8)
         let url = try writeFixture(invalidWAV, fileExtension: "wav")
@@ -76,5 +95,27 @@ final class NativeMediaSamplerTests: XCTestCase {
         }
         return wav
     }
+
+    // Two 32x32 frames with no audio. Generate with:
+    // ffmpeg -f lavfi -i color=c=red:s=32x32:r=2:d=1 -an -c:v libx264 -preset ultrafast
+    //   -pix_fmt yuv420p -bsf:v filter_units=remove_types=6 -movflags +faststart -map_metadata -1 red.mp4
+    private let solidRedMP4 = """
+        AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAMpbW9vdgAAAGxtdmhkAAAAAAAAAAAA
+        AAAAAAAD6AAAA+gAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAA
+        AABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAlR0cmFrAAAAXHRraGQAAAADAAAA
+        AAAAAAAAAAABAAAAAAAAA+gAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAA
+        AAAAAAAAAABAAAAAACAAAAAgAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAPoAAAAAAABAAAA
+        AAHMbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAAAQABVxAAAAAAALWhkbHIAAAAAAAAAAHZp
+        ZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABd21pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAA
+        ACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAATdzdGJsAAAAt3N0c2QAAAAAAAAA
+        AQAAAKdhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAACAAIABIAAAASAAAAAAAAAABFUxhdmM2
+        MS4xOS4xMDEgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAALWF2Y0MBQsAK/+EAFmdCwAraJbARAAAD
+        AAEAAAMABA8SJqABAARozg/IAAAAEHBhc3AAAAABAAAAAQAAABRidHJ0AAAAAAAAARgAAAAAAAAA
+        GHN0dHMAAAAAAAAAAQAAAAIAACAAAAAAFHN0c3MAAAAAAAAAAQAAAAEAAAAcc3RzYwAAAAAAAAAB
+        AAAAAQAAAAIAAAABAAAAHHN0c3oAAAAAAAAAAAAAAAIAAAAZAAAACgAAABRzdGNvAAAAAAAAAAEA
+        AANZAAAAYXVkdGEAAABZbWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAbWRpcmFwcGwAAAAAAAAAAAAA
+        AAAsaWxzdAAAACSpdG9vAAAAHGRhdGEAAAABAAAAAExhdmY2MS43LjEwMwAAAAhmcmVlAAAAK21k
+        YXQAAAAVZYiEOhGKAAIY8cAAQPY4AAh5SddeAAAABkGaIBKiwA==
+        """
 }
 #endif

@@ -54,7 +54,9 @@ struct RoomLayoutView: View {
                                         }
                                     }
                                 )
-                                Text("Tap a light to choose it. Drag it or use Position X and Y to move it.")
+                                Text(model.canEditRoomLayout
+                                    ? "Tap a light to choose it. Drag it or use Position X and Y to move it."
+                                    : "Choose a fixture to inspect its settings.")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -81,6 +83,7 @@ struct RoomLayoutView: View {
                                             }
                                         }
                                     ))
+                                    .disabled(!model.canEditRoomLayout)
                                     Picker("Fixture role", selection: Binding(
                                         get: { placement.role },
                                         set: { role in
@@ -93,6 +96,7 @@ struct RoomLayoutView: View {
                                             Text(role.title).tag(role)
                                         }
                                     }
+                                    .disabled(!model.canEditRoomLayout)
                                     Text("Task and background roles hold a steady color. Accent shifts the spatial pattern phase; wash follows the saved path.")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
@@ -124,7 +128,9 @@ struct RoomLayoutView: View {
                             }
                             .padding(16)
                             .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 20))
-                            .disabled(!model.canEditRoomLayout)
+
+                            RoomArrangementSection()
+                                .id(model.roomLayoutScope)
 
                             Button("Reset to evenly spaced ring", role: .destructive) {
                                 showResetConfirmation = true
@@ -198,8 +204,157 @@ struct RoomLayoutView: View {
                     }
                 }
             ), in: range, step: percentage ? 0.01 : 5)
+                .disabled(!model.canEditRoomLayout)
                 .accessibilityLabel(title)
                 .accessibilityValue(displayValue)
+        }
+    }
+}
+
+private struct RoomArrangementSection: View {
+    @Environment(AppModel.self) private var model
+    @State private var arrangements: [HueRoomArrangement]?
+    @State private var preview: RoomArrangementPreview?
+    @State private var isLoading = false
+    @State private var feedback: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Saved Hue layouts", systemImage: "square.stack")
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+            Text("Find saved Hue Entertainment positions for fixtures in this room. Apple Home provides room membership through its public API.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Button("Find saved Hue layouts", systemImage: "arrow.down.circle") {
+                Task { await fetchArrangements() }
+            }
+            .buttonStyle(.bordered)
+            .disabled(!model.canImportRoomArrangement || isLoading)
+
+            if isLoading {
+                ProgressView("Reading saved layouts")
+            } else if let arrangements {
+                if arrangements.isEmpty {
+                    Text("No saved Hue layout matched fixtures in this room.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(arrangements) { arrangement in
+                    Button {
+                        do {
+                            preview = try model.previewRoomArrangement(arrangement)
+                            feedback = nil
+                        } catch {
+                            feedback = error.localizedDescription
+                        }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(arrangement.name)
+                                .font(.subheadline.weight(.semibold))
+                            Text(arrangement.matchedCount == 1
+                                 ? "1 matching fixture" : "\(arrangement.matchedCount) matching fixtures")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityHint("Preview these positions")
+                    .disabled(!model.canImportRoomArrangement)
+                }
+            }
+            if let feedback {
+                Text(feedback)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(16)
+        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 20))
+        .sheet(item: $preview) { current in
+            RoomArrangementPreviewSheet(preview: current) {
+                feedback = "Saved matching positions to this room."
+            }
+        }
+    }
+
+    private func fetchArrangements() async {
+        guard !isLoading else { return }
+        isLoading = true
+        feedback = nil
+        arrangements = nil
+        defer { isLoading = false }
+        do {
+            arrangements = try await model.fetchRoomArrangements()
+        } catch is CancellationError {
+            return
+        } catch {
+            feedback = error.localizedDescription
+        }
+    }
+}
+
+private struct RoomArrangementPreviewSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    @State private var focusedID: HueResourceID?
+    @State private var failure: String?
+
+    let preview: RoomArrangementPreview
+    let onSave: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(preview.arrangement.name)
+                        .font(.title2.bold())
+                        .accessibilityAddTraits(.isHeader)
+                    Text("Preview for \(preview.area.name)")
+                        .foregroundStyle(.secondary)
+                    RoomFixtureMap(
+                        area: preview.area,
+                        layout: preview.proposedLayout,
+                        focusedID: focusedID,
+                        isEditable: false,
+                        onFocus: { focusedID = $0 },
+                        onMove: { _, _, _ in }
+                    )
+                    Text("Saving changes the matching fixture positions in this room. Your fixture selection, phase, roles, trim and ceilings are preserved.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    if !model.canSaveRoomArrangement(preview) {
+                        Text("The room or playback state changed. Cancel and preview the layout again.")
+                            .font(.footnote)
+                    }
+                    if let failure {
+                        Label(failure, systemImage: "exclamationmark.triangle")
+                            .font(.footnote)
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("Preview Hue layout")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save positions") {
+                        do {
+                            try model.saveRoomArrangement(preview)
+                            onSave()
+                            dismiss()
+                        } catch {
+                            failure = error.localizedDescription
+                        }
+                    }
+                    .disabled(!model.canSaveRoomArrangement(preview))
+                }
+            }
         }
     }
 }

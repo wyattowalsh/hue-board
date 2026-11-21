@@ -44,6 +44,7 @@ extension AppModel {
           journal.restoreAcceptedAt != nil,
           journal.bridgeID == bridgeID,
           profile?.bridgeID == bridgeID,
+          !emergencyOffInFlight,
           playback.snapshot.mode != .stopping else { return }
     let remaining = journal.snapshotsAwaitingRestoreReadback(in: readback)
     guard remaining.count != journal.snapshots.count else { return }
@@ -106,10 +107,8 @@ extension AppModel {
 
   func startForegroundLive(work: @escaping ContinuedLiveCoordinator.Work, reason: String) {
     note = "Ambient Live is foreground-only: \(reason)"
-    foregroundLiveTask = Task { [weak self] in
-      do { try await work { _, _ in } }
-      catch is CancellationError { await MainActor.run { self?.note = "Ambient Live stopped." } }
-      catch { await MainActor.run { self?.playback.fail(error.localizedDescription); self?.errorMessage = error.localizedDescription } }
+    foregroundLiveTask = Task {
+      _ = try? await work { _, _ in }
     }
   }
 }

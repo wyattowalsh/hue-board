@@ -73,6 +73,12 @@ test('native app source preserves no-write-on-open and complete restore gates',(
   const lookup=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/HueBridgeClient+SceneLookup.swift');
   const bootstrap=connection.slice(connection.indexOf('func bootstrap()'),connection.indexOf('func discoverBridges()'));
   assert.doesNotMatch(bootstrap,/updateLight\(|recallScene\(|createScene\(|updateScene\(/);
+  const profileReady=bootstrap.indexOf('profile = savedProfile');
+  const recoveryLoaded=bootstrap.indexOf('try await loadRecoveryState()');
+  const verifyBridge=bootstrap.indexOf('client.verify(profile: savedProfile)');
+  const loadKey=bootstrap.indexOf('keychain.credential(');
+  assert.ok(profileReady>=0&&recoveryLoaded>profileReady&&verifyBridge>recoveryLoaded&&loadKey>verifyBridge,
+    'Cold startup exposes saved recovery before Bridge or Keychain failures can disconnect it');
   assert.match(bridgeTransport,/scene\?\.group\?\.resourceID != area\.id/);
   assert.match(model,/Stop and restore the current area before switching/);
   assert.match(bridgeTransport,/ensureRestoreJournal/);

@@ -47,7 +47,7 @@ test('initial native release surface is iPhone portrait only until broader layou
 
 test('hosted native workflow uses pinned Xcode 27.2, tests, archive, privacy check, and evidence upload',()=>{
   const workflow=read('.github/workflows/ios.yml');
-  assert.match(workflow,/runs-on: macos-27/);
+  assert.match(workflow,/^\s*runs-on: xcode-27\s*$/m);
   assert.match(workflow,/Xcode_27\.2\.app/);
   assert.match(workflow,/pnpm typecheck/);
   assert.match(workflow,/xcodebuild[\s\S]*\stest/);

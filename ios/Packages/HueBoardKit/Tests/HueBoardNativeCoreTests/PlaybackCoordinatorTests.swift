@@ -45,6 +45,23 @@ final class PlaybackCoordinatorTests: XCTestCase {
         XCTAssertFalse(isActive)
     }
 
+    func testStaleStopDoesNotRetireReplacementWriter() async throws {
+        let coordinator = PlaybackCoordinator()
+        let original = try await coordinator.begin(previewRequest(), using: NullPreviewTransport())
+        let stopped = await coordinator.stopCurrent(reason: .cancelled, matching: original)
+        XCTAssertEqual(stopped, original)
+
+        let replacementTransport = NullPreviewTransport()
+        let replacement = try await coordinator.begin(previewRequest(), using: replacementTransport)
+        let staleStop = await coordinator.stopCurrent(reason: .cancelled, matching: original)
+        XCTAssertNil(staleStop)
+        let current = await coordinator.currentLease()
+        XCTAssertEqual(current, replacement)
+        let replacementIsActive = await replacementTransport.isActive()
+        XCTAssertTrue(replacementIsActive)
+        try await coordinator.finish(replacement)
+    }
+
     func testNullPreviewCapturesFramesWithoutPhysicalWriteCapability() async throws {
         let coordinator = PlaybackCoordinator()
         let transport = NullPreviewTransport()
