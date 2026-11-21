@@ -116,7 +116,8 @@ public struct LiveSessionDescriptor: Codable, Equatable, Sendable, Identifiable 
         presetID: String,
         brightness: Double,
         duration: TimeInterval,
-        startedAt: Date = Date()
+        startedAt: Date = Date(),
+        mediaDuration: TimeInterval? = nil
     ) {
         self.id = id
         self.profile = profile
@@ -124,7 +125,12 @@ public struct LiveSessionDescriptor: Codable, Equatable, Sendable, Identifiable 
         areaKind = area.kind
         self.presetID = presetID
         self.brightness = min(max(brightness, 5), 100)
-        self.duration = duration.isFinite && duration > 0 ? min(duration, 3_600) : 60
+        let configuredDuration = duration.isFinite ? min(max(duration, 60), 3_600) : 60
+        if let mediaDuration, mediaDuration.isFinite, mediaDuration > 0 {
+            self.duration = min(configuredDuration, mediaDuration)
+        } else {
+            self.duration = configuredDuration
+        }
         self.startedAt = startedAt
     }
 }

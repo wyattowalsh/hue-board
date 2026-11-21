@@ -198,7 +198,8 @@ final class PersistenceV2Tests: XCTestCase {
             profile: profile, area: area, presetID: "first", brightness: 30, duration: 60, startedAt: startedAt
         )
         let second = LiveSessionDescriptor(
-            profile: profile, area: area, presetID: "second", brightness: 30, duration: 12.5, startedAt: startedAt
+            profile: profile, area: area, presetID: "second", brightness: 30,
+            duration: 60, startedAt: startedAt, mediaDuration: 12.5
         )
         let firstProgress = LiveSessionStatus(
             sessionID: first.id, state: .running, progress: 0.25, message: "Running", updatedAt: startedAt

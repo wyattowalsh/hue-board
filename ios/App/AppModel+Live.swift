@@ -126,7 +126,8 @@ extension AppModel {
         area: freshArea,
         presetID: preset.id,
         brightness: brightness,
-        duration: duration
+        duration: requestedDuration,
+        mediaDuration: input == .media ? duration : nil
       )
       try await persistence.beginLiveSession(descriptor)
       startupDescriptorID = descriptor.id
