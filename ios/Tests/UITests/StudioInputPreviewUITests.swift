@@ -15,10 +15,10 @@ final class StudioInputPreviewUITests: XCTestCase {
     let studio = app.tabBars.buttons["Studio"]
     XCTAssertTrue(studio.waitForExistence(timeout: 15))
     studio.tap()
-    let jump = app.buttons["studio-section-jump"]
-    XCTAssertTrue(jump.wait(for: \.isHittable, toEqual: true, timeout: 5))
-    jump.tap()
-    tapMenuItem("Playback", in: app)
+    let playback = app.buttons["studio-playback"]
+    reveal(playback, in: app)
+    playback.tap()
+    XCTAssertTrue(app.navigationBars["Playback"].waitForExistence(timeout: 5))
     let source = app.buttons["studio-live-input"]
     XCTAssertTrue(source.wait(for: \.isHittable, toEqual: true, timeout: 5))
     source.tap()
@@ -30,10 +30,23 @@ final class StudioInputPreviewUITests: XCTestCase {
     XCTAssertFalse(app.descendants(matching: .any)["studio-input-level"].exists)
 
     source.tap()
-    tapMenuItem("Local media", in: app)
+    tapMenuItem("Audio or video file", in: app)
     XCTAssertTrue(app.buttons["studio-choose-media"].waitForExistence(timeout: 5))
     XCTAssertFalse(preview.isEnabled)
-    XCTAssertFalse(app.buttons["studio-start"].isEnabled)
+    reveal(app.buttons["Connect Hue Bridge"], in: app)
+    let start = app.buttons["studio-start"]
+    XCTAssertTrue(start.exists)
+    XCTAssertFalse(start.isEnabled)
+  }
+
+  private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
+    for _ in 0..<8 {
+      if element.exists && element.isHittable { return }
+      let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.78))
+      let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.36))
+      start.press(forDuration: 0.05, thenDragTo: end)
+    }
+    XCTAssertTrue(element.exists && element.isHittable)
   }
 
   private func tapMenuItem(_ title: String, in app: XCUIApplication) {

@@ -2,21 +2,22 @@
 
 The native SwiftUI app is the primary product direction for Hue Board. Scriptable remains a compatibility implementation and source-of-truth parity oracle while the native feature set converges.
 
-For the 0.3.0 (7) internal candidate, see the source, build, device and screen-probe receipts. [Qualification results](../docs/native-0.3.0/qualification.md)
+The navigation update is the **0.3.0 (build 8)** internal source. Build 7 has separate build, test and device qualification records. [Build 7 qualification](../docs/native-0.3.0/qualification.md)
 
 ## Playback contract
 
-- **Play** validates a saved scene identity, captures every light the next operation may touch, creates or updates a compatible Hue Bridge dynamic scene, recalls it, and then lets the Bridge continue independently of the phone.
+- **Play on lights** in a scene’s detail view validates its saved scene identity, captures every light the next operation may touch, creates or updates a compatible Hue Bridge dynamic scene, recalls it, and then lets the Bridge continue independently of the phone.
 - **Native Live** samples the same deterministic JavaScript engine bundled with Scriptable through JavaScriptCore. The current transport uses conservative, long REST transitions; sessions are explicitly user-started and duration-bounded.
 - **Live input** in Studio can use the animation alone, a microphone, or a local audio or video file. The microphone contributes a level. Local media contributes a level and, for video, a frame color. Physical playback samples the input at the existing Live transition rate within the configured brightness limits.
-- On iOS 18–25, Native Live is foreground-only. On iOS 26+, animation-only sessions request `BGContinuedProcessingTask` after the user taps Start. The system displays progress and can cancel or expire the task.
+- On iOS 18–25, Native Live is foreground-only. On iOS 26+, animation-only sessions request `BGContinuedProcessingTask` when the user starts playback on lights. The system displays progress and can cancel or expire the task.
 - Choosing **Microphone** or a file leaves the input idle. **Preview input** opens it on this iPhone without a Bridge connection, light writes or changes to recovery. Leaving Studio, opening Settings or the connection sheet, or moving Hue Board to the background stops the preview.
-- **Start Studio Live** or **Start cue sequence** ends any preview before using the selected input for physical playback. Microphone and local media sessions stop when Hue Board enters the background, and their saved baseline remains available for restoration. Microphone metering retains only a sound level. Screen and cross-app audio capture belong to the separate [iOS 27 probe](ScreenInputProbe/README.md).
+- **Play mix on lights** or **Play cues on lights** ends any preview before using the selected input for physical playback. Microphone and local media sessions stop when Hue Board enters the background, and their saved baseline remains available for restoration. Microphone metering retains only a sound level. Screen and cross-app audio capture belong to the separate [iOS 27 probe](ScreenInputProbe/README.md).
 - Force-quitting the app ends continued processing. It is not an unlimited daemon.
 - Opening, verifying, pairing, reconnecting, refreshing, browsing, and changing tabs never write to lights.
 
 ## Connection and live readback
 
+- Open **Settings → Hue Bridge** to connect, retry or inspect your connection. **Find nearby Bridges** searches for Bridges. **Enter an address** lets you verify a Bridge manually. After pairing, **Connection details** shows the address, Bridge ID, certificate fingerprint and light-update status.
 - Local discovery uses Bonjour `_hue._tcp` and combines it with the Hue discovery broker. Manual private-LAN IPv4 and trusted `.local` entry remain available.
 - First verification requires the local Hue API Bridge ID to match the TLS certificate identity. Hue Board then pins the leaf SHA-256 for later requests.
 - Pairing stores the application key separately in Keychain. If pairing succeeded but inventory failed, **Retry saved connection** verifies the pin and reuses the saved key instead of creating another one.
@@ -35,13 +36,16 @@ For the 0.3.0 (7) internal candidate, see the source, build, device and screen-p
 
 ## Browse and compose
 
-Scenes and Studio work offline. Search looks or edit a draft locally. Play and Start require a ready Bridge and the usual playback checks. Use **Jump to section** in Studio to reach the palette, cues or library, and use **Position X** and **Position Y** in Room for precise placement or as an alternative to dragging.
+| Tab | What you can do |
+| --- | --- |
+| **Lights** | Choose a room or zone. **Turn on** and **Turn off** act immediately. Set the brightness slider, then tap **Apply brightness & turn on** to apply that level. Tap an individual light for the controls it supports. |
+| **Scenes** | Find a scene by name, color or mood. Open its details to mark a favorite, **Edit in Studio**, or **Play on lights** using the Bridge. Browsing and editing work offline. |
+| **Studio** | Preview the mix in your selected room or the offline sample. Scrub the timeline and expand **Light details** for individual targets. **Edit mix**, **Cue sequence**, **Saved mixes** and **Playback** each open a dedicated editor. |
+| **Room** | Place lights on the map or use **Fine-tune position** for precise adjustments. **Studio settings for this light** controls its role, output trim and ceiling. |
 
-Room reads room membership from the Hue Bridge. While the Bridge is ready and idle, the room picker shows matching Hue Entertainment areas that supply saved fixture coordinates. Hue Board has no Apple Home reader and does not infer positions from room membership.
+For a layout already saved in Hue, select the matching Entertainment area under **Room → Layouts from Hue** and review the positions. **Save positions** updates matched lights on the local map and preserves their animation timing. To set the movement order from those positions, choose **Preview left-to-right sweep**, review the affected lights and tap **Save timing**. Room membership comes from the Hue Bridge. Apple Home geometry and two-way layout sync are unsupported.
 
-Select an area suggestion to preview its positions. **Save positions** updates the matched fixtures on the local map and preserves their animation phases. To change animation order, choose **Use positions for sweep**, review the eligible moving fixtures, then tap **Save phases**. Both edits preserve fixture selection, roles, trims and ceilings.
-
-Studio previews the selected room or a labeled sample room when offline. Scrub the timeline or step between cues to see modeled fixture targets. Under **Playback**, choose **Microphone** or **Local media**, then use **Preview input** to see the level or video tint before an explicit physical Start. Audio uses the phone's input or the selected file, and video files supply a tint from the current frame. With Reduce Light Motion or iOS Dim Flashing Lights enabled, choose **Engine** for physical Live. Settings applies updated limits to a new playback session.
+For reactive lighting, open **Studio → Playback** and select **Microphone** or **Audio or video file**. **Preview input** shows a level or video tint on the phone. **Play mix on lights** starts a bounded session for the selected room. When Reduce Light Motion or iOS Dim Flashing Lights is enabled, choose **Patterns** for playback on lights. Change motion and brightness limits in **Settings → Playback limits**.
 
 ## Architecture
 
@@ -92,11 +96,9 @@ This is explicit trust on first use, not public-web PKI. Verify first contact on
 
 ## Transfer local data
 
-Use **Settings → Import and export → Export setup** to move several sections in one file. Import previews the changes and checks the destination again before saving. [Setup files and compatibility](../docs/native-setup-format.md)
+In Settings, **Export file → Export setup** lets you choose several sections for a single JSON file. To export an individual Studio draft, palette, cue sequence, mix library, scene favorites, room layout or playback limits, choose it from the same **Export file** menu. For one saved mix, open **Studio → Saved mixes**, open the mix’s menu and choose **Export mix**. [Setup files and compatibility](../docs/native-setup-format.md)
 
-Open **Settings → Import and export** to save or open JSON files in Files. Export the Studio draft, custom colors, cue sequence, saved mixes, scene favorites, selected room layout, or physical-light safety preferences. To export one mix as a canonical Hue Board scene document, choose **Export mix** from its Studio library menu.
-
-Import previews the changes and asks for confirmation during idle playback. Mix imports add new items and skip identical copies. A different mix with the same document ID blocks the import and preserves the library. Canonical scene schema 2 and legacy Scriptable mix schema 3 files can be added to the Studio library. Importing a draft loads it into Studio. Save it as a mix to keep a local copy.
+Choose **Import file** in Settings and select the JSON file in Files. Import previews the changes and asks for confirmation during idle playback. Mix imports add new items and skip identical copies. A different mix with the same document ID blocks the import and preserves the library. Canonical scene schema 2 and legacy Scriptable mix schema 3 files can be added to the Studio library. Importing a draft loads it into Studio. Save it as a mix to keep a local copy.
 
 A layout file contains the original room or zone and fixture resource IDs so only matching placements can be updated. Keep layout files private when they describe your home. Layout import previews any brightness-ceiling changes. Safety preferences preserve the warning consent already recorded on the receiving device. Transfer files contain local configuration and exclude Bridge credentials, connection profiles, and recovery and playback state. Files never issue lighting commands.
 
@@ -108,7 +110,7 @@ On Apple test hosts, `HueBoardAppleEngineTests` executes those 512 cases through
 
 ## Candidate build evidence
 
-These checks were recorded during development of the named revisions. The build 6 qualification below applies to **0.2.2 (6)**. The current internal project is **0.3.0 (7)**. Installation and device evidence is recorded separately below.
+These checks were recorded during development of the named revisions. The build 6 qualification below applies to **0.2.2 (6)**. The **0.3.0 (7)** qualification record predates the build 8 navigation update. Installation and device evidence is recorded separately below.
 
 - Xcode 27.2 signed generic iPhoneOS Debug build: passed, code signature verified. The spatial/cue candidate was subsequently installed as **0.2.1 (build 5)**.
 - Swift package tests: nine spatial/cue model and persistence tests passed, plus two synthetic Native Live frame tests with no Bridge writes.

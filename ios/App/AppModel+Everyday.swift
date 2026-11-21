@@ -21,12 +21,14 @@ extension AppModel {
     }
   }
 
-  func setAreaPower(_ on: Bool) async {
+  @discardableResult
+  func setAreaPower(_ on: Bool, in scope: LightingScope) async -> String? {
+    guard profile?.bridgeID == scope.bridgeID, selectedArea?.id == scope.areaID else { return nil }
     guard canUseEverydayControls, let profile, let credential, let area = selectedArea else {
       if !canUseEverydayControls {
         errorMessage = "Stop and restore active playback before using everyday controls."
       }
-      return
+      return nil
     }
     let actions: [HueResourceID: HueLightAction] = Dictionary(
       uniqueKeysWithValues: area.lights.compactMap { light -> (HueResourceID, HueLightAction)? in
@@ -48,14 +50,20 @@ extension AppModel {
         generation: generation
       )
       try checkControlIntent(generation)
-      try await loadInventory(profile: profile, credential: credential)
-      let skipped = area.lights.count - actions.count
-      note = on
-        ? "Power-on commands accepted for \(actions.count) lights. \(skipped) were skipped."
-        : "Power-off commands accepted for \(actions.count) lights. \(skipped) were skipped."
+      let feedback = area.acceptanceMessage(for: on ? "power on" : "power off", count: actions.count)
+      do {
+        try await loadInventory(profile: profile, credential: credential)
+      } catch {
+        guard generation == emergencyGeneration else { return nil }
+        errorMessage = "The Bridge accepted the power command, but light states could not refresh. \(error.localizedDescription)"
+      }
+      try checkControlIntent(generation)
+      note = feedback
+      return feedback
     } catch {
-      guard generation == emergencyGeneration else { return }
+      guard generation == emergencyGeneration else { return nil }
       errorMessage = error.localizedDescription
+      return nil
     }
   }
 
@@ -103,28 +111,20 @@ extension AppModel {
     }
   }
 
-  func setAreaBrightness(_ value: Double) async {
+  @discardableResult
+  func setAreaBrightness(_ value: Double, in scope: LightingScope) async -> String? {
+    guard profile?.bridgeID == scope.bridgeID, selectedArea?.id == scope.areaID else { return nil }
     guard canUseEverydayControls, let profile, let credential, let area = selectedArea else {
       if !canUseEverydayControls {
         errorMessage = "Stop and restore active playback before changing brightness."
       }
-      return
+      return nil
     }
-    brightness = min(max(value, 1), 100)
-    let actions: [HueResourceID: HueLightAction] = Dictionary(
-      uniqueKeysWithValues: area.lights.compactMap { light -> (HueResourceID, HueLightAction)? in
-        guard light.capabilities.dimming, !light.capabilities.streaming,
-              light.minimumBrightness <= light.outputLimit else { return nil }
-        return (
-          light.id,
-          HueLightAction(
-            on: .init(on: true),
-            dimming: .init(brightness: min(max(brightness, light.minimumBrightness), light.outputLimit)),
-            dynamics: .init(duration: 500)
-          )
-        )
-      }
-    )
+    guard value.isFinite else {
+      errorMessage = "Choose a brightness between 1% and 100%."
+      return nil
+    }
+    let actions = area.roomBrightnessActions(for: value)
     let generation = emergencyGeneration
     isBusy = true
     defer { if generation == emergencyGeneration { isBusy = false } }
@@ -139,11 +139,46 @@ extension AppModel {
         generation: generation
       )
       try checkControlIntent(generation)
-      let skipped = area.lights.count - actions.count
-      note = "Brightness commands accepted for \(actions.count) lights. \(skipped) were skipped. Bridge readback is not measured light."
+      let feedback = area.acceptanceMessage(for: "brightness", count: actions.count)
+      note = feedback
+      return feedback
     } catch {
-      guard generation == emergencyGeneration else { return }
+      guard generation == emergencyGeneration else { return nil }
       errorMessage = error.localizedDescription
+      return nil
     }
+  }
+}
+
+extension HueLight {
+  var canSetRoomBrightness: Bool {
+    capabilities.power && capabilities.dimming && !capabilities.streaming && minimumBrightness <= outputLimit
+  }
+}
+
+extension HueArea {
+  var initialRoomBrightness: Double {
+    let levels = lights.compactMap { light -> Double? in
+      guard light.canSetRoomBrightness, light.isOn, let level = light.brightness, level.isFinite else { return nil }
+      return min(max(level, 1), 100)
+    }
+    guard !levels.isEmpty else { return 50 }
+    return (levels.reduce(0, +) / Double(levels.count)).rounded()
+  }
+
+  func roomBrightnessActions(for value: Double) -> [HueResourceID: HueLightAction] {
+    let target = min(max(value, 1), 100)
+    return Dictionary(uniqueKeysWithValues: lights.compactMap { light -> (HueResourceID, HueLightAction)? in
+      guard light.canSetRoomBrightness else { return nil }
+      let level = min(max(target, light.minimumBrightness), light.outputLimit)
+      return (light.id, HueLightAction(on: .init(on: true), dimming: .init(brightness: level), dynamics: .init(duration: 500)))
+    })
+  }
+
+  fileprivate func acceptanceMessage(for command: String, count: Int) -> String {
+    let accepted = count == 1 ? "1 light" : "\(count) lights"
+    let message = "Bridge accepted \(command) for \(accepted)."
+    let skipped = lights.count - count
+    return skipped > 0 ? "\(message) Skipped \(skipped)." : message
   }
 }

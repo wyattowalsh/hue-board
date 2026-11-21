@@ -31,31 +31,31 @@ struct PortableDataSection: View {
 
     var body: some View {
         Section {
-            Button("Export setup", systemImage: "square.and.arrow.up") {
-                setupSheet = .export
-            }
-            .accessibilityIdentifier("setup-export")
-
-            Button("Import setup or file", systemImage: "square.and.arrow.down") {
+            Button("Import file", systemImage: "square.and.arrow.down") {
                 isImporting = true
             }
             .disabled(!model.canImportPortableData || isReadingFile)
             .accessibilityIdentifier("setup-import")
 
             Menu {
-                Button("Studio draft") { export(model.portableStudioDraft, name: "Studio Draft") }
-                Button("Custom palette") { export(.customPalette(model.studioSettings.customColors), name: "Custom Palette") }
-                Button("Cue sequence") { export(model.portableCues, name: "Cue Sequence") }
-                Button("Saved mixes") { export(.mixLibrary(model.savedStudioDocuments), name: "Saved Mixes") }
-                    .disabled(model.studioLibraryIssue != nil || model.savedStudioDocuments.isEmpty)
-                Button("Scene favorites") { export(.favorites(model.favoritePresetIDs.sorted()), name: "Favorites") }
-                if let layout = model.roomLayout, model.roomLayoutIssue == nil {
-                    Button("Selected room layout") { export(.roomLayout(layout), name: "Room Layout") }
+                Button("Export setup") { setupSheet = .export }
+                    .accessibilityIdentifier("setup-export")
+                Section("Individual files") {
+                    Button("Studio draft") { export(model.portableStudioDraft, name: "Studio Draft") }
+                    Button("Custom palette") { export(.customPalette(model.studioSettings.customColors), name: "Custom Palette") }
+                    Button("Cue sequence") { export(model.portableCues, name: "Cue Sequence") }
+                    Button("Saved mixes") { export(.mixLibrary(model.savedStudioDocuments), name: "Saved Mixes") }
+                        .disabled(model.studioLibraryIssue != nil || model.savedStudioDocuments.isEmpty)
+                    Button("Scene favorites") { export(.favorites(model.favoritePresetIDs.sorted()), name: "Favorites") }
+                    if let layout = model.roomLayout, model.roomLayoutIssue == nil {
+                        Button("Selected room layout") { export(.roomLayout(layout), name: "Room Layout") }
+                    }
+                    Button("Playback limits") { export(model.portableSafety, name: "Safety Preferences") }
                 }
-                Button("Physical-light safety preferences") { export(model.portableSafety, name: "Safety Preferences") }
             } label: {
-                Label("Export one section", systemImage: "square.and.arrow.up")
+                Label("Export file", systemImage: "square.and.arrow.up")
             }
+            .accessibilityIdentifier("settings-export-menu")
 
             if isReadingFile {
                 ProgressView("Reading file…")
@@ -66,9 +66,9 @@ struct PortableDataSection: View {
                     .accessibilityAddTraits(.updatesFrequently)
             }
         } header: {
-            Text("Import and export")
+            Text("Files")
         } footer: {
-            Text("Setup files can include your room layout and lighting limits. You choose what to share.")
+            Text("Review changes before importing. Exported room layouts include fixture identifiers.")
         }
         .sheet(item: $setupSheet) { sheet in
             switch sheet {

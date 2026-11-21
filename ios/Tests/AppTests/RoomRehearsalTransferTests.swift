@@ -106,7 +106,7 @@ final class RoomRehearsalTransferTests: XCTestCase {
         await model.studioInputPreview.stop()?.value
         XCTAssertNil(model.studioMedia.player)
 
-        model.saveFavoritePresets(["plasma-turbine"])
+        try model.saveFavoritePresets(["plasma-turbine"])
         let chosen: Set<HueSetupSection> = [.draft, .cues, .favorites, .layout]
         let value = try model.exportSetup(sections: chosen)
         let data = try HuePortableDataCodec.encode(value, contract: model.contract)

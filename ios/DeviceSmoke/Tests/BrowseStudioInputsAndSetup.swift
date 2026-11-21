@@ -4,13 +4,13 @@ import XCTest
 final class BrowseStudioInputsAndSetup: CandidateBrowseCase {
     func testBrowseInputChoicesAndSetupWithoutLightActions() {
         let app = pairedCandidate()
-        studioSection("Playback", in: app)
+        openStudioPlayback(in: app)
         let source = app.descendants(matching: .any).matching(identifier: "studio-live-input").firstMatch
         reveal(source, in: app)
         source.tap()
-        XCTAssertTrue(menuItem("Engine", in: app).exists)
+        XCTAssertTrue(menuItem("Patterns", in: app).exists)
         XCTAssertTrue(menuItem("Microphone", in: app).exists)
-        menuItem("Local media", in: app).tap()
+        menuItem("Audio or video file", in: app).tap()
         let media = app.buttons["studio-choose-media"]
         reveal(media, in: app)
         let preview = app.buttons["studio-input-preview"]
@@ -22,13 +22,15 @@ final class BrowseStudioInputsAndSetup: CandidateBrowseCase {
         XCTAssertFalse(preview.isEnabled)
         capture("Candidate-input-without-media", in: app)
         source.tap()
-        menuItem("Engine", in: app).tap()
+        menuItem("Patterns", in: app).tap()
 
+        app.tabBars.buttons["Lights"].tap()
         app.buttons["Settings"].tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
-        let export = app.buttons["setup-export"]
-        reveal(export, in: app)
-        export.tap()
+        let exportMenu = app.buttons["settings-export-menu"]
+        reveal(exportMenu, in: app)
+        exportMenu.tap()
+        menuItem("Export setup", in: app).tap()
         XCTAssertTrue(app.navigationBars["Export setup"].waitForExistence(timeout: 5))
         let draft = app.switches["setup-section-draft"]
         let safety = app.switches["setup-section-safety"]
@@ -52,6 +54,6 @@ final class BrowseStudioInputsAndSetup: CandidateBrowseCase {
         XCTAssertTrue(importFile.wait(for: \.isHittable, toEqual: true, timeout: 5))
         XCTAssertFalse(app.alerts.firstMatch.exists)
         app.navigationBars["Settings"].buttons["Done"].tap()
-        XCTAssertFalse(app.buttons["Stop & restore"].exists)
+        XCTAssertFalse(app.buttons["restore-lights"].exists)
     }
 }

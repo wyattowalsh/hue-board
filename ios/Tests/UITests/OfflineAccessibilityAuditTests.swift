@@ -9,7 +9,7 @@ final class OfflineAccessibilityAuditTests: XCTestCase {
         #endif
     }
 
-    func testFilteredSceneCardAccessibility() throws {
+    func testFilteredSceneDetailAccessibility() throws {
         let app = launch()
         let scenes = app.tabBars.buttons["Scenes"]
         XCTAssertTrue(scenes.waitForExistence(timeout: 15))
@@ -20,11 +20,13 @@ final class OfflineAccessibilityAuditTests: XCTestCase {
         search.tap()
         search.typeText("Plasma Turbine" + XCUIKeyboardKey.return.rawValue)
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["scene-match-count"].label, "1 matching look")
+        XCTAssertEqual(app.staticTexts["scene-match-count"].label, "1 scene")
+        let scene = app.buttons["scene-plasma-turbine"]
+        reveal(scene, in: app)
+        scene.tap()
         reveal(app.buttons["compose-plasma-turbine"], in: app)
-        let play = app.buttons["Play"].firstMatch
-        XCTAssertTrue(play.exists)
-        XCTAssertFalse(play.isEnabled)
+        reveal(app.buttons["Connect Bridge to play"], in: app)
+        XCTAssertFalse(app.buttons["play-plasma-turbine"].exists)
 
         try app.performAccessibilityAudit(for: [.sufficientElementDescription, .hitRegion, .contrast])
     }

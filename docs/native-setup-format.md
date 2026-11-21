@@ -1,14 +1,14 @@
 # Moving a Hue Board setup
 
-In 0.3.0, open **Settings → Import and export → Export setup**. Choose which Studio settings, custom colors, cues, saved mixes and scene favorites to include. Select layouts and physical-light preferences only when you intend to share those details. Choose the current room or any other locally saved rooms offered for the connected Bridge. Save the file through Files. A setup contains local creative data. The microphone, local media URLs, files, Bridge connection, pairing key, warning consent, live session and restore journal stay on the device.
+In build 8, open **Settings → Export file → Export setup**. In build 7, choose **Export setup** under **Import and export**. Choose which Studio settings, custom colors, cues, saved mixes and scene favorites to include. Select layouts and physical-light preferences only when you intend to share those details. Choose the current room or any other locally saved rooms offered for the connected Bridge. Save the file through Files. A setup contains local creative data. The microphone, local media URLs, files, Bridge connection, pairing key, warning consent, live session and restore journal stay on the device.
 
-On the receiving iPhone, open the JSON file from the same Settings section. Review the selected changes, skipped fixtures, mix conflicts and old/new brightness limits. Deselect any conflicting section to continue with the others. Confirm while playback is idle. If the destination has changed, review it again. Browsing or confirming a setup never starts the light writer.
+On the receiving iPhone, choose **Import file** in Settings (**Import setup or file** in build 7) and select the JSON file. Review the selected changes, skipped fixtures, mix conflicts and old/new brightness limits. Deselect any conflicting section to continue with the others. Confirm while playback is idle. If the destination has changed, review it again. Browsing or confirming a setup never starts the light writer.
 
 ## What moves
 
 | Section | Import behavior |
 | --- | --- |
-| Studio draft | Loads the source look, composition and duration for this Studio session. **Save as mix** keeps the composition, palette and cue list. To recover the source look, session duration and cue-enabled state after relaunch, reimport the draft and cues from the setup file. |
+| Studio draft | Loads the source look, composition and duration for this Studio session. In **Studio → Saved mixes**, **Save mix** keeps the composition, palette and cue list. To recover the source look, session duration and cue-enabled state after relaunch, reimport the draft and cues from the setup file. |
 | Custom palette | Replaces the four custom colors when selected. A draft-only import preserves the receiving palette. |
 | Cues | Replaces the cue list, hold time, order and enabled state. The random seed drives both cue order and the engine. The review discloses a change to that shared value. |
 | Saved mixes | Adds new document IDs and skips identical copies. Different content with an existing ID blocks that selection. Two distinct IDs can share a display name. |

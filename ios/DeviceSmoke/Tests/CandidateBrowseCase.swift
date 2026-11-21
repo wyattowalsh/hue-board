@@ -16,17 +16,18 @@ class CandidateBrowseCase: XCTestCase {
         let lights = app.tabBars.buttons["Lights"]
         XCTAssertTrue(lights.wait(for: \.isHittable, toEqual: true, timeout: 15))
         lights.tap()
-        XCTAssertTrue(app.staticTexts["Bridge connected"].waitForExistence(timeout: 35))
-        XCTAssertFalse(app.buttons["Stop & restore"].exists)
+        let room = app.descendants(matching: .any)["lights-room-picker"]
+        XCTAssertTrue(room.waitForExistence(timeout: 35), "A paired room must be ready before browsing.")
+        XCTAssertFalse(app.buttons["restore-lights"].exists)
         return app
     }
 
-    func studioSection(_ section: String, in app: XCUIApplication) {
+    func openStudioPlayback(in app: XCUIApplication) {
         app.tabBars.buttons["Studio"].tap()
-        let jump = app.buttons["studio-section-jump"]
-        XCTAssertTrue(jump.wait(for: \.isHittable, toEqual: true, timeout: 5))
-        jump.tap()
-        menuItem(section, in: app).tap()
+        let playback = app.buttons["studio-playback"]
+        reveal(playback, in: app)
+        playback.tap()
+        XCTAssertTrue(app.navigationBars["Playback"].waitForExistence(timeout: 5))
     }
 
     func menuItem(_ title: String, in app: XCUIApplication) -> XCUIElement {

@@ -131,8 +131,6 @@ struct SetupImportReviewView: View {
                     }
                     if let failure {
                         Text(failure).foregroundStyle(.red)
-                    }
-                    if !selection.isEmpty {
                         Button("Review again", action: refreshReview)
                             .disabled(isSaving)
                     }

@@ -11,7 +11,7 @@ struct RoomSweepSheet: View {
         NavigationStack {
             List {
                 if preview.proposal.distinctPositionCount < 2 {
-                    Text("Place at least two selected moving lights at different horizontal positions to build a sweep.")
+                    Text("Include two moving lights at different horizontal positions to create a sweep.")
                 } else if preview.proposal.changes.isEmpty {
                     Text("The moving lights already follow this sweep.")
                 } else {
@@ -24,7 +24,7 @@ struct RoomSweepSheet: View {
                             }
                         }
                     }
-                    Text("Saving updates these animation phases in this room.")
+                    Text("Save this timing for Studio playback in \(preview.area.name).")
                     if !model.canSaveRoomSweep(preview) {
                         Text("The room or its moving fixtures changed. Close and preview the sweep again.")
                     }
@@ -36,7 +36,7 @@ struct RoomSweepSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save phases") {
+                    Button("Save timing") {
                         do { try model.saveRoomSweep(preview); dismiss() }
                         catch { failure = error.localizedDescription }
                     }

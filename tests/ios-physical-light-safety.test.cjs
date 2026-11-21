@@ -42,12 +42,12 @@ test('Reduce Light Motion bounds engine behavior and keeps emergency controls av
   assert.doesNotMatch(read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/BridgeSceneTransport.swift'),/outputLimits: \[:\]/);
   assert.match(settings,/Reduce Light Motion/);
   assert.match(settings,/not a medical guarantee/);
-  assert.match(lights,/Turn off now/);
-  assert.match(banner,/Button\("Turn off now"/);
-  assert.match(banner,/case \.idle, \.failed:"Recovery"/);
-  const everyday=lights.slice(lights.indexOf('Everyday control'), lights.indexOf('Brightness'));
-  const powerRow=everyday.slice(0, everyday.indexOf('.disabled(!model.canUseEverydayControls)'));
-  assert.doesNotMatch(powerRow,/Turn off now/);
+  for (const source of [lights, banner]) {
+    assert.match(source, /Button\("Turn off now"[^\n]*role:\s*\.destructive\)\s*\{\s*Task \{ await model\.turnOffNow\(\) \}\s*\}[\s\S]*?\.disabled\(!model\.canTurnOffNow\)/);
+  }
+  assert.match(lights, /if model\.playbackSnapshot\.mode == \.idle && !model\.hasRestorePoint && !model\.foreignRecoveryPending\s*\{\s*Button\("Turn off now"/);
+  assert.match(banner,/if !model\.foreignRecoveryPending\s*\{\s*Button\("Turn off now"/);
+  assert.match(lights, /VStack[^\n]*\{ areaPowerButtons \}\s*\}\s*\.disabled\(!model\.canUseEverydayControls \|\| !canPower\)/);
   assert.doesNotMatch(banner,/HueEngine\.sample/);
   const scenes=read('ios/Packages/HueBoardKit/Sources/HueBoardKit/SceneBuilder.swift');
   const transport=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/BridgeSceneTransport.swift');
@@ -70,13 +70,17 @@ test('Reduce Light Motion bounds engine behavior and keeps emergency controls av
   const restore=live.slice(live.indexOf('func stopAndRestore()'));
   assert.match(restore,/Saved restore state belongs to a different Bridge/);
   assert.match(banner,/!model\.foreignRecoveryPending\s*&&\s*\(model\.hasRestorePoint/);
-  assert.match(banner,/Button\("Stop & restore"\)[\s\S]*?\.disabled\(!model\.canStopAndRestore\)/);
+  assert.match(banner,/if showsRestore\s*\{\s*Button\(model\.playbackSnapshot\.mode == \.idle \|\| model\.playbackSnapshot\.mode == \.failed\s*\? "Restore lights" : "Stop & restore"\)\s*\{\s*Task \{ await model\.stopAndRestore\(\) \}\s*\}[\s\S]*?\.disabled\(!model\.canStopAndRestore\)/);
   assert.match(recovery,/var canStopAndRestore: Bool \{\s*isReady && !isBusy && !emergencyOffInFlight && !foreignRecoveryPending/);
   assert.match(restore,/guard canStopAndRestore, let profile, let credential/);
-  assert.match(read('ios/App/Views/LightsView.swift'),/another Bridge is still pending/);
-  assert.match(read('ios/App/Views/LiveView.swift'),/effectiveDynamicBrightness/);
-  assert.match(read('ios/App/Views/LiveView.swift'),/maximumDynamicBrightness/);
-  assert.match(read('ios/App/Views/ScenesView.swift'),/discard that baseline from Settings/);
+  assert.match(lights, /if model\.foreignRecoveryPending\s*\{\s*Text\("Reconnect the original Bridge/);
+  assert.match(read('ios/App/Views/LiveView.swift'), /if model\.brightness > model\.effectiveDynamicBrightness\s*\{\s*Label\([^\n]*model\.effectiveDynamicBrightness/);
+  assert.match(settings, /model\.safetySettings\.maximumDynamicBrightness/);
+  const sceneView = read('ios/App/Views/ScenesView.swift');
+  assert.match(sceneView, /Button\("Play on lights"[^\n]*\)\s*\{\s*Task \{ await model\.play\(preset\) \}\s*\}\s*\.disabled\(!model\.canPlayScene \|\| model\.selectedArea == nil\)/);
+  assert.match(playback, /func play\(_ preset: HuePreset\) async \{\s*guard canPlayScene else \{ return \}/);
+  assert.match(app, /var canPlayScene: Bool \{\s*isReady && setupStorageIssue == nil && !isLiveRunning && !isBusy && !requiresRecovery/);
+  assert.match(app, /var requiresRecovery: Bool \{\s*foreignRecoveryPending/);
   assert.match(restore,/journal\.restoreAcceptedAt = nil\s+guard try await persistence\.replaceRestoreJournal\(journal, matching: reviewed\)[\s\S]*?playbackCoordinator\.submit\(/);
   assert.match(restore,/if failures == 0, skipped == 0 \{\s*var accepted = journal\s*accepted\.restoreAcceptedAt = Date\(\)/);
   assert.doesNotMatch(restore,/saveRestoreJournal\(nil\)/);

@@ -1,39 +1,6 @@
 import SwiftUI
 import HueBoardKit
 
-struct RoomArrangementSection: View {
-    @Environment(AppModel.self) private var model
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var session = RoomDiscoverySession()
-    @State private var refresh = 0
-    @State private var preview: RoomArrangementPreview?
-    let onManual: () -> Void
-
-    private struct Request: Hashable {
-        let scope: RoomDiscoveryScope?
-        let refresh: Int
-    }
-
-    var body: some View {
-        let scope = model.selectedTab == .room && scenePhase == .active ? model.roomDiscoveryScope : nil
-        RoomDiscoveryCard(
-            state: scope != nil && scope == session.scope ? session.state : .idle,
-            canRead: scope != nil,
-            onRefresh: { refresh &+= 1 },
-            onManual: onManual
-        ) { arrangement in
-            guard let scope, scope == session.scope else { return }
-            do { preview = try model.previewRoomArrangement(arrangement, from: scope) }
-            catch { model.errorMessage = error.localizedDescription }
-        }
-        .task(id: Request(scope: scope, refresh: refresh)) {
-            await session.read(scope: scope, revision: refresh, using: model.fetchRoomArrangements)
-        }
-        .onDisappear { session.invalidate() }
-        .sheet(item: $preview) { RoomArrangementPreviewSheet(preview: $0) }
-    }
-}
-
 struct RoomDiscoveryCard: View {
     let state: RoomDiscoverySession.State
     let canRead: Bool
@@ -43,12 +10,25 @@ struct RoomDiscoveryCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Saved Hue layouts", systemImage: "square.stack")
-                .font(.headline)
-                .accessibilityAddTraits(.isHeader)
+            HStack {
+                Label("Layouts from Hue", systemImage: "square.stack")
+                    .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer()
+                if canRead {
+                    Button(action: onRefresh) {
+                        Label(state.isFailure ? "Retry layout discovery" : "Refresh layouts", systemImage: "arrow.clockwise")
+                            .labelStyle(.iconOnly)
+                            .frame(minWidth: 44, minHeight: 44)
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(state == .loading)
+                    .accessibilityIdentifier("room-layout-refresh")
+                }
+            }
             switch state {
             case .idle:
-                Text(canRead ? "Checking for saved layouts…" : "Saved layouts are available when the Bridge is connected and idle.")
+                Text(canRead ? "Checking Hue layouts…" : "Saved positions will load when the room is ready to edit.")
                     .font(.subheadline)
             case .loading:
                 ProgressView("Reading saved layouts")
@@ -56,11 +36,11 @@ struct RoomDiscoveryCard: View {
                 Text("Couldn’t read saved Hue layouts. \(reason)")
                     .accessibilityIdentifier("room-layout-error")
             case .loaded(.noSavedAreas):
-                Text("Your Bridge has no saved Entertainment areas. Apple Home rooms provide membership only. Arrange lights on the map, or save positions in the Hue app.")
+                Text("Create an Entertainment area in the Hue app to import light positions.")
                     .accessibilityIdentifier("room-layout-none")
                 manualButton
             case .loaded(.noMatchingPositions):
-                Text("Your Bridge has saved Entertainment areas, but none have usable positions for lights in this room.")
+                Text("No saved Entertainment area includes positions for these lights.")
                     .accessibilityIdentifier("room-layout-no-overlap")
                 manualButton
             case let .loaded(.matches(options, fixtureCount)):
@@ -82,13 +62,10 @@ struct RoomDiscoveryCard: View {
                     .disabled(!canRead)
                 }
             }
-            Button(state.isFailure ? "Retry layout discovery" : "Refresh layouts", systemImage: "arrow.clockwise", action: onRefresh)
-                .disabled(!canRead || state == .loading)
-                .accessibilityIdentifier("room-layout-refresh")
         }
-        .padding(16)
+        .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 20))
+        .buttonStyle(.borderless)
     }
 
     private var manualButton: some View {

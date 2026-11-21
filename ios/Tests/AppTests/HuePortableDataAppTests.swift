@@ -5,6 +5,34 @@ import HueBoardNativeCore
 
 final class HuePortableDataAppTests: XCTestCase {
     @MainActor
+    func testFavoritesImportReportsStorageFailureAndPreservesExistingStars() async throws {
+        let name = "HueBoard.FavoritesImport." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let model = AppModel(setupDefaults: defaults, persistence: AppPersistence(suiteName: name))
+        try await model.applyPortableImport(.favorites(["plasma-turbine"]))
+        let replacement = HuePortableData.favorites(["ion-eclipse"])
+        _ = try model.reviewPortableImport(replacement)
+
+        let record = "hue-board.native.setup-import-transaction.v1"
+        defaults.set("unreadable", forKey: record)
+        do {
+            try await model.applyPortableImport(replacement)
+            XCTFail("A failed favorites write must keep the file in review")
+        } catch {
+            XCTAssertTrue(error.localizedDescription.contains("unreadable"))
+        }
+        XCTAssertEqual(model.favoritePresetIDs, ["plasma-turbine"])
+        XCTAssertNil(model.errorMessage)
+
+        model.toggleFavoritePreset("ion-eclipse")
+        XCTAssertTrue(model.errorMessage?.contains("Could not save favorites") == true)
+        XCTAssertEqual(model.favoritePresetIDs, ["plasma-turbine"])
+        XCTAssertEqual(defaults.stringArray(forKey: SetupImportTransaction.Section.favorites.preferenceKey), ["plasma-turbine"])
+        XCTAssertEqual(defaults.string(forKey: record), "unreadable")
+    }
+
+    @MainActor
     func testStudioDraftTransferDoesNotAcquireWriterOrRequirePairing() async throws {
         let name = "HueBoard.OfflinePortableDraft." + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: name))

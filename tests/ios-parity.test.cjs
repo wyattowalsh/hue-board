@@ -102,13 +102,19 @@ test('native app source preserves no-write-on-open and complete restore gates',(
   assert.match(emergency,/RestoreJournal\(bridgeID: profile\.bridgeID, area: fresh, lights: eligible\)\s+guard try await persistence\.replaceRestoreJournal\(journal, matching: nil\)/);
   const beforeStart=read('ios/App/AppModel+Live.swift').split('let previewDrain')[0];
   assert.match(beforeStart,/guard liveDuration\.isFinite, liveDuration > 0 else/);
-  assert.match(lightsView,/Button\("Apply brightness & turn on"\)/);
-  assert.match(lightsView,/Moving the slider edits the value only/);
-  assert.doesNotMatch(lightsView,/Slider\([^\n]+\)\{editing/);
-  assert.doesNotMatch(lightsView,/onEditingChanged/);
-  const brightnessApply=lightsView.indexOf('Button("Apply brightness & turn on")');
-  const brightnessWrite=lightsView.indexOf('model.setAreaBrightness',brightnessApply);
-  assert.ok(brightnessApply>=0&&brightnessWrite>brightnessApply);
+  assert.match(lightsView, /RoomControls\(area: area, scope: scope\)\.id\(scope\)/);
+  assert.match(lightsView, /@State private var roomBrightness: Double/);
+  assert.match(lightsView, /State\(initialValue: area\.initialRoomBrightness\)/);
+  assert.match(lightsView, /Slider\(value: \$roomBrightness, in: 1\.\.\.100, step: 1\)/);
+  assert.doesNotMatch(lightsView, /onEditingChanged|model\.brightness\b/);
+  assert.equal(lightsView.match(/model\.setAreaBrightness\(/g)?.length, 1);
+  const applyAction = lightsView.match(/Button\("Apply brightness & turn on"\)\s*\{([^}]+)\}/)?.[1];
+  assert.ok(applyAction, 'Room brightness has an explicit Apply action');
+  assert.match(applyAction, /let target = roomBrightness[\s\S]*await model\.setAreaBrightness\(target, in: scope\)/);
+  const brightnessCommand = everyday.match(/func setAreaBrightness\b[\s\S]*?^  \}/m)?.[0];
+  assert.ok(brightnessCommand, 'The room brightness command exists');
+  assert.doesNotMatch(brightnessCommand, /^\s*(?:self\.)?brightness\s*=(?!=)/m);
+  assert.match(brightnessCommand, /area\.roomBrightnessActions\(for: value\)/);
   assert.match(lookup,/message\.contains\("HTTP 404"\)/);
   const captureIndex=bridgeTransport.indexOf('try await ensureRestoreJournal(');
   const updateIndex=bridgeTransport.indexOf('client.updateScene(');
@@ -160,8 +166,9 @@ test('native local transport verifies bridge identity and pins its certificate',
   assert.match(client,/bridgeID == response\.certificate\.bridgeID/);
   assert.match(models,/certificateSHA256/);
   assert.match(connection,/client\.verify\(profile: savedProfile\)/);
-  assert.match(sheet,/Certificate/);
-  assert.match(sheet,/fail closed/i);
+  assert.match(sheet, /pending\.displayCertificateSHA256/);
+  assert.match(sheet, /profile\.displayCertificateSHA256/);
+  assert.match(sheet, /changed certificate blocks reconnection/i);
   assert.doesNotMatch(plist,/NSAllowsArbitraryLoads|NSExceptionAllowsInsecureHTTPLoads/);
 });
 

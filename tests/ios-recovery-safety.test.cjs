@@ -40,7 +40,7 @@ test('emergency off reports incomplete coverage and retains recovery', () => {
   assert.ok(brightnessIndex > powerIndex && everyday.indexOf('ensureRestoreJournal', brightnessIndex) < everyday.indexOf('executeDirectFrame', brightnessIndex));
 });
 
-test('destructive Bridge reset is separate, explicit, and confirmed in both recovery surfaces', () => {
+test('settings routes Bridge removal through one explicit confirmation', () => {
   const connection = read('ios/App/AppModel+Connection.swift');
   const settings = read('ios/App/Views/SettingsView.swift');
   const sheet = read('ios/App/Views/ConnectionSheet.swift');
@@ -50,12 +50,20 @@ test('destructive Bridge reset is separate, explicit, and confirmed in both reco
   assert.match(connection, /removeBridge\(profile, discardRecovery: true\)/);
   assert.match(connection, /if !discardRecovery, try await persistence\.loadRestoreJournal\(\) != nil/);
 
-  for (const source of [settings, sheet]) {
-    assert.match(source, /confirmationDialog\(/);
-    assert.match(source, /Discard recovery & forget Bridge/);
-    assert.match(source, /cannot be undone|permanently deletes/i);
-    assert.match(source, /Discard the other Bridge's baseline/);
-    assert.match(source, /Discard unrestored baseline/);
-    assert.match(source, /will not restore those lights/);
-  }
+  assert.match(settings, /model\.presentConnection\(\)/);
+  assert.doesNotMatch(settings, /model\.(forgetBridge|discardRecoveryAndForgetBridge|discardForeignBaseline)\(/);
+  const confirmation = sheet.indexOf('.confirmationDialog(');
+  assert.ok(confirmation >= 0);
+  const controls = sheet.slice(0, confirmation);
+  const dialog = sheet.slice(confirmation);
+  assert.doesNotMatch(controls, /model\.(forgetBridge|discardRecoveryAndForgetBridge|discardForeignBaseline)\(/);
+  assert.match(controls, /if model\.hasRestorePoint\s*\{\s*Button\("Discard recovery & forget Bridge", role: \.destructive\)\s*\{\s*removal = \.discardAndForget/);
+  assert.match(controls, /if model\.foreignRecoveryPending\s*\{\s*Button\("Discard the other Bridge's baseline", role: \.destructive\)\s*\{\s*removal = \.discardForeign/);
+  assert.match(dialog, /presenting: removal/);
+  assert.match(dialog, /case \.discardAndForget:\s*Button\([^\n]+role: \.destructive\)\s*\{\s*Task \{ await model\.discardRecoveryAndForgetBridge\(\)/);
+  assert.match(dialog, /case \.discardForeign:\s*Button\([^\n]+role: \.destructive\)\s*\{\s*Task \{ await model\.discardForeignBaseline\(\)/);
+  assert.match(dialog, /Button\("Cancel", role: \.cancel\)/);
+  assert.match(dialog, /Text\(action\.consequence\)/);
+  assert.match(sheet, /permanently deletes/i);
+  assert.match(sheet, /will not restore those lights/);
 });

@@ -4,11 +4,10 @@ This separate XCTest runner activates the already-installed
 `com.wyattowalsh.HueBoard.dev` app. It has no app-target dependency and does not
 reinstall Hue Board or reset its pairing/preferences.
 
-The test navigates Lights, an individual-light sheet, Scenes, Studio, and Room.
+The build 5/6 comparison test navigates Lights, an individual-light sheet, Scenes, Studio, and Room.
 It checks a known search result, an empty result, clearing and dismissing the
 keyboard, Studio's preview and editing sections, and Room's fixture controls.
-The runner supports the earlier navigation-bar search and the current inline
-search and position sliders. All checks use browsing controls.
+The comparison supports build 5’s navigation-bar search and build 6’s inline search and position sliders. The candidate uses the selectors below. All checks use browsing controls.
 
 ## Run
 
@@ -60,8 +59,7 @@ xcrun xcresulttool export attachments --path Results/Browse.xcresult \
 
 Review search screenshots with the keyboard visible, then check scrolling,
 clipped content, and Room position controls. Check VoiceOver, accessibility
-text sizes, and iOS Reduce Motion on the same installed binary. The iOS setting
-governs Studio section-jump animation.
+text sizes, and iOS Reduce Motion on the same installed binary.
 Verbose failure diagnostics are disabled because their optional device
 collection stalled in the source session. Assertions and screenshot attachments
 remain enabled.
@@ -76,9 +74,10 @@ each selector. Preflight and verify post-state as described above.
 
 | Selector under `HueBoardDeviceSmoke/` | What it exercises |
 | --- | --- |
+| `BrowseCurrentWorkspace/testInspectLightsSearchScenesAndInspectRoomWithoutLightActions` | Opens an individual light, tests empty and matching scene searches, dismisses the keyboard and opens scene details. Opens Cue sequence and Saved mixes in Studio, then inspects Room position and output controls. |
 | `BrowseRoomDiscovery/testBrowseSavedRoomLayoutsWithoutLightActions` | Opens Room and waits for the Bridge inventory. A match opens a preview and cancels. An empty or nonoverlapping result has its own screenshot. Match and orientation qualification requires a room with a known saved Entertainment layout. |
 | `BrowseStudioRehearsal/testStepRoomRehearsalWithoutLightActions` | Opens the room rehearsal, steps the preview clock forward and back to zero, and opens the accessible fixture target list. Use a paired room with fixtures. |
-| `BrowseStudioInputsAndSetup/testBrowseInputChoicesAndSetupWithoutLightActions` | Inspects the input choices, selects Local media, cancels the system picker and returns to Engine. Opens Export setup, changes the draft switch in the export form and cancels. Opens Import and cancels without selecting a file. |
+| `BrowseStudioInputsAndSetup/testBrowseInputChoicesAndSetupWithoutLightActions` | Inspects the input choices, selects Audio or video file, cancels the system picker and returns to Patterns. Opens Export file → Export setup, changes the draft switch in the export form and cancels. Opens Import and cancels without selecting a file. |
 
 On a paired personal installation these selectors browse, change transient
 view state and cancel local previews. Keep attachments in private storage.

@@ -8,10 +8,6 @@ const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 test('native primary navigation has four product destinations and modal settings',()=>{
   const model=read('ios/App/AppModel.swift');
   const rootView=read('ios/App/Views/RootView.swift');
-  const lights=read('ios/App/Views/LightsView.swift');
-  const scenes=read('ios/App/Views/ScenesView.swift');
-  const live=read('ios/App/Views/LiveView.swift');
-  const room=read('ios/App/Views/RoomLayoutView.swift');
   const settings=read('ios/App/Views/SettingsView.swift');
 
   assert.match(model,/enum Tab: Hashable \{ case lights, scenes, live, room \}/);
@@ -19,7 +15,10 @@ test('native primary navigation has four product destinations and modal settings
   assert.match(model,/isSettingsPresented/);
   assert.equal((rootView.match(/\.tabItem/g)||[]).length,4);
   assert.doesNotMatch(rootView,/\.tag\(AppModel\.Tab\.settings\)/);
-  assert.match(rootView,/sheet\(isPresented: \$model\.isSettingsPresented\)/);
-  for(const source of [lights,scenes,live,room]) assert.match(source,/accessibilityLabel\("Settings"\)/);
-  assert.match(settings,/Button\("Done"\)/);
+  for (const destination of ['LightsView', 'ScenesView', 'LiveView', 'RoomLayoutView']) {
+    assert.ok(rootView.includes(destination + '().hueBoardSettingsToolbar()'), destination);
+  }
+  assert.match(rootView,/Button\("Settings", systemImage: "[^"]+"\)\s*\{\s*model\.isSettingsPresented = true\s*\}/);
+  assert.match(rootView,/sheet\(isPresented: \$model\.isSettingsPresented\)\s*\{\s*NavigationStack\s*\{\s*SettingsView\(\)/);
+  assert.match(settings,/Button\("Done"\)\s*\{\s*model\.isSettingsPresented = false\s*\}/);
 });

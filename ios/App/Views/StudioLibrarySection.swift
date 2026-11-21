@@ -10,75 +10,62 @@ struct StudioLibrarySection: View {
     @State private var isExporting = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Label("Your saved mixes", systemImage: "square.stack.3d.up.fill")
-                .font(.headline)
-
+        Form {
             if let issue = model.studioLibraryIssue {
-                Label("Saved mixes could not be validated. Existing storage is preserved: \(issue)", systemImage: "exclamationmark.triangle.fill")
+                Label("Your saved mixes couldn’t be opened. \(issue)", systemImage: "exclamationmark.triangle.fill")
                     .font(.footnote)
                     .foregroundStyle(.orange)
             } else {
-                HStack {
-                    TextField("Name this mix", text: $mixName)
+                Section("Save current mix") {
+                    TextField("Mix name", text: $mixName)
                         .textFieldStyle(.roundedBorder)
                         .onChange(of: mixName) { _, value in
                             if value.count > 80 { mixName = String(value.prefix(80)) }
                         }
-                    Button("Save") {
+                    Button("Save mix") {
                         if model.saveStudioMix(named: mixName) {
                             mixName = ""
                         }
                     }
-                    .buttonStyle(.borderedProminent)
                     .disabled(mixName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                               || model.isLiveRunning)
                 }
 
-                if model.savedStudioDocuments.isEmpty {
-                    Text("Nothing saved yet. Your Studio draft stays local until you name and save it.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(model.savedStudioDocuments, id: \.documentId) { document in
-                        HStack(spacing: 8) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(document.name)
-                                    .font(.subheadline.weight(.medium))
-                                Text("Saved composition · no Bridge target")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Button("Load") {
-                                model.loadStudioMix(id: document.documentId)
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(model.isLiveRunning)
-                            Menu {
-                                Button("Export mix", systemImage: "square.and.arrow.up") {
-                                    exportMix(document)
+                if !model.savedStudioDocuments.isEmpty {
+                    Section("On this iPhone") {
+                        ForEach(model.savedStudioDocuments, id: \.documentId) { document in
+                            HStack(spacing: 8) {
+                                Button(document.name) {
+                                    model.loadStudioMix(id: document.documentId)
+                                    if model.errorMessage == nil { model.studioPath = [.mix] }
                                 }
-                                Button(role: .destructive) {
-                                    pendingDeletionID = document.documentId
+                                .buttonStyle(.borderless)
+                                .disabled(model.isLiveRunning)
+                                .accessibilityLabel("Load \(document.name)")
+                                Spacer()
+                                Menu {
+                                    Button("Export mix", systemImage: "square.and.arrow.up") {
+                                        exportMix(document)
+                                    }
+                                    Button(role: .destructive) {
+                                        pendingDeletionID = document.documentId
+                                    } label: {
+                                        Label("Delete mix", systemImage: "trash")
+                                    }
                                 } label: {
-                                    Label("Delete mix", systemImage: "trash")
+                                    Image(systemName: "ellipsis.circle")
+                                        .frame(minWidth: 44, minHeight: 44)
                                 }
-                            } label: {
-                                Image(systemName: "ellipsis.circle")
+                                .buttonStyle(.borderless)
+                                .accessibilityLabel("Actions for \(document.name)")
                             }
-                            .buttonStyle(.bordered)
-                            .accessibilityLabel("Actions for \(document.name)")
                         }
                     }
                 }
             }
-            Text("Mixes are stored on this iPhone as validated, scope-free Hue Board scene documents. They contain no Bridge credentials or fixture targets.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
         }
-        .padding(16)
-        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 20))
+        .navigationTitle("Saved mixes")
+        .navigationBarTitleDisplayMode(.inline)
         .fileExporter(isPresented: $isExporting, document: exportFile, contentType: .json, defaultFilename: "Hue Board Mix") { result in
             if case .failure(let error) = result { model.errorMessage = error.localizedDescription }
         }
@@ -96,8 +83,6 @@ struct StudioLibrarySection: View {
                 pendingDeletionID = nil
             }
             Button("Cancel", role: .cancel) { pendingDeletionID = nil }
-        } message: {
-            Text("This removes the local saved copy. It never changes Hue Bridge scenes or lights.")
         }
     }
 

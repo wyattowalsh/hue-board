@@ -5,11 +5,11 @@ struct ConnectPrompt: View {
   @Environment(AppModel.self) private var model
   var body: some View {
     ContentUnavailableView {
-      Label("Connect a Hue Bridge", systemImage: "dot.radiowaves.left.and.right")
+      Label("No Bridge connected", systemImage: "lightbulb.2")
     } description: {
-      Text("Discovery and pairing never change lights. The physical Bridge button is required before a local key is stored in Keychain.")
+      Text("Connect your Hue Bridge to control lights and arrange your room.")
     } actions: {
-      Button("Connect Bridge") { model.isConnectionSheetPresented=true }.buttonStyle(.borderedProminent)
+      Button("Connect Bridge") { model.presentConnection() }.buttonStyle(.borderedProminent)
     }
   }
 }
@@ -17,7 +17,6 @@ struct ConnectPrompt: View {
 struct AreaPicker: View {
   @Environment(AppModel.self) private var model
   var body: some View {
-    @Bindable var model=model
     Picker("Room or zone",selection: Binding(get:{model.selectedAreaID},set:{id in if let id{Task{await model.selectArea(id)}}})){
       ForEach(model.areas){area in Text(area.name).tag(Optional(area.id))}
     }
@@ -32,10 +31,15 @@ struct PlaybackBanner: View {
       VStack(alignment:.leading,spacing:8){
         VStack(alignment:.leading,spacing:2){
           Text(title).font(.headline)
-          Text(model.playbackSnapshot.message)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .fixedSize(horizontal:false,vertical:true)
+          if model.foreignRecoveryPending {
+            Text("Connect the original Bridge in Settings to restore its lights.")
+              .font(.caption)
+          } else if model.playbackSnapshot.mode != .idle {
+            Text(model.playbackSnapshot.message)
+              .font(.caption)
+              .foregroundStyle(.secondary)
+              .fixedSize(horizontal: false, vertical: true)
+          }
         }
         .accessibilityElement(children:.combine)
         if showsRestore && !model.isReady {
@@ -70,53 +74,33 @@ struct PlaybackBanner: View {
   }
 
   @ViewBuilder private var actions: some View {
+    if model.foreignRecoveryPending {
+      Button("Bridge settings") { model.presentConnection() }
+    }
     if showsRestore {
-      Button("Stop & restore") { Task { await model.stopAndRestore() } }
+      Button(model.playbackSnapshot.mode == .idle || model.playbackSnapshot.mode == .failed
+             ? "Restore lights" : "Stop & restore") { Task { await model.stopAndRestore() } }
         .buttonStyle(.borderedProminent)
         .disabled(!model.canStopAndRestore)
+        .accessibilityIdentifier("restore-lights")
     }
-    Button("Turn off now", role: .destructive) { Task { await model.turnOffNow() } }
-      .buttonStyle(.bordered)
-      .disabled(!model.canTurnOffNow)
-      .accessibilityHint("Stops Hue Board playback and turns eligible lights off. The saved baseline stays available.")
-  }
-
-  private var title:String{
-    switch model.playbackSnapshot.mode{
-    case .bridge:"Bridge Play"
-    case .liveForeground:"Ambient Live · foreground"
-    case .liveContinued:"Ambient Live · continued"
-    case .stopping:"Restoring"
-    case .idle, .failed:"Recovery"
+    if !model.foreignRecoveryPending {
+      Button("Turn off now", role: .destructive) { Task { await model.turnOffNow() } }
+        .buttonStyle(.bordered)
+        .disabled(!model.canTurnOffNow)
+        .accessibilityHint("Stops playback and turns eligible lights off. Their previous settings stay available to restore.")
     }
   }
-}
 
-struct StatusCard: View {
-  @Environment(AppModel.self) private var model
-  var body: some View {
-    VStack(alignment:.leading,spacing:8){
-      Label(model.connectionState == .ready ? "Bridge connected" : "Bridge disconnected",systemImage:model.connectionState == .ready ? "checkmark.circle.fill":"exclamationmark.triangle.fill")
-        .font(.headline)
-      Text(model.note).font(.subheadline).foregroundStyle(.secondary)
-      if let profile=model.profile {
-        Text("\(profile.displayHost) · \(profile.bridgeID)").font(.caption.monospaced()).foregroundStyle(.secondary)
-      }
-      if model.isReady {
-        HStack(spacing:6){
-          Image(systemName:model.eventStreamConnected ? "dot.radiowaves.left.and.right":"pause.circle")
-          Text("Push readback: \(model.eventStreamStatus)")
-        }
-        .font(.caption.weight(.semibold))
-        Text(model.eventStreamDetail).font(.caption2).foregroundStyle(.secondary)
-        if let lastEventAt=model.lastEventAt {
-          Text("Last push update \(lastEventAt.formatted(date:.omitted,time:.standard))")
-            .font(.caption2).foregroundStyle(.secondary)
-        }
-      }
+  private var title: String {
+    if model.foreignRecoveryPending { return "Another Bridge needs restoration" }
+    return switch model.playbackSnapshot.mode {
+    case .bridge: "Scene playback"
+    case .liveForeground, .liveContinued: "Studio playback"
+    case .stopping: "Restoring lights"
+    case .idle: "Previous light settings saved"
+    case .failed: "Check your lights"
     }
-    .padding()
-    .background(.quaternary.opacity(0.55),in:RoundedRectangle(cornerRadius:18))
   }
 }
 
@@ -126,22 +110,12 @@ struct LightRow: View {
     HStack(spacing:12){
       Circle().fill(swiftUIColor(light.color)).frame(width:30,height:30)
         .overlay(Circle().stroke(.primary.opacity(0.15)))
-      VStack(alignment:.leading){
-        Text(light.name)
-        Text(lightSubtitle).font(.caption).foregroundStyle(.secondary)
-      }
+      Text(light.name)
       Spacer()
       if light.capabilities.streaming { Label("Streaming",systemImage:"waveform").font(.caption).foregroundStyle(.orange) }
       else { Text(light.isOn ? (light.brightness.map { "\(Int($0))%" } ?? "On") : "Off").font(.callout.monospacedDigit()) }
     }
     .accessibilityElement(children:.combine)
-  }
-  private var lightSubtitle:String{
-    var parts:[String]=[]
-    if light.capabilities.color { parts.append("Color") }
-    if light.capabilities.colorTemperature { parts.append("White ambiance") }
-    if light.capabilities.dimming { parts.append("Dimmable") }
-    return parts.isEmpty ? "Basic fixture" : parts.joined(separator:" · ")
   }
 }
 
@@ -153,16 +127,13 @@ func swiftUIColor(_ xy:HueXY?)->Color{
   return Color(red:min(1,gamma(1.656492*X-0.354851*Y-0.255038*Z)),green:min(1,gamma(-0.707196*X+1.655397*Y+0.036152*Z)),blue:min(1,gamma(0.051713*X-0.121364*Y+1.011530*Z)))
 }
 
-import SwiftUI
-import HueBoardKit
-
 struct ScenePreview: View {
     @Environment(AppModel.self) private var model
     @State private var sampledFrames: [HueLightFrame] = []
 
     let preset: HuePreset
     let contract: HueBoardContract
-    let selected: Bool
+    var compact = false
 
     private var fallbackColors: [RGB] {
         (try? contract.palette(index: preset.palette)?.decodedColors()) ?? []
@@ -173,49 +144,41 @@ struct ScenePreview: View {
     }
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 4) {
-            if sampledFrames.isEmpty {
-                ForEach(Array(fallbackColors.enumerated()), id: \.offset) { _, color in
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color(
-                            red: color.red,
-                            green: color.green,
-                            blue: color.blue
-                        ))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 58)
-                }
+        Group {
+            if compact {
+                let colors = sampledFrames.isEmpty
+                    ? fallbackColors.map { displayColor($0) }
+                    : sampledFrames.map { displayColor($0.color) }
+                LinearGradient(colors: colors.isEmpty ? [.secondary] : colors,
+                               startPoint: .bottomLeading, endPoint: .topTrailing)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
             } else {
-                ForEach(Array(sampledFrames.enumerated()), id: \.offset) { _, frame in
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color(
-                            red: min(max(frame.color.red, 0), 1),
-                            green: min(max(frame.color.green, 0), 1),
-                            blue: min(max(frame.color.blue, 0), 1)
-                        ))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: max(12, min(67, frame.brightness)))
+                HStack(alignment: .bottom, spacing: 4) {
+                    if sampledFrames.isEmpty {
+                        ForEach(Array(fallbackColors.enumerated()), id: \.offset) { _, color in
+                            RoundedRectangle(cornerRadius: 5)
+                                .fill(displayColor(color))
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 58)
+                        }
+                    } else {
+                        ForEach(Array(sampledFrames.enumerated()), id: \.offset) { _, frame in
+                            RoundedRectangle(cornerRadius: 5)
+                                .fill(displayColor(frame.color))
+                                .frame(maxWidth: .infinity)
+                                .frame(height: max(12, min(67, frame.brightness)))
+                        }
+                    }
                 }
+                .padding(10)
+                .frame(height: 85, alignment: .bottom)
+                .frame(maxWidth: .infinity)
+                .background(Color(red: 0.08, green: 0.09, blue: 0.15),
+                            in: RoundedRectangle(cornerRadius: 12))
             }
         }
-        .padding(10)
-        .frame(height: 85, alignment: .bottom)
-        .frame(maxWidth: .infinity)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(red: 0.08, green: 0.09, blue: 0.15),
-                    Color(red: 0.12, green: 0.14, blue: 0.23)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16)
-            .stroke(selected ? Color.primary : Color.clear, lineWidth: 2))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Engine snapshot for \(preset.name). Preview only; no lights changed.")
+        .accessibilityLabel("Color preview for \(preset.name)")
         .task(id: previewID) {
             sampledFrames = []
             let settings = PhysicalLightSafetyPolicy.adjustedEngineSettings(
@@ -241,5 +204,11 @@ struct ScenePreview: View {
             }
             if !Task.isCancelled { sampledFrames = samples }
         }
+    }
+
+    private func displayColor(_ color: RGB) -> Color {
+        Color(red: min(max(color.red, 0), 1),
+              green: min(max(color.green, 0), 1),
+              blue: min(max(color.blue, 0), 1))
     }
 }

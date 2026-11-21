@@ -101,7 +101,7 @@ extension AppModel {
             try studioDocumentStore.save(merged, contract: contract)
             savedStudioDocuments = merged
         case .favorites(let ids):
-            saveFavoritePresets(Set(ids))
+            try saveFavoritePresets(Set(ids))
         case .roomLayout(let imported):
             let (_, updated, area) = try roomImport(imported)
             guard let profile else { throw HueBoardError.unsupported("Reconnect the original Bridge to import this layout.") }

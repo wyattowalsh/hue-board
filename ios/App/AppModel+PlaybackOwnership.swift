@@ -46,7 +46,7 @@ extension AppModel {
   ) async throws -> PlaybackWriterLease {
     try checkControlIntent(generation)
     let transport = DirectControlTransport(
-      client: client, profile: profile, credential: credential, allowedLightIDs: allowedLightIDs
+      client: directControlClient, profile: profile, credential: credential, allowedLightIDs: allowedLightIDs
     )
     let lease = try await playbackCoordinator.begin(
       .init(scope: .init(bridgeID: profile.bridgeID, areaID: areaID), transport: .directControl, presetID: purpose),

@@ -12,14 +12,7 @@ struct StudioCustomPaletteSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Create your own palette", systemImage: "paintpalette.fill")
-                .font(.headline)
-                .accessibilityAddTraits(.isHeader)
-            Text("Choose four colors, then use them in either side of your Studio mix.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
+        Form {
             ForEach(0..<names.count, id: \.self) { index in
                 ColorPicker(names[index], selection: Binding(
                     get: {
@@ -64,8 +57,8 @@ struct StudioCustomPaletteSection: View {
                 }
             }
         }
-        .padding(16)
-        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 20))
+        .navigationTitle("Custom palette")
+        .navigationBarTitleDisplayMode(.inline)
         .disabled(model.isLiveRunning)
     }
 
@@ -75,7 +68,7 @@ struct StudioCustomPaletteSection: View {
         index: Int,
         keyPath: WritableKeyPath<HueEngineSettings, Int>
     ) -> some View {
-        Button(assigned ? "Using in \(side)" : "Use in \(side)", systemImage: assigned ? "checkmark" : "plus") {
+        Button(assigned ? "Used in pattern \(side)" : "Use in pattern \(side)", systemImage: assigned ? "checkmark" : "plus") {
             model.studioSettings[keyPath: keyPath] = index
         }
         .buttonStyle(.bordered)

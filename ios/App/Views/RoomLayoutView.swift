@@ -5,6 +5,21 @@ struct RoomLayoutView: View {
     @Environment(AppModel.self) private var model
     @State private var showResetConfirmation = false
     @State private var sweepPreview: RoomSweepPreview?
+    @State private var showingPosition = false
+    @State private var showingStudioControls = false
+    @State private var session = RoomDiscoverySession()
+    @State private var refresh = 0
+    @State private var layoutPreview: RoomArrangementPreview?
+    @Environment(\.scenePhase) private var scenePhase
+
+    private struct LayoutRequest: Hashable {
+        let scope: RoomDiscoveryScope?
+        let revision: Int
+    }
+
+    private var discoveryScope: RoomDiscoveryScope? {
+        model.selectedTab == .room && scenePhase == .active ? model.roomDiscoveryScope : nil
+    }
 
     private var activePlacement: HueFixturePlacement? {
         model.roomLayout?.placements.first(where: { $0.id == model.focusedFixtureID })
@@ -25,180 +40,134 @@ struct RoomLayoutView: View {
 
     private var roomContent: some View {
         Group {
-            if !model.isReady {
-                ConnectPrompt()
-            } else {
+            if model.isReady {
                 ScrollViewReader { reader in
-                  ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        StatusCard()
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Room arrangement")
-                                .font(.title2.bold())
-                                .accessibilityIdentifier("room-arrangement-heading")
-                                .accessibilityAddTraits(.isHeader)
-                            Text("Arrange lights by position and phase. Editing the map never changes your bulbs.")
-                                .foregroundStyle(.secondary)
-                        }
-                        AreaPicker()
-                        if model.roomLayout != nil {
-                            RoomArrangementSection { reader.scrollTo("room-map", anchor: .top) }
-                        }
-
+                    Form {
+                        Section { AreaPicker() }
                         if let issue = model.roomLayoutIssue {
-                            Label(issue, systemImage: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.orange)
-                        } else if let area = model.selectedArea,
-                                  let layout = model.roomLayout {
-                            VStack(alignment: .leading, spacing: 12) {
-                                HStack {
-                                    Label("Spatial map", systemImage: "circle.hexagongrid")
-                                        .font(.headline)
-                                        .accessibilityAddTraits(.isHeader)
-                                    Spacer()
-                                    Text("\(layout.selectedEntries(in: area, brightnessLimit: model.effectiveDynamicBrightness).count) active")
-                                        .font(.caption.monospacedDigit())
-                                        .foregroundStyle(.secondary)
-                                }
+                            Label(issue, systemImage: "exclamationmark.triangle")
+                        } else if let area = model.selectedArea, let layout = model.roomLayout {
+                            Section {
                                 RoomFixtureMap(
-                                    area: area,
-                                    layout: layout,
-                                    focusedID: model.focusedFixtureID,
+                                    area: area, layout: layout, focusedID: model.focusedFixtureID,
                                     isEditable: model.canEditRoomLayout,
                                     onFocus: { model.focusedFixtureID = $0 },
                                     onMove: { id, x, y in
-                                        model.updateRoomFixture(id) { placement in
-                                            placement.x = x
-                                            placement.y = y
+                                        model.updateRoomFixture(id) {
+                                            $0.x = x
+                                            $0.y = y
                                         }
                                     }
                                 )
-                                Text(model.canEditRoomLayout
-                                    ? "Tap a light to choose it. Drag it or use Position X and Y to move it."
-                                    : "Choose a fixture to inspect its settings.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(16)
-                            .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 20))
-                            .id("room-map")
-
-                            Button("Use positions for sweep", systemImage: "arrow.right") {
-                                do { sweepPreview = try model.previewRoomSweep() }
-                                catch { model.errorMessage = error.localizedDescription }
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(model.roomDiscoveryScope == nil)
-                            .accessibilityIdentifier("room-sweep-preview")
-
-                            VStack(alignment: .leading, spacing: 16) {
-                                Picker("Fixture", selection: Binding(
+                                .id("room-map")
+                                Picker("Light", selection: Binding(
                                     get: { model.focusedFixtureID },
                                     set: { model.focusedFixtureID = $0 }
                                 )) {
-                                    ForEach(area.lights) { light in
-                                        Text(light.name).tag(Optional(light.id))
+                                    ForEach(Array(layout.placements.enumerated()), id: \.element.id) { index, placement in
+                                        if let light = area.lights.first(where: { $0.id == placement.id }) {
+                                            Text("\(index + 1) · \(light.name)").tag(Optional(light.id))
+                                        }
                                     }
                                 }
+                                .accessibilityIdentifier("room-focused-light")
 
                                 if let placement = activePlacement,
                                    let light = area.lights.first(where: { $0.id == placement.id }) {
-                                    Toggle("Include in Studio", isOn: Binding(
-                                        get: { placement.selected },
-                                        set: { enabled in
-                                            model.updateRoomFixture(light.id) {
-                                                $0.selected = enabled
-                                            }
-                                        }
-                                    ))
-                                    .disabled(!model.canEditRoomLayout)
-                                    Picker("Fixture role", selection: Binding(
-                                        get: { placement.role },
-                                        set: { role in
-                                            model.updateRoomFixture(light.id) {
-                                                $0.role = role
-                                            }
-                                        }
-                                    )) {
-                                        ForEach(HueFixtureRole.allCases, id: \.self) { role in
-                                            Text(role.title).tag(role)
-                                        }
+                                    DisclosureGroup("Fine-tune position", isExpanded: $showingPosition) {
+                                        placementSlider("Position X", id: light.id, keyPath: \.x,
+                                                        range: 0...1, percentage: true)
+                                        placementSlider("Position Y", id: light.id, keyPath: \.y,
+                                                        range: 0...1, percentage: true)
                                     }
-                                    .disabled(!model.canEditRoomLayout)
-                                    Text("Task and background roles hold a steady color. Accent shifts the spatial pattern phase; wash follows the saved path.")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-
-                                    placementSlider(
-                                        "Animation phase", id: light.id,
-                                        keyPath: \.phase, range: 0...1, percentage: true
-                                    )
-                                    placementSlider(
-                                        "Output trim", id: light.id,
-                                        keyPath: \.trim, range: 0.1...1, percentage: true
-                                    )
-                                    placementSlider(
-                                        "Additional ceiling", id: light.id,
-                                        keyPath: \.ceiling, range: 5...100, percentage: false
-                                    )
-
-                                    placementSlider(
-                                        "Position X", id: light.id,
-                                        keyPath: \.x, range: 0...1, percentage: true
-                                    )
-                                    placementSlider(
-                                        "Position Y", id: light.id,
-                                        keyPath: \.y, range: 0...1, percentage: true
-                                    )
-                                    LabeledContent("Bridge maximum",
-                                        value: "\(Int(light.outputLimit))%")
+                                    .accessibilityIdentifier("room-position-controls")
+                                    studioControls(for: light, placement: placement)
+                                }
+                            } header: {
+                                Text("Light positions")
+                                    .accessibilityIdentifier("room-arrangement-heading")
+                            } footer: {
+                                if model.canEditRoomLayout {
+                                    Text("Drag a light to save its position in Hue Board.")
+                                } else {
+                                    Text("Position editing is available when the room is idle and any previous settings have been restored.")
                                 }
                             }
-                            .padding(16)
-                            .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 20))
 
-                            Button("Reset to evenly spaced ring", role: .destructive) {
-                                showResetConfirmation = true
-                            }
-                            .disabled(!model.canEditRoomLayout)
-                            .confirmationDialog(
-                                "Replace this room's local positions?",
-                                isPresented: $showResetConfirmation
-                            ) {
-                                Button("Reset local layout", role: .destructive) {
-                                    model.resetRoomLayoutToRing()
+                            Section {
+                                RoomDiscoveryCard(
+                                    state: discoveryScope != nil && discoveryScope == session.scope ? session.state : .idle,
+                                    canRead: discoveryScope != nil,
+                                    onRefresh: { refresh &+= 1 },
+                                    onManual: { reader.scrollTo("room-map", anchor: .top) }
+                                ) { arrangement in
+                                    guard let scope = discoveryScope, scope == session.scope else { return }
+                                    do { layoutPreview = try model.previewRoomArrangement(arrangement, from: scope) }
+                                    catch { model.errorMessage = error.localizedDescription }
                                 }
-                                Button("Cancel", role: .cancel) {}
-                            } message: {
-                                Text("Replaces your locally saved positions, selection, and trims. No lights or Hue Bridge layouts are changed.")
                             }
-
-                            Text("Only selected, eligible non-streaming color lights are controlled by Studio. Before playback, Hue Board captures their restore baseline, uses one writer, and enforces each fixture's minimum and effective ceiling.")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
+                            Section("Layout tools") {
+                                Button("Preview left-to-right sweep", systemImage: "arrow.right") {
+                                    do { sweepPreview = try model.previewRoomSweep() }
+                                    catch { model.errorMessage = error.localizedDescription }
+                                }
+                                .disabled(model.roomDiscoveryScope == nil)
+                                .accessibilityIdentifier("room-sweep-preview")
+                                Button("Reset room layout", role: .destructive) {
+                                    showResetConfirmation = true
+                                }
+                                .disabled(!model.canEditRoomLayout)
+                                .confirmationDialog("Reset this layout?", isPresented: $showResetConfirmation,
+                                                    titleVisibility: .visible) {
+                                    Button("Reset layout", role: .destructive) { model.resetRoomLayoutToRing() }
+                                    Button("Cancel", role: .cancel) {}
+                                } message: {
+                                    Text("Places lights in a ring and restores their default Studio settings in Hue Board.")
+                                }
+                            }
                         } else {
-                            ContentUnavailableView(
-                                "No room layout",
-                                systemImage: "square.grid.3x3",
-                                description: Text("Choose a Hue room or zone with lights.")
-                            )
+                            ContentUnavailableView("No room layout", systemImage: "square.grid.3x3",
+                                                   description: Text("Choose a Hue room or zone with lights."))
                         }
                     }
-                    .padding()
-                  }
                 }
+            } else {
+                ConnectPrompt()
             }
         }
+        .task(id: LayoutRequest(scope: discoveryScope, revision: refresh)) {
+            await session.read(scope: discoveryScope, revision: refresh, using: model.fetchRoomArrangements)
+        }
+        .onDisappear { session.invalidate() }
+        .sheet(item: $layoutPreview) { RoomArrangementPreviewSheet(preview: $0) }
         .sheet(item: $sweepPreview) { RoomSweepSheet(preview: $0) }
         .navigationTitle("Room")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { model.isSettingsPresented = true } label: {
-                    Image(systemName: "gearshape.fill")
+    }
+
+    private func studioControls(for light: HueLight, placement: HueFixturePlacement) -> some View {
+        DisclosureGroup("Studio settings for this light", isExpanded: $showingStudioControls) {
+            Toggle("Include in Studio", isOn: Binding(
+                get: { placement.selected },
+                set: { enabled in model.updateRoomFixture(light.id) { $0.selected = enabled } }
+            ))
+            .disabled(!model.canEditRoomLayout)
+            Picker("Role", selection: Binding(
+                get: { placement.role },
+                set: { role in model.updateRoomFixture(light.id) { $0.role = role } }
+            )) {
+                ForEach(HueFixtureRole.allCases, id: \.self) { role in
+                    Text(role.title).tag(role)
                 }
-                .accessibilityLabel("Settings")
+            }
+            .disabled(!model.canEditRoomLayout)
+            placementSlider("Animation phase", id: light.id, keyPath: \.phase, range: 0...1, percentage: true)
+            placementSlider("Brightness scale", id: light.id, keyPath: \.trim, range: 0.1...1, percentage: true, identifier: "room-output-trim")
+            placementSlider("Brightness limit", id: light.id, keyPath: \.ceiling, range: 5...100, percentage: false, identifier: "room-output-ceiling")
+            if light.outputLimit < 100 {
+                LabeledContent("Light’s maximum", value: "\(Int(light.outputLimit))%")
             }
         }
+        .accessibilityIdentifier("room-studio-controls")
     }
 
     private func placementSlider(
@@ -206,7 +175,7 @@ struct RoomLayoutView: View {
         id: HueResourceID,
         keyPath: WritableKeyPath<HueFixturePlacement, Double>,
         range: ClosedRange<Double>,
-        percentage: Bool
+        percentage: Bool, identifier: String? = nil
     ) -> some View {
         let current = model.roomLayout?.placements.first(where: { $0.id == id })?[keyPath: keyPath]
             ?? range.lowerBound
@@ -233,6 +202,7 @@ struct RoomLayoutView: View {
             ), in: range, step: percentage ? 0.01 : 5)
                 .disabled(!model.canEditRoomLayout)
                 .accessibilityLabel(title)
+                .accessibilityIdentifier(identifier ?? title)
                 .accessibilityValue(displayValue)
         }
     }
@@ -253,7 +223,7 @@ struct RoomArrangementPreviewSheet: View {
                     Text(preview.arrangement.name)
                         .font(.title2.bold())
                         .accessibilityAddTraits(.isHeader)
-                    Text("Preview for \(preview.area.name)")
+                    Text(preview.area.name)
                         .foregroundStyle(.secondary)
                     RoomFixtureMap(
                         area: preview.area,
@@ -263,14 +233,14 @@ struct RoomArrangementPreviewSheet: View {
                         onFocus: { focusedID = $0 },
                         onMove: { _, _, _ in }
                     )
-                    DisclosureGroup("Matching fixture positions") {
+                    DisclosureGroup("Compare positions") {
                         ForEach(preview.area.lights.filter { preview.arrangement.hasPosition(for: $0.id) }) { light in
                             if let previous = preview.originalLayout.placements.first(where: { $0.id == light.id }),
                                let proposed = preview.proposedLayout.placements.first(where: { $0.id == light.id }) {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(light.name).font(.headline)
-                                    Text("Currently \(mapCoordinates(previous))")
-                                    Text("Proposed position is \(mapCoordinates(proposed))")
+                                    Text("Current · \(mapCoordinates(previous))")
+                                    Text("From Hue · \(mapCoordinates(proposed))")
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.vertical, 4)
@@ -279,7 +249,7 @@ struct RoomArrangementPreviewSheet: View {
                         }
                     }
                     .accessibilityIdentifier("room-layout-comparison")
-                    Text("Saving changes the matching fixture positions in this room. Your fixture selection, phase, roles, trim and ceilings are preserved.")
+                    Text("Save the matching positions to Hue Board for this room. Other light settings stay as they are.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     if !model.canSaveRoomArrangement(preview) {
@@ -336,6 +306,14 @@ struct RoomFixtureMap: View {
     private let markerSize: CGFloat = 44
 
     var body: some View {
+        VStack(spacing: 4) {
+            Text("Front").font(.caption).foregroundStyle(.secondary).accessibilityHidden(true)
+            map
+            Text("Back").font(.caption).foregroundStyle(.secondary).accessibilityHidden(true)
+        }
+    }
+
+    private var map: some View {
         GeometryReader { geometry in
             let inset = markerSize / 2
             let mapSize = CGSize(
@@ -344,7 +322,7 @@ struct RoomFixtureMap: View {
             )
             ZStack {
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(.black.opacity(0.45))
+                    .fill(Color.secondary.opacity(0.12))
                 Path { path in
                     for fraction in [CGFloat(0.25), 0.5, 0.75] {
                         let x = inset + mapSize.width * fraction
@@ -355,7 +333,7 @@ struct RoomFixtureMap: View {
                         path.addLine(to: CGPoint(x: geometry.size.width, y: y))
                     }
                 }
-                .stroke(.white.opacity(0.10), lineWidth: 1)
+                .stroke(Color.secondary.opacity(0.28), lineWidth: 1)
 
                 ForEach(Array(layout.placements.enumerated()), id: \.element.id) { index, placement in
                     if let light = area.lights.first(where: { $0.id == placement.id }) {
@@ -370,7 +348,7 @@ struct RoomFixtureMap: View {
                                     .fill(swiftUIColor(light.color).opacity(placement.selected ? 1 : 0.35))
                                 Circle()
                                     .strokeBorder(
-                                        focusedID == placement.id ? Color.white : Color.white.opacity(0.3),
+                                        focusedID == placement.id ? Color.accentColor : Color.secondary.opacity(0.5),
                                         lineWidth: focusedID == placement.id ? 3 : 1
                                     )
                                 Text("\(index + 1)")
@@ -386,7 +364,7 @@ struct RoomFixtureMap: View {
                         .accessibilityLabel(light.name)
                         .accessibilityValue("\(mapCoordinates(placement)). \(placement.selected ? "Selected for Studio" : "Excluded from Studio")")
                         .accessibilityAddTraits(focusedID == placement.id ? [.isSelected] : [])
-                        .accessibilityHint(isEditable ? "Shows fixture settings and position controls" : "Selects this fixture on the map")
+                        .accessibilityHint(isEditable ? "Selects this light for editing" : "Selects this light on the map")
                         .position(
                             x: inset + point.x * mapSize.width,
                             y: inset + point.y * mapSize.height
@@ -413,9 +391,9 @@ struct RoomFixtureMap: View {
             }
             .coordinateSpace(name: "room-map")
         }
-        .frame(height: 290)
+        .frame(height: layout.placements.count > 6 ? 260 : 200)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Interactive room fixture map")
+        .accessibilityLabel("Room map, front at the top")
     }
 
     private func position(

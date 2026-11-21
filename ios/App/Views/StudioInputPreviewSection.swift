@@ -16,7 +16,7 @@ struct StudioInputPreviewSection: View {
   var body: some View {
     let preview = model.studioInputPreview
     VStack(alignment: .leading, spacing: 10) {
-      Picker("Live input", selection: Binding(
+      Picker("Input", selection: Binding(
         get: { model.studioLiveInput },
         set: { input in
           guard model.studioLiveInput != input else { return }
@@ -24,9 +24,9 @@ struct StudioInputPreviewSection: View {
           model.studioLiveInput = input
         }
       )) {
-        ForEach(AppModel.StudioLiveInput.allCases, id: \.self) { input in
-          Text(input.rawValue).tag(input)
-        }
+        Text("Patterns").tag(AppModel.StudioLiveInput.engine)
+        Text("Microphone").tag(AppModel.StudioLiveInput.microphone)
+        Text("Audio or video file").tag(AppModel.StudioLiveInput.media)
       }
       .pickerStyle(.menu)
       .accessibilityIdentifier("studio-live-input")
@@ -49,8 +49,8 @@ struct StudioInputPreviewSection: View {
 
       if model.studioLiveInput != .engine {
         Text(model.studioLiveInput == .microphone
-          ? "Preview measures sound on this iPhone. Audio stays in memory."
-          : "Preview plays the selected file on this iPhone and samples its sound or picture.")
+          ? "Preview uses this iPhone’s microphone. Audio stays in memory."
+          : "Preview plays the file on this iPhone. Sound changes brightness and video supplies color.")
           .font(.caption)
           .foregroundStyle(.secondary)
         Button {
@@ -101,8 +101,8 @@ struct StudioInputPreviewSection: View {
             .accessibilityLabel("Selected video playback")
         }
         Text(limitsLightMotion
-          ? "Light motion preferences keep physical Live playback on Engine."
-          : "Start Studio Live sends this input to your selected lights. Keep Hue Board on screen.")
+          ? "Choose Patterns for playback while light motion is reduced."
+          : "Keep Hue Board open while playing this input on lights.")
           .font(.caption)
           .foregroundStyle(.secondary)
       }

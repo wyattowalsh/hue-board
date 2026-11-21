@@ -7,19 +7,19 @@ struct RootView: View {
     var body: some View {
         @Bindable var model = model
         TabView(selection: $model.selectedTab) {
-            NavigationStack { LightsView() }
+            NavigationStack { LightsView().hueBoardSettingsToolbar() }
                 .tabItem { Label("Lights", systemImage: "lightbulb.2.fill") }
                 .tag(AppModel.Tab.lights)
 
-            NavigationStack { ScenesView() }
+            NavigationStack { ScenesView().hueBoardSettingsToolbar() }
                 .tabItem { Label("Scenes", systemImage: "sparkles.rectangle.stack") }
                 .tag(AppModel.Tab.scenes)
 
-            NavigationStack { LiveView() }
+            NavigationStack(path: $model.studioPath) { LiveView().hueBoardSettingsToolbar() }
                 .tabItem { Label("Studio", systemImage: "waveform.path") }
                 .tag(AppModel.Tab.live)
 
-            NavigationStack { RoomLayoutView() }
+            NavigationStack { RoomLayoutView().hueBoardSettingsToolbar() }
                 .tabItem { Label("Room", systemImage: "circle.hexagongrid") }
                 .tag(AppModel.Tab.room)
         }
@@ -89,5 +89,24 @@ struct RootView: View {
 
     private var errorPresented: Binding<Bool> {
         Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })
+    }
+}
+
+extension View {
+    func hueBoardSettingsToolbar() -> some View {
+        modifier(HueBoardSettingsToolbar())
+    }
+}
+
+private struct HueBoardSettingsToolbar: ViewModifier {
+    @Environment(AppModel.self) private var model
+
+    func body(content: Content) -> some View {
+        content.toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Settings", systemImage: "gearshape") { model.isSettingsPresented = true }
+                    .labelStyle(.iconOnly)
+            }
+        }
     }
 }

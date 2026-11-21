@@ -32,7 +32,7 @@ final class BrowseRoomDiscovery: CandidateBrowseCase {
             XCTAssertTrue(none.exists || noOverlap.exists)
             capture(none.exists ? "Candidate-room-no-saved-layouts" : "Candidate-room-no-overlap", in: app)
         }
-        XCTAssertFalse(app.buttons["Stop & restore"].exists)
+        XCTAssertFalse(app.buttons["restore-lights"].exists)
         XCTAssertFalse(app.alerts.firstMatch.exists)
     }
 }

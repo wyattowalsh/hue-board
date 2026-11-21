@@ -4,10 +4,10 @@ import XCTest
 final class BrowseStudioRehearsal: CandidateBrowseCase {
     func testStepRoomRehearsalWithoutLightActions() {
         let app = pairedCandidate()
-        studioSection("Preview", in: app)
+        app.tabBars.buttons["Studio"].tap()
         let timeline = app.sliders["studio-rehearsal-time"]
         reveal(timeline, in: app)
-        XCTAssertTrue(app.staticTexts["No light writes"].exists)
+        XCTAssertTrue(app.staticTexts["studio-preview-title"].exists)
         let initial = timeline.value as? String
         XCTAssertEqual(initial, "0 seconds")
         let next = app.buttons["studio-rehearsal-next"]
@@ -26,6 +26,6 @@ final class BrowseStudioRehearsal: CandidateBrowseCase {
         fixtures.tap()
         capture("Candidate-studio-fixture-targets", in: app)
         fixtures.tap()
-        XCTAssertFalse(app.buttons["Stop & restore"].exists)
+        XCTAssertFalse(app.buttons["restore-lights"].exists)
     }
 }

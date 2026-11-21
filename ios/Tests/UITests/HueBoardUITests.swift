@@ -6,14 +6,23 @@ final class HueBoardUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    private func jumpToStudioSection(_ title: String, in app: XCUIApplication) {
-        let jump = app.buttons["studio-section-jump"]
-        XCTAssertTrue(jump.wait(for: \.isHittable, toEqual: true, timeout: 5))
-        jump.tap()
-        let button = app.buttons[title]
-        let section = button.waitForExistence(timeout: 1) ? button : app.menuItems[title]
-        XCTAssertTrue(section.waitForExistence(timeout: 5))
-        section.tap()
+    private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<8 {
+            if element.exists && element.isHittable { return }
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.78))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.36))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
+        XCTAssertTrue(element.isHittable, "Expected control was not reachable.")
+    }
+
+    private func goBack(from title: String, to previous: String, in app: XCUIApplication) {
+        let back = app.navigationBars[title].buttons.matching(NSPredicate(
+            format: "identifier == %@ OR label == %@ OR label == %@", "BackButton", "Back", previous
+        )).firstMatch
+        XCTAssertTrue(back.wait(for: \.isHittable, toEqual: true, timeout: 5))
+        back.tap()
+        XCTAssertTrue(app.navigationBars[previous].waitForExistence(timeout: 5))
     }
 
     private func capture(_ name: String) {
@@ -41,10 +50,18 @@ final class HueBoardUITests: XCTestCase {
 
         let settingsTabExists = app.tabBars.buttons["Settings"].exists
         let settingsButtonExists = app.buttons["Settings"].exists
-        let restoreExists = app.buttons["Stop & restore"].exists
+        let restoreExists = app.buttons["restore-lights"].exists
         XCTAssertFalse(settingsTabExists, "Settings must remain modal rather than a primary tab.")
         XCTAssertTrue(settingsButtonExists, "The modal Settings action is missing.")
         XCTAssertFalse(restoreExists, "A fresh no-write UI-test launch must not create recovery state.")
+        app.buttons["Settings"].tap()
+        let limits = app.buttons["settings-playback-limits"]
+        XCTAssertTrue(limits.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.sliders["Maximum playback brightness"].exists)
+        limits.tap()
+        XCTAssertTrue(app.navigationBars["Playback limits"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.sliders["Maximum playback brightness"].exists)
+        goBack(from: "Playback limits", to: "Settings", in: app)
     }
 
     func testOfflineSearchAndStudioDraftKeepPhysicalActionsDisabled() {
@@ -61,50 +78,55 @@ final class HueBoardUITests: XCTestCase {
         XCTAssertTrue(search.waitForExistence(timeout: 5))
         search.tap()
         search.typeText("zzqvnomatchcheck")
-        XCTAssertEqual(app.staticTexts["scene-match-count"].label, "0 matching looks")
-        XCTAssertTrue(app.staticTexts["No matching looks"].exists)
+        XCTAssertEqual(app.staticTexts["scene-match-count"].label, "0 scenes")
+        XCTAssertTrue(app.staticTexts["No scenes found"].exists)
         capture("Scenes-empty-search")
 
         app.buttons["scene-search-clear"].tap()
-        XCTAssertEqual(app.staticTexts["scene-match-count"].label, "32 matching looks")
+        XCTAssertEqual(app.staticTexts["scene-match-count"].label, "32 scenes")
         search.tap()
         let look = "Plasma Turbine"
         search.typeText(look + XCUIKeyboardKey.return.rawValue)
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["scene-match-count"].label, "1 matching look")
-        XCTAssertTrue(app.staticTexts[look].exists)
-        let compose = app.buttons["compose-plasma-turbine"]
-        if !compose.isHittable { app.swipeUp() }
-        XCTAssertTrue(compose.isHittable)
-        let play = app.buttons["Play"].firstMatch
-        XCTAssertTrue(play.exists)
-        XCTAssertFalse(play.isEnabled)
-        compose.tap()
-        XCTAssertTrue(app.staticTexts["Engine preview"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["No light writes"].exists)
-        jumpToStudioSection("Composition", in: app)
-        let sourcePreset = app.buttons.matching(NSPredicate(
-            format: "label == %@ OR (label BEGINSWITH %@ AND (label CONTAINS %@ OR value == %@))",
-            look, "Source preset", look, look
-        )).firstMatch
-        XCTAssertTrue(sourcePreset.wait(for: \.isHittable, toEqual: true, timeout: 5))
+        XCTAssertEqual(app.staticTexts["scene-match-count"].label, "1 scene")
+        let scene = app.buttons["scene-plasma-turbine"]
+        reveal(scene, in: app)
+        XCTAssertFalse(app.buttons["play-plasma-turbine"].exists)
+        XCTAssertFalse(app.buttons["compose-plasma-turbine"].exists)
+        scene.tap()
+
+        XCTAssertTrue(app.buttons["Connect Bridge to play"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["play-plasma-turbine"].exists)
+        let editInStudio = app.buttons["compose-plasma-turbine"]
+        reveal(editInStudio, in: app)
+        editInStudio.tap()
+        XCTAssertTrue(app.navigationBars["Edit mix"].waitForExistence(timeout: 5))
+        let source = app.buttons["studio-source-look"]
+        XCTAssertTrue(source.waitForExistence(timeout: 5))
+        XCTAssertTrue(source.label.contains(look) || (source.value as? String)?.contains(look) == true,
+                      "Studio should load the scene that was selected.")
         capture("Studio-composition-loaded")
 
-        jumpToStudioSection("Palette", in: app)
+        let palette = app.buttons["studio-palette"]
+        reveal(palette, in: app)
+        palette.tap()
         let usePalette = app.buttons["studio-custom-palette-A"]
-        XCTAssertTrue(app.staticTexts["Create your own palette"].wait(
-            for: \.isHittable, toEqual: true, timeout: 5
-        ))
-        if !usePalette.isHittable { app.swipeUp() }
-        XCTAssertTrue(usePalette.isHittable)
+        reveal(usePalette, in: app)
         usePalette.tap()
-        XCTAssertEqual(usePalette.label, "Using in A")
+        XCTAssertEqual(usePalette.label, "Used in pattern A")
         capture("Studio-custom-palette-assigned")
 
-        jumpToStudioSection("Playback", in: app)
+        goBack(from: "Custom palette", to: "Edit mix", in: app)
+        goBack(from: "Edit mix", to: "Studio", in: app)
+        XCTAssertTrue(app.staticTexts["studio-preview-title"].exists)
+        XCTAssertFalse(app.buttons["studio-custom-palette-A"].exists)
+        let playback = app.buttons["studio-playback"]
+        reveal(playback, in: app)
+        playback.tap()
         let start = app.buttons["studio-start"]
-        XCTAssertTrue(start.wait(for: \.isHittable, toEqual: true, timeout: 5))
+        reveal(app.buttons["Connect Hue Bridge"], in: app)
+        XCTAssertTrue(start.exists)
         XCTAssertFalse(start.isEnabled)
-        XCTAssertFalse(app.buttons["Stop & restore"].exists)
+        XCTAssertFalse(app.buttons["restore-lights"].exists)
     }
 }

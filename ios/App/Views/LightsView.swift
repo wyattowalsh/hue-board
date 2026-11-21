@@ -2,100 +2,138 @@ import SwiftUI
 import HueBoardKit
 
 struct LightsView: View {
-  @Environment(AppModel.self) private var model
-  @State private var selectedLight: HueLight?
-  var body:some View{
-    @Bindable var model=model
-    Group{
-      if !model.isReady { ConnectPrompt() }
-      else {
-        List{
-          Section { StatusCard(); AreaPicker() }
-          Section("Everyday control"){
-            ViewThatFits(in: .horizontal) {
-              HStack { areaPowerButtons }
-              VStack(alignment: .leading, spacing: 8) { areaPowerButtons }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .disabled(!model.canUseEverydayControls)
-            Button("Turn off now",role:.destructive){Task{await model.turnOffNow()}}
-              .buttonStyle(.bordered)
-              .disabled(!model.canTurnOffNow)
-              .accessibilityHint("Stops Hue Board playback and turns eligible lights off. The saved baseline stays available.")
-            VStack(alignment:.leading){
-              HStack{Text("Brightness");Spacer();Text("\(Int(model.brightness))%").monospacedDigit()}
-              Slider(value: $model.brightness, in: 1...100, step: 1)
-                .disabled(!model.canUseEverydayControls)
-                .accessibilityLabel("Area brightness")
-                .accessibilityValue("\(Int(model.brightness)) percent")
-              Button("Apply brightness & turn on") {
-                Task { await model.setAreaBrightness(model.brightness) }
-              }
-              .buttonStyle(.borderedProminent)
-              .disabled(!model.canUseEverydayControls)
-              .accessibilityHint("Sends the selected brightness only after this button is pressed.")
-              Text("Moving the slider edits the value only. Apply sends it to this room or zone.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
-            if model.foreignRecoveryPending {
-              Text("A saved baseline for another Bridge is still pending. Reconnect that Bridge and restore it before changing lights here.")
-                .font(.caption).foregroundStyle(.secondary)
-            } else if !model.canUseEverydayControls && model.isReady {
-              Text("Stop and restore active playback before using ordinary controls. Turn off now remains available and retains the baseline.")
-                .font(.caption).foregroundStyle(.secondary)
-            }
-          }
-          if let area=model.selectedArea {
-            Section("\(area.name) · \(area.lights.count) lights"){
-              ForEach(area.lights) { light in
-                Button {
-                  selectedLight = light
-                } label: {
-                  HStack {
-                    LightRow(light: light)
-                    Image(systemName: "slider.horizontal.3")
-                      .font(.caption)
-                      .foregroundStyle(.secondary)
-                      .accessibilityHidden(true)
-                  }
-                  .contentShape(Rectangle())
+    @Environment(AppModel.self) private var model
+    @State private var selectedLight: HueLight?
+
+    var body: some View {
+        Group {
+            if model.isReady {
+                List {
+                    Section { AreaPicker().accessibilityIdentifier("lights-room-picker") }
+                    if let area = model.selectedArea, let profile = model.profile {
+                        let scope = LightingScope(bridgeID: profile.bridgeID, areaID: area.id)
+                        RoomControls(area: area, scope: scope).id(scope)
+                        Section {
+                            ForEach(area.lights) { light in
+                                Button { selectedLight = light } label: {
+                                    HStack {
+                                        LightRow(light: light)
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(.tertiary)
+                                            .accessibilityHidden(true)
+                                    }
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Edit \(light.name)")
+                                .accessibilityValue(accessibleReadback(light))
+                            }
+                        } header: {
+                            Text("Individual lights (\(area.lights.count))")
+                        }
+                    } else {
+                        ContentUnavailableView("No room selected", systemImage: "lightbulb",
+                                               description: Text("Choose a Hue room or zone to control its lights."))
+                    }
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Edit \(light.name)")
-                .accessibilityValue(accessibleReadback(light))
-              }
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Menu {
+                            Button("Refresh lights", systemImage: "arrow.clockwise") {
+                                Task { await model.refreshInventory() }
+                            }
+                            .disabled(model.isBusy)
+                            if model.playbackSnapshot.mode == .idle && !model.hasRestorePoint && !model.foreignRecoveryPending {
+                                Button("Turn off now", systemImage: "power", role: .destructive) {
+                                    Task { await model.turnOffNow() }
+                                }
+                                .disabled(!model.canTurnOffNow)
+                                .accessibilityHint("Interrupts other commands and preserves the lights’ previous settings for restoration.")
+                            }
+                        } label: {
+                            Label("More light controls", systemImage: "ellipsis.circle")
+                        }
+                        .accessibilityIdentifier("lights-more-actions")
+                    }
+                }
+            } else {
+                ConnectPrompt()
             }
-          }
-          Section {
-            Text("State shown here is Bridge API readback and may lag physical output. Hue Board never overrides a light owned by an Entertainment stream.")
-              .font(.footnote).foregroundStyle(.secondary)
-          }
         }
-      }
+        .navigationTitle("Lights")
+        .sheet(item: $selectedLight) { light in
+            LightDetailSheet(light: light).environment(model)
+        }
     }
-    .navigationTitle("Lights")
-    .sheet(item: $selectedLight) { light in
-      LightDetailSheet(light: light).environment(model)
-    }
-    .toolbar {
-      ToolbarItem(placement:.topBarTrailing){Button{model.isConnectionSheetPresented=true}label:{Image(systemName:"dot.radiowaves.left.and.right")}.accessibilityLabel("Bridge connection")}
-      ToolbarItem(placement:.topBarTrailing){Button{Task{await model.refreshInventory()}}label:{Image(systemName:"arrow.clockwise")}.disabled(!model.isReady||model.isBusy).accessibilityLabel("Refresh Bridge state")}
-      ToolbarItem(placement:.topBarTrailing){Button{model.isSettingsPresented=true}label:{Image(systemName:"gearshape.fill")}.accessibilityLabel("Settings")}
-    }
-  }
 
-  @ViewBuilder private var areaPowerButtons: some View {
-    Button("Turn on") { Task { await model.setAreaPower(true) } }
-      .buttonStyle(.borderedProminent)
-    Button("Turn off") { Task { await model.setAreaPower(false) } }
-      .buttonStyle(.bordered)
-  }
+    private func accessibleReadback(_ light: HueLight) -> String {
+        if light.capabilities.streaming { return "Entertainment stream active" }
+        if !light.isOn { return "Off" }
+        guard let level = light.brightness else { return "On" }
+        return "On, \(level.formatted(.number.precision(.fractionLength(0...1)))) percent"
+    }
+}
 
-  private func accessibleReadback(_ light: HueLight) -> String {
-    if light.capabilities.streaming { return "Entertainment stream active" }
-    if !light.isOn { return "Off" }
-    guard let level = light.brightness else { return "On" }
-    return "On, \(level.formatted(.number.precision(.fractionLength(0...1)))) percent"
-  }
+private struct RoomControls: View {
+    @Environment(AppModel.self) private var model
+    let area: HueArea
+    let scope: LightingScope
+    @State private var roomBrightness: Double
+    @State private var feedback: String?
+
+    init(area: HueArea, scope: LightingScope) {
+        self.area = area
+        self.scope = scope
+        _roomBrightness = State(initialValue: area.initialRoomBrightness)
+    }
+
+    var body: some View {
+        let canPower = area.lights.contains { $0.capabilities.power && !$0.capabilities.streaming }
+        let canDim = area.lights.contains(where: \.canSetRoomBrightness)
+        Section {
+            ViewThatFits(in: .horizontal) {
+                HStack { areaPowerButtons }
+                VStack(alignment: .leading, spacing: 8) { areaPowerButtons }
+            }
+            .disabled(!model.canUseEverydayControls || !canPower)
+            if canDim {
+                VStack(alignment: .leading, spacing: 8) {
+                    LabeledContent("Brightness", value: roomBrightness / 100, format: .percent.precision(.fractionLength(0)))
+                        .accessibilityHidden(true)
+                    Slider(value: $roomBrightness, in: 1...100, step: 1)
+                        .accessibilityLabel("Area brightness")
+                        .accessibilityValue("\(Int(roomBrightness)) percent")
+                    Button("Apply brightness & turn on") {
+                        let target = roomBrightness
+                        feedback = nil
+                        Task { feedback = await model.setAreaBrightness(target, in: scope) }
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .disabled(!model.canUseEverydayControls)
+            }
+        } footer: {
+            if model.foreignRecoveryPending {
+                Text("Reconnect the original Bridge to restore its lights before changing this room.")
+            } else if !canPower && !canDim {
+                Text("This room has no lights available to control.")
+            } else if let feedback {
+                Text(feedback).accessibilityIdentifier("lights-room-feedback")
+            }
+        }
+    }
+
+    @ViewBuilder private var areaPowerButtons: some View {
+        Button("Turn on") {
+            feedback = nil
+            Task { feedback = await model.setAreaPower(true, in: scope) }
+        }
+        .buttonStyle(.bordered)
+        Button("Turn off") {
+            feedback = nil
+            Task { feedback = await model.setAreaPower(false, in: scope) }
+        }
+        .buttonStyle(.bordered)
+    }
 }

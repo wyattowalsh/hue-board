@@ -8,6 +8,7 @@ import Observation
 @Observable
 final class AppModel {
   enum Tab: Hashable { case lights, scenes, live, room }
+  enum StudioDestination: Hashable { case mix, cues, library, playback }
   enum PendingDynamicAction: Equatable {
     case bridge(presetID: String)
     case ambient
@@ -26,6 +27,7 @@ final class AppModel {
     case ready
   }
 
+  var studioPath: [StudioDestination] = []
   var selectedTab: Tab = .lights {
     didSet { if selectedTab != .live { studioInputPreview.stop() } }
   }
@@ -96,7 +98,8 @@ final class AppModel {
   let contract: HueBoardContract
   let engine: JavaScriptHueEngine
 
-  @ObservationIgnored nonisolated let client = HueBridgeClient()
+  @ObservationIgnored nonisolated let client: HueBridgeClient
+  @ObservationIgnored nonisolated let directControlClient: any HueLightUpdateSending
   @ObservationIgnored nonisolated let eventClient = HueEventStreamClient()
   @ObservationIgnored nonisolated let persistence: AppPersistence
   @ObservationIgnored let setupDefaults: UserDefaults
@@ -120,8 +123,12 @@ final class AppModel {
   init(
     setupDefaults: UserDefaults = .standard,
     roomLayoutStore: HueRoomLayoutStore? = nil,
-    persistence: AppPersistence = .shared
+    persistence: AppPersistence = .shared,
+    directControlClient: (any HueLightUpdateSending)? = nil
   ) {
+    let bridgeClient = HueBridgeClient()
+    self.client = bridgeClient
+    self.directControlClient = directControlClient ?? bridgeClient
     self.setupDefaults = setupDefaults
     self.roomLayoutStore = roomLayoutStore ?? HueRoomLayoutStore(defaults: setupDefaults)
     self.studioDocumentStore = StudioDocumentStore(defaults: setupDefaults)
@@ -171,19 +178,19 @@ final class AppModel {
     studioSettings = HueEngineSettings.from(preset: preset, brightness: brightness)
   }
 
-  func saveFavoritePresets(_ ids: Set<String>) {
-    do {
-      try SetupImportTransaction.saveFavorites(ids, defaults: setupDefaults)
-      favoritePresetIDs = ids
-    } catch {
-      errorMessage = "Could not save favorites: \(error.localizedDescription)"
-    }
+  func saveFavoritePresets(_ ids: Set<String>) throws {
+    try SetupImportTransaction.saveFavorites(ids, defaults: setupDefaults)
+    favoritePresetIDs = ids
   }
 
   func toggleFavoritePreset(_ id: String) {
     var ids = favoritePresetIDs
     if ids.remove(id) == nil { ids.insert(id) }
-    saveFavoritePresets(ids)
+    do {
+      try saveFavoritePresets(ids)
+    } catch {
+      errorMessage = "Could not save favorites: \(error.localizedDescription)"
+    }
   }
   var isReady: Bool { connectionState == .ready && profile != nil && credential != nil }
   var playbackSnapshot: HuePlaybackSnapshot { playback.snapshot }
