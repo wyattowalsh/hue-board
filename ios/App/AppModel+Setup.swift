@@ -245,12 +245,7 @@ extension AppModel {
         _ setup: HueSetupDocument, sections: Set<HueSetupSection>,
         layoutScopes: Set<String>? = nil, review: HueSetupReview
     ) async throws {
-        try requireIdleTransfer()
-        // The coordinator can still own a one-shot lease while the visible playback snapshot says idle.
-        guard await playbackCoordinator.currentLease() == nil,
-              try await persistence.isIdleForLocalImport() else {
-            throw HueBoardError.unsupported("Finish playback and resolve recovery before importing a setup.")
-        }
+        try await verifyStoredTransferIdle()
         // Main-actor code from revalidation to publication has no suspension point.
         let fresh = try reviewSetup(setup, sections: sections, layoutScopes: layoutScopes)
         guard fresh.canApply, fresh == review else {

@@ -78,6 +78,22 @@ final class HueSetupDocumentTests: XCTestCase {
         XCTAssertThrowsError(try HuePortableDataCodec.encode(.setup(setup), contract: contract))
     }
 
+    func testTypedJSONKeepsBooleansDistinctFromNumbersAndRejectsDiscardedFields() throws {
+        let contract = try HueBoardContractLoader.load()
+        let valid = #"{"format":"hue-board.setup","schema":1,"sections":{"safety":{"reduceLightMotion":false,"maximumDynamicBrightness":37.5}}}"#
+        XCTAssertEqual(try HuePortableDataCodec.decode(Data(valid.utf8), contract: contract),
+                       .setup(.init(safety: .init(reduceLightMotion: false, maximumDynamicBrightness: 37.5))))
+        for invalid in [
+            valid.replacingOccurrences(of: #""schema":1"#, with: #""schema":true"#),
+            valid.replacingOccurrences(of: ":false", with: ":0"),
+            valid.replacingOccurrences(of: ":false", with: ":1"),
+            valid.replacingOccurrences(of: ":37.5", with: ":true"),
+            valid.replacingOccurrences(of: ":37.5", with: #":37.5,"ignored":null"#)
+        ] {
+            XCTAssertThrowsError(try HuePortableDataCodec.decode(Data(invalid.utf8), contract: contract))
+        }
+    }
+
     func testMultipleRoomEncodingAndSingleRoomBackwardCompatibility() throws {
         let contract = try HueBoardContractLoader.load()
         let a = HueSetupRoom(scope: String(repeating: "a", count: 64),

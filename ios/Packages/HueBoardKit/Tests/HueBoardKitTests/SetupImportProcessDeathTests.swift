@@ -1,5 +1,9 @@
+#if os(macOS) || os(Linux)
 #if os(macOS)
 import Darwin
+#else
+import Glibc
+#endif
 import Foundation
 import XCTest
 @testable import HueBoardKit
@@ -39,10 +43,21 @@ final class SetupImportProcessDeathTests: XCTestCase {
             return
         }
 
+        #if os(macOS)
         let runner = try xctestRunner()
         let bundle = Bundle(for: Self.self).bundleURL
         guard bundle.pathExtension == "xctest" else { throw Failure("The macOS package test bundle could not be located") }
         let selector = "\(NSStringFromClass(Self.self))/testImportSurvivesProcessDeath"
+        let arguments = ["-XCTest", selector, bundle.path]
+        #else
+        // swift-corelibs-xctest embeds the test runner in the SwiftPM executable.
+        let path = try FileManager.default.destinationOfSymbolicLink(atPath: "/proc/self/exe")
+        let runner = URL(fileURLWithPath: path)
+        guard FileManager.default.isExecutableFile(atPath: runner.path) else {
+            throw Failure("The current Linux XCTest executable could not be located")
+        }
+        let arguments = ["\(String(reflecting: Self.self))/testImportSurvivesProcessDeath"]
+        #endif
         for boundary in Boundary.allCases {
             let context = try Context(UUID())
             try FileManager.default.createDirectory(at: context.directory, withIntermediateDirectories: false,
@@ -60,7 +75,7 @@ final class SetupImportProcessDeathTests: XCTestCase {
             func runChild(_ role: String) throws -> Process {
                 let process = Process()
                 process.executableURL = runner
-                process.arguments = ["-XCTest", selector, bundle.path]
+                process.arguments = arguments
                 var env = environment
                 // This standalone runner gets its selector on the command line, independently of the parent test session.
                 env.removeValue(forKey: "XCTestConfigurationFilePath")
@@ -135,6 +150,7 @@ final class SetupImportProcessDeathTests: XCTestCase {
         try context.mark("read", boundary)
     }
 
+    #if os(macOS)
     private func xctestRunner() throws -> URL {
         if let executable = Bundle.main.executableURL, executable.lastPathComponent == "xctest" { return executable }
         let lookup = Process()
@@ -149,6 +165,7 @@ final class SetupImportProcessDeathTests: XCTestCase {
         else { throw Failure("The selected Xcode has no usable xctest runner") }
         return URL(fileURLWithPath: path)
     }
+    #endif
 
     private func run(_ process: Process, timeout: Int) throws {
         let ended = DispatchSemaphore(value: 0)

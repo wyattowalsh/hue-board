@@ -2,7 +2,6 @@ import XCTest
 import HueBoardKit
 @testable import HueBoardNativeCore
 
-@MainActor
 final class RoomDiscoveryClientTests: XCTestCase {
     private let room = HueArea(id: .init(rawValue: "area"), kind: .room, name: "Room", lights: [])
 

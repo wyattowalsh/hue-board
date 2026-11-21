@@ -129,11 +129,14 @@ enum HueSetupCodec {
     }
 
     private static func typed<T: Codable>(_ type: T.Type, from object: Any) throws -> T {
-        let bytes = try JSONSerialization.data(withJSONObject: object, options: [.fragmentsAllowed, .sortedKeys])
+        let options: JSONSerialization.WritingOptions = [.fragmentsAllowed, .sortedKeys]
+        let bytes = try JSONSerialization.data(withJSONObject: object, options: options)
         let value = try JSONDecoder().decode(type, from: bytes)
-        // Reject unknown fields recursively. In particular a setup cannot import consent or private URLs.
-        let roundTrip = try self.object(value)
-        guard let original = object as? NSObject, original.isEqual(roundTrip) else { throw malformed }
+        // Compare JSON to JSON. Foundation's bridged collection equality differs by host,
+        // and NSNumber equality can equate a JSON boolean with the number zero or one.
+        // Re-encoding also detects nested fields the typed decoder would otherwise discard.
+        let roundTrip = try JSONSerialization.data(withJSONObject: self.object(value), options: options)
+        guard bytes == roundTrip else { throw malformed }
         return value
     }
 

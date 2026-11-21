@@ -3,7 +3,6 @@ import HueBoardKit
 import HueBoardNativeCore
 import XCTest
 
-@MainActor
 final class HueWriteAuditTests: XCTestCase {
     func testEachLightingMutatorCountsOneAttemptBeforeTransport() async throws {
         let client = HueBridgeClient()
@@ -21,7 +20,7 @@ final class HueWriteAuditTests: XCTestCase {
         let preset = try XCTUnwrap(contract.preset(id: "ion-eclipse"))
         let scene = try HueSceneBuilder.build(area: area, preset: preset, contract: contract, brightness: 20)
 
-        @MainActor func rejected(_ expected: UInt64, _ run: @MainActor () async throws -> Void) async throws {
+        func rejected(_ expected: UInt64, _ run: () async throws -> Void) async throws {
             do {
                 try await run()
                 XCTFail("An unpinned fixture reached a successful response")

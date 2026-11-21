@@ -43,7 +43,7 @@ final class HuePortableDataTests: XCTestCase {
 
     func testImportReviewCarriesStandaloneAndPerMemberMigrationWarnings() throws {
         let contract = try HueBoardContractLoader.load()
-        let raw = Data(#"{"app":"hue-board","schema":3,"settings":{"brightness":150,"customColors":["#bad"]}}"#.utf8)
+        let raw = Data(##"{"app":"hue-board","schema":3,"settings":{"brightness":150,"customColors":["#bad"]}}"##.utf8)
         let migrated = try HueSceneDocumentCodec.decode(raw, contract: contract)
         let standalone = try HuePortableDataCodec.decodeForReview(raw, contract: contract)
         XCTAssertEqual(standalone.warnings, migrated.warnings)

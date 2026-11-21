@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 import XCTest
 @testable import HueBoardKit
@@ -18,11 +17,11 @@ final class FrozenBuild6TransferTests: XCTestCase {
 
     func testFixtureBytesMatchFrozenManifest() throws {
         let manifest = try fixture("SHA256SUMS", extension: nil)
-        let digest = SHA256.hash(data: manifest).map { String(format: "%02x", $0) }.joined()
+        let digest = fixtureSHA256(manifest)
         XCTAssertEqual(digest, "39cd556120966f39ebeb3a4eee830b5dd56f4eaf76d4fa5c8b8eab545aff4abd")
         var reconstructed = ""
         for name in names {
-            let digest = try SHA256.hash(data: fixture(name)).map { String(format: "%02x", $0) }.joined()
+            let digest = try fixtureSHA256(fixture(name))
             reconstructed += digest + "  " + name + ".json\n"
         }
         XCTAssertEqual(Data(reconstructed.utf8), manifest)

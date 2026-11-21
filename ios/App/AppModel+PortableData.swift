@@ -70,7 +70,15 @@ extension AppModel {
     }
 
     func applyPortableImport(_ value: HuePortableData) async throws {
-        try requireIdleTransfer()
+        let confirmed = try reviewPortableImport(value)
+        let reviewedBridge = profile?.bridgeID
+        let reviewedArea = selectedArea?.id
+        try await verifyStoredTransferIdle()
+        // Actor reads can suspend. Recheck the visible state and scope immediately before any save.
+        guard try reviewPortableImport(value) == confirmed,
+              reviewedBridge == profile?.bridgeID, reviewedArea == selectedArea?.id else {
+            throw HueBoardError.unsupported("The destination changed. Review this file again before importing.")
+        }
         switch value {
         case .setup:
             throw HueBoardError.unsupported("Review and confirm your selected setup sections first.")
@@ -105,6 +113,15 @@ extension AppModel {
             defer { isBusy = false }
             try PhysicalLightSafetyStore.saveSynchronously(updated, defaults: setupDefaults)
             safetySettings = updated
+        }
+    }
+
+    func verifyStoredTransferIdle() async throws {
+        try requireIdleTransfer()
+        // A partial migration can retain a journal even when bootstrap finds no active profile.
+        guard try await persistence.isIdleForLocalImport(),
+              await playbackCoordinator.currentLease() == nil else {
+            throw HueBoardError.unsupported("Finish playback and resolve recovery before importing this file.")
         }
     }
 
