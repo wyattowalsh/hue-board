@@ -36,7 +36,7 @@ Scenes and Studio work offline. Search looks or edit a draft locally. Play and S
 
 In Room, **Find saved Hue layouts** reads positions from saved Hue Entertainment areas. Select a layout to preview the matching fixtures, then save its positions locally. Existing trims, ceilings, roles, phases, and unassigned fixture positions stay intact. Ordinary Hue rooms and Apple Home rooms provide room membership. Hue Board uses the Entertainment configuration as its source of saved fixture coordinates.
 
-Under Studio **Playback**, choose **Microphone** or **Media file** to use an input with Live. Audio uses the phone's input or the selected file, and video files supply a tint from the current frame. Reduce Light Motion suppresses input modulation.
+Under Studio **Playback**, choose **Microphone** or **Local media** to use an input with Live. Audio uses the phone's input or the selected file, and video files supply a tint from the current frame. With Reduce Light Motion on, select **Engine** to start Live.
 
 ## Architecture
 
@@ -101,7 +101,7 @@ On Apple test hosts, `HueBoardAppleEngineTests` executes those 512 cases through
 
 ## Candidate build evidence
 
-These checks were recorded during development of the local candidate. They do not establish that every subsequent worktree change or the published GitHub release passed the same checks. The current project prepares **0.2.2 (build 6)**; that version has not been installed or physically qualified in this session.
+These checks were recorded during development of the named revisions. The current project prepares **0.2.2 (build 6)**. Installation and device evidence is recorded separately below.
 
 - Xcode 27.2 signed generic iPhoneOS Debug build: passed, code signature verified. The spatial/cue candidate was subsequently installed as **0.2.1 (build 5)**.
 - Swift package tests: nine spatial/cue model and persistence tests passed, plus two synthetic Native Live frame tests with no Bridge writes.
@@ -123,17 +123,27 @@ On Node 22.23.1 and pnpm 10.17.1, all **201 JavaScript tests**, the **8 focused 
 
 The signed generic iPhoneOS Debug build of `1c25352` passed. Signature verification succeeded, and the app bundle identified itself as **0.2.2 (build 6)**. Generic iPhoneOS `build-for-testing` compiled both app test targets. The standalone DeviceSmoke target also built for testing, and its runner signature verified after automatic development provisioning. CoreSimulator discovery stalled in both the default and an isolated device set, leaving simulator execution and rendered review unverified. Build receipts are stored under ignored `ios/DerivedData/qualification/` on the Mac.
 
+### Saved layout and Live input candidate
+
+Candidate `41bc092` passed **94 Apple package tests** on Xcode 27.2, including the unchanged 512-frame JavaScriptCore digest, saved Hue layout mapping, writer handoff, synthetic microphone-level modulation, and synthetic quiet/loud WAV and red MP4 sampling. All **201 JavaScript tests**, TypeScript, timing checks, and contract regeneration passed on Node 22.23.1 and pnpm 10.17.1. Xcode verified the signed build 6 app and DeviceSmoke runner, and generic iPhoneOS builds compiled both app test targets.
+
 ## Installed candidate evidence
 
-A November 21, 2026 physical-iPhone app query reports **0.2.1 (build 5)**. Two fresh copies independently verified the state and recovery checksums and reported a recovery journal, idle playback, and no live descriptor. The journal blocked the browse-only test and the in-place candidate installation. The reusable [existing-installation device runner](DeviceSmoke/README.md) is versioned separately from the app.
+Earlier physical-iPhone queries reported **0.2.1 (build 5)**. Two fresh copies independently verified the state and recovery checksums and reported a recovery journal, idle playback, and no live descriptor. The journal blocked the earlier browse-only test and the in-place candidate installation. The reusable [existing-installation device runner](DeviceSmoke/README.md) is versioned separately from the app.
 
-The earlier device session reached **Bridge connected** and recorded the following results before the current journal appeared.
+The earlier device session reached **Bridge connected** and recorded the following results before that journal appeared.
 
 - The explicit Stop & restore retry completed. The copied on-device state has a valid payload checksum, no recovery journal, no live descriptor, and idle playback. A later independent copy confirmed that the cleared state persisted.
 - The original pre-installation baseline backup remains preserved. Recovery was cleared through the app's restore path, not by deleting its preferences.
 - A partial paired-device UI check reached Lights, an individual-light sheet, and Scenes before its Scenes search-field lookup failed. The active debug write audit recorded zero Hue write attempts, and the post-check preferences remained checksum-valid, idle, and free of recovery/live-session records. This is not a passing full navigation or visual qualification.
 - The standalone UI runner was revised to reveal search before querying it, rebuilt, and its signature verified. The next run was blocked before UI execution because iOS reported that the phone was locked. Studio, Room, search behavior, and screenshot review remain unverified in this device pass.
 - The installed build 5 restore comparator confirmed power and brightness only. Verifying the active color settings on actual fixtures remains a hardware gate. Bridge readback does not establish emitted optical output.
+
+### Build 6 in-place update
+
+Later November 21 preflight copies independently reported a valid state checksum, idle playback, and the absence of a recovery journal and live descriptor. The change was detected before an authorized restore attempt, so Hue Board received no restore command from the runner. After confirming the matching app identity, development team, Keychain access and phone provisioning, the signed `41bc092` candidate was installed over build 5. The original recovery backup and a fresh pre-install copy remain private on the Mac. An independent post-install query identified **0.2.2 (build 6)**, and the copied state remained checksum-valid and idle without recovery or Live records.
+
+The fresh browse preflight subsequently stalled in CoreDevice during the lock-state query and the app preferences copy. Restarting the user connection service did not restore device discovery. The browse runner never reached app activation, leaving the current write audit, navigation, and rendered review unverified. The app installation and post-install state receipts are separate from those runtime checks.
 
 ## Remaining release gates
 
