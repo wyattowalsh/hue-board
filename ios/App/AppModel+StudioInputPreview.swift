@@ -5,7 +5,8 @@ import HueBoardNativeCore
 @MainActor
 extension AppModel {
   var canPreviewStudioInput: Bool {
-    guard !studioSceneIsBackgrounded, !isBusy, !isLiveRunning, liveStartupID == nil,
+    guard selectedTab == .live, !isSettingsPresented, !isConnectionSheetPresented,
+          !studioSceneIsBackgrounded, !isBusy, !isLiveRunning, liveStartupID == nil,
           studioCaptureSessionID == nil, studioInputPreview.isIdle else { return false }
     switch studioLiveInput {
     case .engine: return false

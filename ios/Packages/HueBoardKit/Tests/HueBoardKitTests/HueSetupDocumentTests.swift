@@ -77,4 +77,22 @@ final class HueSetupDocumentTests: XCTestCase {
                                      cuesEnabled: false)
         XCTAssertThrowsError(try HuePortableDataCodec.encode(.setup(setup), contract: contract))
     }
+
+    func testMultipleRoomEncodingAndSingleRoomBackwardCompatibility() throws {
+        let contract = try HueBoardContractLoader.load()
+        let a = HueSetupRoom(scope: String(repeating: "a", count: 64),
+                             layout: .init(areaID: .init(rawValue: "a"), placements: []))
+        let b = HueSetupRoom(scope: String(repeating: "b", count: 64),
+                             layout: .init(areaID: .init(rawValue: "b"), placements: []))
+        for rooms in [[a], [a, b]] {
+            let setup = HueSetupDocument(layouts: rooms)
+            let bytes = try HuePortableDataCodec.encode(.setup(setup), contract: contract)
+            let json = try XCTUnwrap(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+            let fields = try XCTUnwrap(json["sections"] as? [String: Any])
+            XCTAssertEqual(json["schema"] as? Int, rooms.count == 1 ? 1 : 2)
+            XCTAssertEqual(Set(fields.keys), rooms.count == 1 ? ["layout"] : ["layouts"])
+            XCTAssertEqual(try HuePortableDataCodec.decode(bytes, contract: contract), .setup(setup))
+        }
+        XCTAssertThrowsError(try HuePortableDataCodec.encode(.setup(.init(layouts: [a, a])), contract: contract))
+    }
 }

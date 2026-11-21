@@ -34,9 +34,9 @@ The native SwiftUI app is the primary product direction for Hue Board. Scriptabl
 
 Scenes and Studio work offline. Search looks or edit a draft locally. Play and Start require a ready Bridge and the usual playback checks. Use **Jump to section** in Studio to reach the palette, cues or library, and use **Position X** and **Position Y** in Room for precise placement or as an alternative to dragging.
 
-In Room, **Find saved Hue layouts** reads positions from saved Hue Entertainment areas. Select a layout to preview the matching fixtures, then save its positions locally. Existing trims, ceilings, roles, phases, and unassigned fixture positions stay intact. Ordinary Hue rooms and Apple Home rooms provide room membership. Hue Board uses the Entertainment configuration as its source of saved fixture coordinates.
+Room checks for matching Hue Entertainment areas beside the room picker while the Bridge is ready and idle. Select a suggestion to preview exactly which positions would change. **Save positions** makes the local edit. To set animation order, preview **Use positions for sweep** and explicitly save its proposed phases. Existing trims, ceilings, roles, phases, and unassigned fixture positions stay intact. Ordinary Hue rooms and Apple Home rooms provide room membership. Hue Board uses the Entertainment configuration as its source of saved fixture coordinates.
 
-Under Studio **Playback**, choose **Microphone** or **Local media** to use an input with Live. Audio uses the phone's input or the selected file, and video files supply a tint from the current frame. With Reduce Light Motion on, select **Engine** to start Live.
+Studio previews the selected room or a labeled sample room when offline. Scrub the timeline or step between cues to see modeled fixture targets. Under **Playback**, choose **Microphone** or **Local media**, then use **Preview input** to see the level or video tint before an explicit physical Start. Audio uses the phone's input or the selected file, and video files supply a tint from the current frame. With Reduce Light Motion or iOS Dim Flashing Lights enabled, choose **Engine** for physical Live. Settings applies updated limits to a new playback session.
 
 ## Architecture
 
@@ -87,6 +87,8 @@ This is explicit trust on first use, not public-web PKI. Verify first contact on
 
 ## Transfer local data
 
+Use **Settings → Import and export → Export setup** to move several sections in one file. Import previews the changes and checks the destination again before saving. [Setup files and compatibility](../docs/native-setup-format.md)
+
 Open **Settings → Import and export** to save or open JSON files in Files. Export the Studio draft, custom colors, cue sequence, saved mixes, scene favorites, selected room layout, or physical-light safety preferences. To export one mix as a canonical Hue Board scene document, choose **Export mix** from its Studio library menu.
 
 Import previews the changes and asks for confirmation during idle playback. Mix imports add new items and skip identical copies. A different mix with the same document ID blocks the import and preserves the library. Canonical scene schema 2 and legacy Scriptable mix schema 3 files can be added to the Studio library. Importing a draft loads it into Studio. Save it as a mix to keep a local copy.
@@ -101,7 +103,7 @@ On Apple test hosts, `HueBoardAppleEngineTests` executes those 512 cases through
 
 ## Candidate build evidence
 
-These checks were recorded during development of the named revisions. The current project prepares **0.2.2 (build 6)**. Installation and device evidence is recorded separately below.
+These checks were recorded during development of the named revisions. The build 6 qualification below applies to **0.2.2 (6)**. The current internal project is **0.3.0 (7)**. Installation and device evidence is recorded separately below.
 
 - Xcode 27.2 signed generic iPhoneOS Debug build: passed, code signature verified. The spatial/cue candidate was subsequently installed as **0.2.1 (build 5)**.
 - Swift package tests: nine spatial/cue model and persistence tests passed, plus two synthetic Native Live frame tests with no Bridge writes.
@@ -151,7 +153,7 @@ The fresh browse preflight subsequently stalled in CoreDevice during the lock-st
 - Validate tap/drag interactions, scene filtering, saved mixes, and VoiceOver/Dynamic Type/Reduce Motion with rendered evidence.
 - With explicit user-started sessions, test spatial selection, output trims/ceilings, ordered/shuffled cues, custom palette editing, stop/restore, interruptions, and Bridge readback on the real iPhone/Bridge. No automatic light writes on opening or browsing.
 - Validate reconnect and restored baseline behavior after termination and certificate rotation. Do not assume a successful Hue API acknowledgment measures physical emitted light.
-- High-rate Entertainment streaming, Hue Entertainment layout import, gradient-strip editing, and saved Hue scene copying remain unsupported.
+- Confirm Hue Entertainment positions against a known-direction saved area on actual hardware. High-rate Entertainment streaming, gradient-strip editing and saved Hue scene copying remain unsupported.
 
 Do not call this parity-complete or App Store-ready before the applicable physical-device gates pass.
 
@@ -167,12 +169,12 @@ Do not call this parity-complete or App Store-ready before the applicable physic
 | Shared-engine Live samples | Foreground REST | Low-rate REST fallback, foreground or bounded continued processing on iOS 26+ |
 | Static restore baseline | Yes | Expands for newly touched lights and checks active color during readback; incomplete restores retain the baseline |
 | Individual per-light power, brightness, color, white controls | Yes | New native editing sheet with capability and temperature-range gating |
-| Local spatial editor (fixture selection, positions, phase, roles, trim, ceilings) | Yes | Room-scoped editor and explicit import of matching Hue Entertainment positions |
+| Local spatial editor (fixture selection, positions, phase, roles, trim, ceilings) | Yes | Room-scoped editor, saved-area discovery, position import and optional left-to-right phase assignment |
 | Saved Studio mixes | Yes | Validated, scope-free local scene documents with JSON import and export |
 | Custom four-color palettes and engine-sampled thumbnails | Yes | New editable Studio palette and sampled visual previews; no optical-output claims |
 | Cue sequencing | Yes | New ordered/seeded-shuffle cues within one bounded Native Live lease; still requires device verification |
-| Settings and design portability | Scene documents and local preferences | JSON files for Studio drafts, palettes, cues, saved mixes, favorites, room layouts, and lighting safety preferences |
-| Microphone and audio/video inputs | Microphone response | Opt-in microphone and local audio/video through foreground Native Live. Physical validation pending |
-| Apple Home spatial geometry, cross-app screen or audio capture | No | Unavailable in this build |
+| Settings and design portability | Scene documents and local preferences | Selective setup bundles and individual JSON files for Studio drafts, palettes, cues, saved mixes, favorites, room layouts and lighting safety preferences |
+| Microphone and audio/video inputs | Microphone response | Opt-in offline preview and foreground Native Live using microphone level, local-audio level and local-video tint. Physical validation pending |
+| Apple Home spatial geometry, cross-app screen or audio capture | No | Unavailable in the internal app. The isolated iOS 27 screen-input probe has its own evidence gates |
 | Gradient-strip editing and saved Hue scene copying | Yes | Not yet implemented |
 | Hue Entertainment high-rate streaming | No | Required future transport for exact temporal choreography |

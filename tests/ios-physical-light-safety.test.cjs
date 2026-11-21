@@ -54,7 +54,7 @@ test('Reduce Light Motion bounds engine behavior and keeps emergency controls av
   const playback=read('ios/App/AppModel+BridgePlayback.swift');
   const ambient=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/HueLightFrameTransports.swift');
   assert.match(scenes,/if reduceLightMotion \{ speed = min\(speed, 0\.25\) \}/);
-  assert.match(playback,/reduceLightMotion: safetySettings\.reduceLightMotion/);
+  assert.match(playback,/reduceLightMotion: effectiveSafetySettings\.reduceLightMotion/);
   assert.match(transport,/reduceLightMotion: reduceLightMotion/);
   const rest=ambient.slice(ambient.indexOf('actor RestAmbientTransport'));
   assert.match(rest,/duration >= 4_500/);
@@ -77,7 +77,7 @@ test('Reduce Light Motion bounds engine behavior and keeps emergency controls av
   assert.match(read('ios/App/Views/LiveView.swift'),/effectiveDynamicBrightness/);
   assert.match(read('ios/App/Views/LiveView.swift'),/maximumDynamicBrightness/);
   assert.match(read('ios/App/Views/ScenesView.swift'),/discard that baseline from Settings/);
-  assert.match(restore,/journal\.restoreAcceptedAt = nil\s+try await persistence\.saveRestoreJournal\(journal\)[\s\S]*?playbackCoordinator\.submit\(/);
+  assert.match(restore,/journal\.restoreAcceptedAt = nil\s+guard try await persistence\.replaceRestoreJournal\(journal, matching: reviewed\)[\s\S]*?playbackCoordinator\.submit\(/);
   assert.match(restore,/if failures == 0, skipped == 0 \{\s*var accepted = journal\s*accepted\.restoreAcceptedAt = Date\(\)/);
   assert.doesNotMatch(restore,/saveRestoreJournal\(nil\)/);
   assert.match(recovery,/Bridge readback matches the saved baseline/);

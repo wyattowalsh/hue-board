@@ -45,6 +45,11 @@ final class RoomDiscoveryUITests: XCTestCase {
         match.tap()
         let cancel = app.buttons["room-layout-cancel"]
         XCTAssertTrue(cancel.waitForExistence(timeout: 5))
+        let center = app.buttons["Center"]
+        XCTAssertTrue(center.waitForExistence(timeout: 5))
+        let position = center.value as? String ?? ""
+        XCTAssertTrue(position.contains("70% from the left"))
+        XCTAssertTrue(position.contains("80% from the front"))
         cancel.tap()
         XCTAssertTrue(match.waitForExistence(timeout: 5))
     }

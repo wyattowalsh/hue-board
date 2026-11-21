@@ -119,7 +119,10 @@ public actor AppPersistence {
     }
 
     private func readRecoveryEnvelope() throws -> RestoreJournal? {
-        guard let data = defaults.data(forKey: Key.recoveryV2) else { return nil }
+        guard let stored = defaults.object(forKey: Key.recoveryV2) else { return nil }
+        guard let data = stored as? Data else {
+            throw HueBoardError.invalidResponse("The saved recovery record has an unreadable format and was preserved.")
+        }
         return try decodeEnvelope(
             RestoreJournal.self,
             from: data,

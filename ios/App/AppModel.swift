@@ -67,8 +67,12 @@ final class AppModel {
   var note = "Connect a Hue Bridge to begin. Opening Hue Board never changes lights."
   var errorMessage: String?
   var isBusy = false
-  var isConnectionSheetPresented = false
-  var isSettingsPresented = false
+  var isConnectionSheetPresented = false {
+    didSet { if isConnectionSheetPresented { studioInputPreview.stop() } }
+  }
+  var isSettingsPresented = false {
+    didSet { if isSettingsPresented { studioInputPreview.stop() } }
+  }
   var openConnectionAfterSettings = false
 
   func presentConnection() {
@@ -81,6 +85,7 @@ final class AppModel {
   }
   var hasRestorePoint = false
   var foreignRecoveryPending = false
+  @ObservationIgnored var emergencyGeneration: UInt64 = 0
   var emergencyOffInFlight = false
   var restoreAreaID: HueResourceID?
   let systemLightMotion = SystemLightMotionPreference()

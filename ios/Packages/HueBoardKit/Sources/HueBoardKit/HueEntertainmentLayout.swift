@@ -70,6 +70,7 @@ public struct HueRoomArrangement: Equatable, Identifiable, Sendable {
     private let positions: [HueResourceID: HueEntertainmentPosition]
 
     public var matchedCount: Int { positions.count }
+    public func hasPosition(for fixtureID: HueResourceID) -> Bool { positions[fixtureID] != nil }
 
     public static func matching(
         configurations: [HueEntertainmentConfigurationResource],

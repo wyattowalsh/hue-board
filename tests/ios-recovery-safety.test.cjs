@@ -16,8 +16,10 @@ test('native recovery journal expands without replacing prior baselines', () => 
   assert.match(helper, /let existing = capturedLightIDs/);
   assert.match(helper, /!existing\.contains\(\$0\.id\)/);
   assert.match(helper, /snapshots\.append/);
-  assert.match(recovery, /captureMissing\(from: area, touchedIDs: touchedIDs\)/);
-  assert.match(recovery, /saveRestoreJournal\(existing\)/);
+  const capture = read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/AppPersistence+RestoreCapture.swift');
+  assert.match(recovery, /persistence\.captureRestoreBaseline/);
+  assert.match(capture, /existing\.captureMissing\(from: area, touchedIDs: touchedIDs\)/);
+  assert.match(capture, /saveRestoreJournal\(existing\)/);
   assert.match(recovery, /func discardForeignBaseline\(\)/);
   assert.match(recovery, /journal\.bridgeID != profile\.bridgeID/);
   assert.match(recovery, /Those lights were not changed/);

@@ -105,6 +105,7 @@ final class StudioPreviewLifecycleTests: XCTestCase {
 
   func testOfflineMissingFileLeavesWriterAndRestoreStateAlone() async {
     let model = AppModel()
+    model.selectedTab = .live
     XCTAssertFalse(model.isReady)
     XCTAssertTrue(model.studioInputPreview.isIdle)
     XCTAssertFalse(model.canPreviewStudioInput)
@@ -123,6 +124,27 @@ final class StudioPreviewLifecycleTests: XCTestCase {
     XCTAssertNil(lease)
     XCTAssertNil(model.liveStartupID)
     XCTAssertNil(model.studioCaptureSessionID)
+  }
+
+  func testCoveringStudioStopsPreviewWithoutRestartOnDismiss() async {
+    let model = AppModel()
+    model.studioLiveInput = .microphone
+    XCTAssertFalse(model.canPreviewStudioInput)
+    model.selectedTab = .live
+    XCTAssertTrue(model.canPreviewStudioInput)
+    for settings in [true, false] {
+      model.studioInputPreview.start(manualReadings: false, interval: .seconds(10), open: {}) {
+        HueLiveSignal(level: 0.2)
+      } close: {}
+      await waitUntil { model.studioInputPreview.signal != nil }
+      if settings { model.isSettingsPresented = true } else { model.isConnectionSheetPresented = true }
+      await waitUntil { model.studioInputPreview.isIdle }
+      XCTAssertFalse(model.canPreviewStudioInput)
+      model.isSettingsPresented = false
+      model.isConnectionSheetPresented = false
+      XCTAssertTrue(model.canPreviewStudioInput)
+      XCTAssertTrue(model.studioInputPreview.isIdle)
+    }
   }
 
   func testOfflineLocalPlaybackAndBackgroundCleanupThroughAppModel() async throws {

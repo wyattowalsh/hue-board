@@ -263,6 +263,22 @@ struct RoomArrangementPreviewSheet: View {
                         onFocus: { focusedID = $0 },
                         onMove: { _, _, _ in }
                     )
+                    DisclosureGroup("Matching fixture positions") {
+                        ForEach(preview.area.lights.filter { preview.arrangement.hasPosition(for: $0.id) }) { light in
+                            if let previous = preview.originalLayout.placements.first(where: { $0.id == light.id }),
+                               let proposed = preview.proposedLayout.placements.first(where: { $0.id == light.id }) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(light.name).font(.headline)
+                                    Text("Currently \(mapCoordinates(previous))")
+                                    Text("Proposed position is \(mapCoordinates(proposed))")
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.vertical, 4)
+                                .accessibilityElement(children: .combine)
+                            }
+                        }
+                    }
+                    .accessibilityIdentifier("room-layout-comparison")
                     Text("Saving changes the matching fixture positions in this room. Your fixture selection, phase, roles, trim and ceilings are preserved.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -299,6 +315,12 @@ struct RoomArrangementPreviewSheet: View {
             }
         }
     }
+}
+
+private func mapCoordinates(_ placement: HueFixturePlacement) -> String {
+    let across = placement.x.formatted(.percent.precision(.fractionLength(0)))
+    let down = placement.y.formatted(.percent.precision(.fractionLength(0)))
+    return "\(across) from the left, \(down) from the front"
 }
 
 struct RoomFixtureMap: View {
@@ -362,9 +384,9 @@ struct RoomFixtureMap: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(light.name)
-                        .accessibilityValue(placement.selected ? "Selected for Studio" : "Excluded from Studio")
+                        .accessibilityValue("\(mapCoordinates(placement)). \(placement.selected ? "Selected for Studio" : "Excluded from Studio")")
                         .accessibilityAddTraits(focusedID == placement.id ? [.isSelected] : [])
-                        .accessibilityHint("Shows fixture settings and position controls")
+                        .accessibilityHint(isEditable ? "Shows fixture settings and position controls" : "Selects this fixture on the map")
                         .position(
                             x: inset + point.x * mapSize.width,
                             y: inset + point.y * mapSize.height

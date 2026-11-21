@@ -249,23 +249,6 @@ public actor BridgeSceneTransport: LightingTransport {
         area: HueArea,
         touchedIDs: Set<HueResourceID>
     ) async throws {
-        let touched = area.lights.filter { touchedIDs.contains($0.id) }
-        guard !touched.isEmpty else {
-            throw HueBoardError.unsupported("No compatible lights are selected.")
-        }
-        if var existing = try await persistence.loadRestoreJournal() {
-            guard existing.bridgeID == profile.bridgeID, existing.areaID == area.id else {
-                throw HueBoardError.unsupported(
-                    "Restore the previous area before starting new playback."
-                )
-            }
-            if try existing.captureMissing(from: area, touchedIDs: touchedIDs) > 0 {
-                try await persistence.saveRestoreJournal(existing)
-            }
-            return
-        }
-        try await persistence.saveRestoreJournal(
-            RestoreJournal(bridgeID: profile.bridgeID, area: area, lights: touched)
-        )
+        _ = try await persistence.captureRestoreBaseline(bridgeID: profile.bridgeID, area: area, touchedIDs: touchedIDs)
     }
 }

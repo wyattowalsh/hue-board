@@ -46,10 +46,11 @@ extension AppModel {
           profile?.bridgeID == bridgeID,
           !emergencyOffInFlight,
           playback.snapshot.mode != .stopping else { return }
+    let reviewed = journal
     let remaining = journal.snapshotsAwaitingRestoreReadback(in: readback)
     guard remaining.count != journal.snapshots.count else { return }
     if remaining.isEmpty {
-      do { try await persistence.saveRestoreJournal(nil) } catch { return }
+      guard (try? await persistence.replaceRestoreJournal(nil, matching: reviewed)) == true else { return }
       hasRestorePoint = false
       foreignRecoveryPending = false
       restoreAreaID = nil
@@ -58,7 +59,7 @@ extension AppModel {
       return
     }
     journal.snapshots = remaining
-    do { try await persistence.saveRestoreJournal(journal) } catch { return }
+    guard (try? await persistence.replaceRestoreJournal(journal, matching: reviewed)) == true else { return }
     hasRestorePoint = true
     foreignRecoveryPending = false
     restoreAreaID = journal.areaID
@@ -86,23 +87,9 @@ extension AppModel {
   }
 
   func ensureRestoreJournal(profile: BridgeProfile, area: HueArea, touchedIDs: Set<HueResourceID>) async throws {
-    let touched = area.lights.filter { touchedIDs.contains($0.id) }
-    guard !touched.isEmpty else { throw HueBoardError.unsupported("No compatible lights are selected.") }
-    if var existing = try await persistence.loadRestoreJournal() {
-      guard existing.bridgeID == profile.bridgeID, existing.areaID == area.id else {
-        throw HueBoardError.unsupported("Restore the previous area before starting new playback.")
-      }
-      if try existing.captureMissing(from: area, touchedIDs: touchedIDs) > 0 {
-        try await persistence.saveRestoreJournal(existing)
-      }
-      hasRestorePoint = true
-      restoreAreaID = existing.areaID
-      return
-    }
-    let journal = RestoreJournal(bridgeID: profile.bridgeID, area: area, lights: touched)
-    try await persistence.saveRestoreJournal(journal)
+    let journal = try await persistence.captureRestoreBaseline(bridgeID: profile.bridgeID, area: area, touchedIDs: touchedIDs)
     hasRestorePoint = true
-    restoreAreaID = area.id
+    restoreAreaID = journal.areaID
   }
 
   func startForegroundLive(work: @escaping ContinuedLiveCoordinator.Work, reason: String) {

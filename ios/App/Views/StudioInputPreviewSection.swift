@@ -85,7 +85,7 @@ struct StudioInputPreviewSection: View {
           if let color = reading.color { tint(color) }
           if preview.manualReadings {
             Button("Refresh reading", systemImage: "arrow.clockwise") { preview.refreshReading() }
-              .accessibilityHint("Updates the meter and room preview once.")
+              .accessibilityHint("Updates the input level and sampled color once.")
           }
         } else if let message = preview.message {
           Text(message).font(.subheadline).fixedSize(horizontal: false, vertical: true)

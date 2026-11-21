@@ -32,7 +32,9 @@ public enum EmergencyOffOperation {
             }
             if !eligible.isEmpty, journal.restoreAcceptedAt != nil {
                 journal.restoreAcceptedAt = nil
-                try await persistence.saveRestoreJournal(journal)
+                guard try await persistence.replaceRestoreJournal(journal, matching: saved) else {
+                    throw HueBoardError.unsupported("The saved baseline changed during emergency off. Review the current recovery state.")
+                }
             }
         } else {
             guard let fresh = try await readSelectedArea(), fresh.id == selectedArea.id else {
@@ -43,7 +45,9 @@ public enum EmergencyOffOperation {
             eligible = fresh.lights.filter { targetIDs.contains($0.id) && $0.capabilities.power && !$0.capabilities.streaming }
             if !eligible.isEmpty {
                 let journal = RestoreJournal(bridgeID: profile.bridgeID, area: fresh, lights: eligible)
-                try await persistence.saveRestoreJournal(journal)
+                guard try await persistence.replaceRestoreJournal(journal, matching: nil) else {
+                    throw HueBoardError.unsupported("A baseline appeared during the inventory read. Review it before sending emergency off.")
+                }
             }
         }
         let eligibleIDs = Set(eligible.map(\.id))

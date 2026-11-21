@@ -34,8 +34,9 @@ extension AppModel {
         return (light.id, HueLightAction(on: .init(on: on)))
       }
     )
+    let generation = emergencyGeneration
     isBusy = true
-    defer { isBusy = false }
+    defer { if generation == emergencyGeneration { isBusy = false } }
     do {
       try await ensureRestoreJournal(profile: profile, area: area, touchedIDs: Set(actions.keys))
       try await executeDirectFrame(
@@ -43,20 +44,24 @@ extension AppModel {
         profile: profile,
         credential: credential,
         areaID: area.id,
-        purpose: on ? "everyday-power-on" : "everyday-power-off"
+        purpose: on ? "everyday-power-on" : "everyday-power-off",
+        generation: generation
       )
+      try checkControlIntent(generation)
       try await loadInventory(profile: profile, credential: credential)
       let skipped = area.lights.count - actions.count
       note = on
         ? "Power-on commands accepted for \(actions.count) lights. \(skipped) were skipped."
         : "Power-off commands accepted for \(actions.count) lights. \(skipped) were skipped."
     } catch {
+      guard generation == emergencyGeneration else { return }
       errorMessage = error.localizedDescription
     }
   }
 
   func turnOffNow() async {
     guard canTurnOffNow, let profile, let credential, let area = selectedArea else { return }
+    emergencyGeneration &+= 1
     emergencyOffInFlight = true
     isBusy = true
     defer {
@@ -120,8 +125,9 @@ extension AppModel {
         )
       }
     )
+    let generation = emergencyGeneration
     isBusy = true
-    defer { isBusy = false }
+    defer { if generation == emergencyGeneration { isBusy = false } }
     do {
       try await ensureRestoreJournal(profile: profile, area: area, touchedIDs: Set(actions.keys))
       try await executeDirectFrame(
@@ -129,11 +135,14 @@ extension AppModel {
         profile: profile,
         credential: credential,
         areaID: area.id,
-        purpose: "everyday-brightness"
+        purpose: "everyday-brightness",
+        generation: generation
       )
+      try checkControlIntent(generation)
       let skipped = area.lights.count - actions.count
       note = "Brightness commands accepted for \(actions.count) lights. \(skipped) were skipped. Bridge readback is not measured light."
     } catch {
+      guard generation == emergencyGeneration else { return }
       errorMessage = error.localizedDescription
     }
   }

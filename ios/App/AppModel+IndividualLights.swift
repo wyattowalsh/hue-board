@@ -89,8 +89,9 @@ extension AppModel {
             return
         }
 
+        let generation = emergencyGeneration
         isBusy = true
-        defer { isBusy = false }
+        defer { if generation == emergencyGeneration { isBusy = false } }
 
         do {
             try await ensureRestoreJournal(
@@ -103,8 +104,9 @@ extension AppModel {
                 profile: profile,
                 credential: credential,
                 areaID: area.id,
-                purpose: "individual-\(purpose)"
+                purpose: "individual-\(purpose)", generation: generation
             )
+            try checkControlIntent(generation)
             note = "\(light.name): \(purpose) accepted by the Bridge."
             do {
                 try await loadInventory(profile: profile, credential: credential)
@@ -113,6 +115,7 @@ extension AppModel {
                 errorMessage = error.localizedDescription
             }
         } catch {
+            guard generation == emergencyGeneration else { return }
             errorMessage = "The light change is unconfirmed: \(error.localizedDescription) Inspect the physical light and Bridge readback before retrying."
         }
     }

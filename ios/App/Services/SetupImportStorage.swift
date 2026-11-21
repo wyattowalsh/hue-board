@@ -27,8 +27,8 @@ extension AppModel {
         if let safety = changes.safety {
             values[.safety] = .data(try PhysicalLightSafetyStore.encoded(safety))
         }
-        if let layout = changes.layout {
-            guard let bridgeID = profile?.bridgeID, let area = selectedArea, area.id == layout.areaID else {
+        for (scope, layout) in changes.layouts {
+            guard let bridgeID = profile?.bridgeID, let area = setupArea(for: scope, id: layout.areaID) else {
                 throw HueBoardError.unsupported("Select the original room and review the setup import again.")
             }
             values[.layout(bridgeID: bridgeID, areaID: area.id.rawValue)] =

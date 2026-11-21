@@ -152,4 +152,69 @@ final class HueSetupFlowTests: XCTestCase {
         XCTAssertEqual(reloaded, model.safetySettings)
         XCTAssertEqual(model.savedStudioDocuments, [existing])
     }
+
+    @MainActor
+    func testMultiRoomSelectionStaleReviewAndAtomicSubsetCommit() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let model = fixture.model
+        let bridgeID = "001788fffe000001"
+        model.profile = try BridgeProfile(bridgeID: bridgeID, host: "synthetic.local")
+        model.credential = .init(bridgeID: bridgeID, applicationKey: "synthetic")
+        model.connectionState = .ready
+        func area(_ name: String) -> HueArea {
+            let light = HueLight(id: .init(rawValue: "fixture-" + name), ownerID: nil, name: name,
+                                 isOn: true, brightness: 30, color: nil, colorTemperatureMirek: nil,
+                                 gamut: nil, capabilities: .init(power: true, dimming: true, color: true,
+                                                                colorTemperature: false, dynamicPalette: false))
+            return HueArea(id: .init(rawValue: name), kind: .room, name: name, lights: [light])
+        }
+        let first = area("First"), second = area("Second"), untouched = area("Unsaved")
+        model.areas = [first, second, untouched]
+        model.selectedAreaID = first.id
+        model.roomLayout = .startingLayout(for: first)
+        model.roomLayout?.placements[0].ceiling = 45
+        var oldSecond = HueRoomLayout.startingLayout(for: second)
+        oldSecond.placements[0].ceiling = 75
+        try model.roomLayoutStore.save(oldSecond, bridgeID: bridgeID, area: second)
+        let choices = model.availableSetupLayoutChoices
+        XCTAssertEqual(Set(choices.map(\.title)), ["First", "Second"])
+        let scopeIDs = Set(choices.map(\.id))
+        let secondScope = try XCTUnwrap(choices.first { $0.title == "Second" }?.id)
+        guard case .setup(let setup) = try model.exportSetup(sections: [.layout], layoutScopes: scopeIDs)
+        else { return XCTFail("Expected setup") }
+        XCTAssertEqual(setup.layouts.count, 2)
+        XCTAssertThrowsError(try model.reviewSetup(setup, sections: [.layout]))
+
+        model.roomLayout?.placements[0].ceiling = 20
+        oldSecond.placements[0].ceiling = 35
+        oldSecond.placements[0].selected = false
+        try model.roomLayoutStore.save(oldSecond, bridgeID: bridgeID, area: second)
+        let stale = try model.reviewSetup(setup, sections: [.layout], layoutScopes: scopeIDs)
+        oldSecond.placements[0].phase = 0.75
+        try model.roomLayoutStore.save(oldSecond, bridgeID: bridgeID, area: second)
+        do {
+            try await model.applySetup(setup, sections: [.layout], layoutScopes: scopeIDs, review: stale)
+            XCTFail("A stale second room must block both changes")
+        } catch {
+            XCTAssertEqual(model.roomLayout?.placements[0].ceiling, 20)
+            XCTAssertEqual(try model.roomLayoutStore.load(bridgeID: bridgeID, area: second), oldSecond)
+        }
+        let secondOnly = try model.reviewSetup(setup, sections: [.layout], layoutScopes: [secondScope])
+        try await model.applySetup(setup, sections: [.layout], layoutScopes: [secondScope], review: secondOnly)
+        XCTAssertEqual(model.roomLayout?.placements[0].ceiling, 20)
+        let savedSecond = try model.roomLayoutStore.load(bridgeID: bridgeID, area: second)
+        XCTAssertEqual(savedSecond.placements[0].ceiling, 75)
+        XCTAssertFalse(savedSecond.placements[0].selected)
+
+        let both = try model.reviewSetup(setup, sections: [.layout], layoutScopes: scopeIDs)
+        try await model.applySetup(setup, sections: [.layout], layoutScopes: scopeIDs, review: both)
+        XCTAssertEqual(model.selectedAreaID, first.id)
+        XCTAssertEqual(model.roomLayout?.placements[0].ceiling, 45)
+        XCTAssertEqual(try model.roomLayoutStore.load(bridgeID: bridgeID, area: first), model.roomLayout)
+        let savedIDs = try model.roomLayoutStore.savedAreaIDs(bridgeID: bridgeID, areas: model.areas)
+        XCTAssertEqual(savedIDs, [first.id, second.id])
+        let writer = await model.playbackCoordinator.currentLease()
+        XCTAssertNil(writer)
+    }
 }

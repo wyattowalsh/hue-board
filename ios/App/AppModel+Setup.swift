@@ -3,10 +3,16 @@ import Foundation
 import HueBoardKit
 import HueBoardNativeCore
 
+struct HueSetupLayoutChoice: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let fixtureCount: Int
+}
+
 struct HueSetupDurableChanges: Equatable {
     var library: [HueSceneDocument]?
     var favorites: Set<String>?
-    var layout: HueRoomLayout?
+    var layouts: [String: HueRoomLayout] = [:]
     var safety: PhysicalLightSafetySettings?
 }
 
@@ -20,7 +26,8 @@ struct HueSetupReview: Equatable {
     fileprivate let currentDraft: HueStudioDraft?
     fileprivate let nextDraft: HueStudioDraft?
     fileprivate let roomScope: String?
-    fileprivate let presentFixtureIDs: [String]
+    fileprivate let layoutScopes: Set<String>
+    fileprivate let presentFixtureIDs: [String: [String]]
     fileprivate let fingerprint: SetupImportTransaction.Fingerprint
 }
 
@@ -29,15 +36,53 @@ extension AppModel {
     var availableSetupExportSections: Set<HueSetupSection> {
         var result: Set<HueSetupSection> = [.draft, .palette, .cues, .favorites, .safety]
         if studioLibraryIssue == nil { result.insert(.mixes) }
-        if roomLayoutIssue == nil, roomLayout != nil, setupRoomScope != nil { result.insert(.layout) }
+        if !availableSetupLayoutChoices.isEmpty { result.insert(.layout) }
         return result
     }
 
-    private var setupRoomScope: String? {
-        guard isReady, let profile, let area = selectedArea, area.id == roomLayout?.areaID else { return nil }
+    private func setupScope(for area: HueArea) -> String? {
+        guard isReady, let profile else { return nil }
         let key = ["hue-board.setup.room.v1", profile.bridgeID.lowercased(), area.kind.rawValue, area.id.rawValue]
         let bytes = Data(key.joined(separator: "\u{0}").utf8)
         return SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+    }
+
+    func setupArea(for scope: String, id: HueResourceID) -> HueArea? {
+        let matching = areas.filter { $0.id == id }
+        guard matching.count == 1, let area = matching.first, setupScope(for: area) == scope else { return nil }
+        return area
+    }
+
+    var availableSetupLayoutChoices: [HueSetupLayoutChoice] {
+        guard isReady, let profile,
+              let saved = try? roomLayoutStore.savedAreaIDs(bridgeID: profile.bridgeID, areas: areas) else { return [] }
+        return areas.compactMap { area in
+            guard let scope = setupScope(for: area), setupArea(for: scope, id: area.id) != nil else { return nil }
+            if selectedArea?.id == area.id {
+                guard roomLayoutIssue == nil, roomLayout?.areaID == area.id else { return nil }
+            } else if !saved.contains(area.id) { return nil }
+            return HueSetupLayoutChoice(id: scope, title: area.name, fixtureCount: area.lights.count)
+        }
+    }
+
+    func setupImportLayoutChoices(_ setup: HueSetupDocument) -> [HueSetupLayoutChoice] {
+        setup.layouts.enumerated().map { offset, room in
+            let target = setupArea(for: room.scope, id: room.layout.areaID)
+            return .init(id: room.scope, title: target?.name ?? "Layout \(offset + 1)",
+                         fixtureCount: room.layout.placements.count)
+        }
+    }
+
+    private func localSetupLayout(for area: HueArea) throws -> HueRoomLayout {
+        guard isReady, let profile else { throw HueBoardError.unsupported("Connect to the original Bridge.") }
+        if selectedArea?.id == area.id {
+            guard roomLayoutIssue == nil, let roomLayout, roomLayout.areaID == area.id,
+                  roomLayoutScope == nil || roomLayoutScope == "\(profile.bridgeID)/\(area.id.rawValue)" else {
+                throw HueBoardError.unsupported("The selected room’s layout is unavailable.")
+            }
+            return try roomLayout.includingNewLights(from: area)
+        }
+        return try roomLayoutStore.load(bridgeID: profile.bridgeID, area: area)
     }
 
     private var currentSetupDraft: HueStudioDraft {
@@ -45,14 +90,24 @@ extension AppModel {
               cuesEnabled: isCueSequenceEnabled)
     }
 
-    func exportSetup(sections: Set<HueSetupSection>) throws -> HuePortableData {
+    func exportSetup(sections: Set<HueSetupSection>, layoutScopes: Set<String>? = nil) throws -> HuePortableData {
         guard !sections.isEmpty, sections.isSubset(of: availableSetupExportSections) else {
             throw HueBoardError.unsupported("Choose one or more available setup sections.")
         }
         let cues = HueCueSequence(presetIDs: cueIDs, holdSeconds: cueHoldSeconds, order: cueOrder, seed: studioSettings.seed)
-        var layout: HueSetupRoom?
-        if sections.contains(.layout), let scope = setupRoomScope, let roomLayout {
-            layout = .init(scope: scope, layout: roomLayout)
+        var layouts: [HueSetupRoom] = []
+        if sections.contains(.layout) {
+            let current = selectedArea.flatMap(setupScope)
+            let wanted = layoutScopes ?? Set([current].compactMap { $0 })
+            guard !wanted.isEmpty, wanted.isSubset(of: Set(availableSetupLayoutChoices.map(\.id))) else {
+                throw HueBoardError.unsupported("Choose at least one available room layout to export.")
+            }
+            for area in areas {
+                if let scope = setupScope(for: area), wanted.contains(scope) {
+                    layouts.append(.init(scope: scope, layout: try localSetupLayout(for: area)))
+                }
+            }
+            layouts.sort { $0.scope < $1.scope }
         }
         let setup = HueSetupDocument(
             draft: sections.contains(.draft) ? currentSetupDraft : nil,
@@ -61,14 +116,16 @@ extension AppModel {
             cuesEnabled: sections.contains(.cues) ? isCueSequenceEnabled : nil,
             mixes: sections.contains(.mixes) ? savedStudioDocuments : nil,
             favorites: sections.contains(.favorites) ? favoritePresetIDs.sorted() : nil,
-            layout: layout,
+            layouts: layouts,
             safety: sections.contains(.safety) ? .init(reduceLightMotion: safetySettings.reduceLightMotion,
                                                        maximumDynamicBrightness: safetySettings.maximumDynamicBrightness) : nil
         )
         return .setup(setup)
     }
 
-    func reviewSetup(_ setup: HueSetupDocument, sections: Set<HueSetupSection>) throws -> HueSetupReview {
+    func reviewSetup(
+        _ setup: HueSetupDocument, sections: Set<HueSetupSection>, layoutScopes: Set<String>? = nil
+    ) throws -> HueSetupReview {
         try requireIdleTransfer()
         guard sections.isSubset(of: setup.availableSections) else {
             throw HueBoardError.invalidResponse("A selected section is missing from this setup.")
@@ -81,7 +138,8 @@ extension AppModel {
         var after = HueSetupDurableChanges()
         var currentDraft: HueStudioDraft?
         var nextDraft: HueStudioDraft?
-        var presentFixtureIDs: [String] = []
+        var presentFixtureIDs: [String: [String]] = [:]
+        var reviewedScopes = Set<String>()
 
         if !sections.isDisjoint(with: [.draft, .palette, .cues]) {
             let current = currentSetupDraft
@@ -117,29 +175,54 @@ extension AppModel {
             let new = Set(favorites)
             lines.append("Scene favorites: add \(new.subtracting(favoritePresetIDs).count), remove \(favoritePresetIDs.subtracting(new).count).")
         }
-        if sections.contains(.layout), let room = setup.layout {
-            if room.scope == setupRoomScope, let area = selectedArea, let current = roomLayout, roomLayoutIssue == nil,
-               room.layout.areaID == area.id, canEditRoomLayout {
+        if sections.contains(.layout) {
+            let available = Set(setup.layouts.map(\.scope))
+            reviewedScopes = layoutScopes ?? (available.count == 1 ? available : [])
+            guard !reviewedScopes.isEmpty, reviewedScopes.isSubset(of: available) else {
+                throw HueBoardError.unsupported("Choose at least one room layout from this setup.")
+            }
+            for (index, room) in setup.layouts.enumerated() where reviewedScopes.contains(room.scope) {
+                guard canEditRoomLayout, let area = setupArea(for: room.scope, id: room.layout.areaID) else {
+                    lines.append("Layout \(index + 1) skipped. Its original Bridge and room are unavailable.")
+                    continue
+                }
+                let current = try localSetupLayout(for: area)
                 let present = Set(area.lights.map(\.id))
-                presentFixtureIDs = present.map(\.rawValue).sorted()
-                let matches = room.layout.placements.filter { present.contains($0.id) }
-                let skipped = room.layout.placements.count - matches.count
-                let expanded = try current.includingNewLights(from: area)
-                before.layout = expanded
-                if !matches.isEmpty {
-                    let matched = HueRoomLayout(areaID: area.id, placements: matches)
-                    after.layout = try expanded.mergingPlacements(from: matched, in: area)
-                }
-                lines.append("\(area.name): \(matches.count) matching fixture placements, \(skipped) unavailable and skipped.")
-                for placement in matches {
-                    if let previous = expanded.placements.first(where: { $0.id == placement.id }),
-                       previous.ceiling != placement.ceiling,
-                       let light = area.lights.first(where: { $0.id == placement.id }) {
-                        lines.append("\(light.name) brightness ceiling: \(previous.ceiling.formatted())% → \(placement.ceiling.formatted())%.")
+                presentFixtureIDs[room.scope] = present.map(\.rawValue).sorted()
+                before.layouts[room.scope] = current
+                let byID = Dictionary(uniqueKeysWithValues: current.placements.map { ($0.id, $0) })
+                var matches: [HueFixturePlacement] = []
+                var details: [String] = []
+                for var placement in room.layout.placements {
+                    guard present.contains(placement.id), let previous = byID[placement.id],
+                          let light = area.lights.first(where: { $0.id == placement.id }) else {
+                        details.append("\(area.name) · \(placement.id.rawValue): unavailable, skipped.")
+                        continue
                     }
+                    // A file cannot re-enlist a fixture excluded on the receiving installation.
+                    if !previous.selected && placement.selected {
+                        placement.selected = false
+                        details.append("\(area.name) · \(light.name): remains excluded from Live.")
+                    }
+                    if previous.ceiling != placement.ceiling {
+                        details.append("\(area.name) · \(light.name) brightness ceiling: \(previous.ceiling.formatted())% → \(placement.ceiling.formatted())%.")
+                    }
+                    var edits: [String] = []
+                    if previous.x != placement.x || previous.y != placement.y { edits.append("position") }
+                    if previous.phase != placement.phase { edits.append("phase") }
+                    if previous.role != placement.role { edits.append("role") }
+                    if previous.trim != placement.trim { edits.append("trim") }
+                    if previous.selected != placement.selected { edits.append("exclude from Live") }
+                    if !edits.isEmpty { details.append("\(area.name) · \(light.name): \(edits.joined(separator: ", ")).") }
+                    matches.append(placement)
                 }
-            } else {
-                lines.append("Room layout skipped. Connect to the original Bridge and select its matching room or zone.")
+                if !matches.isEmpty {
+                    let imported = HueRoomLayout(areaID: area.id, placements: matches)
+                    after.layouts[room.scope] = try current.mergingPlacements(from: imported, in: area)
+                }
+                let skipped = room.layout.placements.count - matches.count
+                lines.append("\(area.name): \(matches.count) matching fixture placements, \(skipped) unavailable and skipped.")
+                lines.append(contentsOf: details)
             }
         }
         if sections.contains(.safety), let safety = setup.safety {
@@ -154,11 +237,14 @@ extension AppModel {
         return .init(lines: lines, canApply: !blocked && (nextDraft != nil || after != .init()),
                      source: setup, sections: sections, before: before, after: after,
                      currentDraft: currentDraft, nextDraft: nextDraft,
-                     roomScope: sections.contains(.layout) ? setupRoomScope : nil,
-                     presentFixtureIDs: presentFixtureIDs, fingerprint: fingerprint)
+                     roomScope: sections.contains(.layout) ? selectedArea.flatMap(setupScope) : nil,
+                     layoutScopes: reviewedScopes, presentFixtureIDs: presentFixtureIDs, fingerprint: fingerprint)
     }
 
-    func applySetup(_ setup: HueSetupDocument, sections: Set<HueSetupSection>, review: HueSetupReview) async throws {
+    func applySetup(
+        _ setup: HueSetupDocument, sections: Set<HueSetupSection>,
+        layoutScopes: Set<String>? = nil, review: HueSetupReview
+    ) async throws {
         try requireIdleTransfer()
         // The coordinator can still own a one-shot lease while the visible playback snapshot says idle.
         guard await playbackCoordinator.currentLease() == nil,
@@ -166,14 +252,14 @@ extension AppModel {
             throw HueBoardError.unsupported("Finish playback and resolve recovery before importing a setup.")
         }
         // Main-actor code from revalidation to publication has no suspension point.
-        let fresh = try reviewSetup(setup, sections: sections)
+        let fresh = try reviewSetup(setup, sections: sections, layoutScopes: layoutScopes)
         guard fresh.canApply, fresh == review else {
             throw HueBoardError.unsupported("The setup or destination changed. Review the current changes before importing.")
         }
         try commitSetupStorage(fresh.after, expected: fresh.fingerprint)
         if let library = fresh.after.library { savedStudioDocuments = library }
         if let favorites = fresh.after.favorites { favoritePresetIDs = favorites }
-        if let layout = fresh.after.layout { roomLayout = layout }
+        if let scope = selectedArea.flatMap(setupScope), let layout = fresh.after.layouts[scope] { roomLayout = layout }
         if let safety = fresh.after.safety { safetySettings = safety }
         if let draft = fresh.nextDraft {
             applyStudioSceneSettings(draft.settings)

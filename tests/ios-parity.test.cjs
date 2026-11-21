@@ -90,14 +90,16 @@ test('native app source preserves no-write-on-open and complete restore gates',(
   assert.match(model,/func turnOffNow\(\)/);
   assert.match(model,/ContinuedLiveCoordinator\.shared\.cancel\(\)/);
   assert.match(model,/saved baseline is retained/);
-  assert.match(recovery,/captureMissing\(from: area, touchedIDs: touchedIDs\)/);
+  const capture=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/AppPersistence+RestoreCapture.swift');
+  assert.match(recovery,/persistence\.captureRestoreBaseline/);
+  assert.match(capture,/captureMissing\(from: area, touchedIDs: touchedIDs\)/);
   assert.match(journal,/let existing = capturedLightIDs/);
   assert.match(journal,/!existing\.contains\(\$0\.id\)/);
   const emergency=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/EmergencyOffOperation.swift');
   assert.match(everyday,/try await EmergencyOffOperation\.run\(/);
   assert.match(emergency,/targetIDs = journal\.capturedLightIDs/);
   assert.match(emergency,/No emergency-off command was accepted/);
-  assert.match(emergency,/RestoreJournal\(bridgeID: profile\.bridgeID, area: fresh, lights: eligible\)\s+try await persistence\.saveRestoreJournal\(journal\)/);
+  assert.match(emergency,/RestoreJournal\(bridgeID: profile\.bridgeID, area: fresh, lights: eligible\)\s+guard try await persistence\.replaceRestoreJournal\(journal, matching: nil\)/);
   const beforeStart=read('ios/App/AppModel+Live.swift').split('let previewDrain')[0];
   assert.match(beforeStart,/guard liveDuration\.isFinite, liveDuration > 0 else/);
   assert.match(lightsView,/Button\("Apply brightness & turn on"\)/);

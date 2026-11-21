@@ -340,6 +340,7 @@ extension AppModel {
       errorMessage = "Reconnect the saved Bridge before trying to restore."
       return
     }
+    let generation = emergencyGeneration
     isBusy = true
     playback.beginStopping()
     currentCueStatus = nil
@@ -348,7 +349,7 @@ extension AppModel {
     foregroundLiveTask = nil
     ContinuedLiveCoordinator.shared.cancel()
     await stopCoordinatedPlayback(reason: .recovery)
-    defer { isBusy = false }
+    defer { if generation == emergencyGeneration { isBusy = false } }
 
     do {
       guard var journal = try await persistence.loadRestoreJournal() else {
@@ -366,7 +367,7 @@ extension AppModel {
         credential: credential,
         outputLimits: preservedOutputCeilings()
       )
-      guard !emergencyOffInFlight, playback.snapshot.mode == .stopping else { return }
+      guard generation == emergencyGeneration, !emergencyOffInFlight, playback.snapshot.mode == .stopping else { return }
       let eligible = journal.snapshotsEligibleForRestore(in: freshAreas)
       guard !eligible.isEmpty else {
         throw HueBoardError.unsupported(
@@ -376,21 +377,23 @@ extension AppModel {
       if journal.restoreAcceptedAt != nil {
         // A new attempt supersedes prior acknowledgments but preserves every
         // remaining snapshot until this attempt is accepted and verified.
+        let reviewed = journal
         journal.restoreAcceptedAt = nil
-        try await persistence.saveRestoreJournal(journal)
+        guard try await persistence.replaceRestoreJournal(journal, matching: reviewed) else { return }
       }
-      guard !emergencyOffInFlight, playback.snapshot.mode == .stopping else { return }
+      guard generation == emergencyGeneration, !emergencyOffInFlight, playback.snapshot.mode == .stopping else { return }
       let lease = try await beginDirectControl(
         profile: profile,
         credential: credential,
         areaID: journal.areaID,
         allowedLightIDs: Set(eligible.map(\.lightID)),
-        purpose: "restore-baseline"
+        purpose: "restore-baseline", generation: generation
       )
       let skipped = journal.snapshots.count - eligible.count
       var failures = 0
       for (index, snapshot) in eligible.enumerated() {
         do {
+          try checkControlIntent(generation)
           try await playbackCoordinator.submit(
             .init(
               sequence: UInt64(index + 1),
@@ -403,12 +406,12 @@ extension AppModel {
         }
       }
       await finishDirectControl(lease)
-      guard !emergencyOffInFlight, playback.snapshot.mode == .stopping else { return }
+      guard generation == emergencyGeneration, !emergencyOffInFlight, playback.snapshot.mode == .stopping else { return }
 
       if failures == 0, skipped == 0 {
         var accepted = journal
         accepted.restoreAcceptedAt = Date()
-        try await persistence.saveRestoreJournal(accepted)
+        guard try await persistence.replaceRestoreJournal(accepted, matching: journal) else { return }
         try await persistence.clearLiveSession()
         liveProgress = 0
         try await loadInventory(profile: profile, credential: credential)
@@ -424,6 +427,7 @@ extension AppModel {
         errorMessage = playback.snapshot.message
       }
     } catch {
+      guard generation == emergencyGeneration else { return }
       playback.fail(error.localizedDescription)
       errorMessage = error.localizedDescription
     }

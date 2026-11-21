@@ -7,11 +7,23 @@ public struct HueRoomLayoutStore {
         self.defaults = defaults
     }
 
+    public func savedAreaIDs(bridgeID: String, areas: [HueArea]) throws -> Set<HueResourceID> {
+        try SetupImportTransaction.withRecoveredSettings(defaults: defaults) {
+            Set(areas.compactMap { area in
+                let key = SetupImportTransaction.Section.layout(bridgeID: bridgeID, areaID: area.id.rawValue).preferenceKey
+                return defaults.object(forKey: key) == nil ? nil : area.id
+            })
+        }
+    }
+
     public func load(bridgeID: String, area: HueArea) throws -> HueRoomLayout {
         try SetupImportTransaction.withRecoveredSettings(defaults: defaults) {
             let key = SetupImportTransaction.Section.layout(bridgeID: bridgeID, areaID: area.id.rawValue).preferenceKey
-            guard let raw = defaults.data(forKey: key) else {
+            guard let stored = defaults.object(forKey: key) else {
                 return .startingLayout(for: area)
+            }
+            guard let raw = stored as? Data else {
+                throw HueBoardError.invalidResponse("The saved layout contains an unexpected value. Its contents were preserved.")
             }
             let layout = try JSONDecoder().decode(HueRoomLayout.self, from: raw)
             return try layout.includingNewLights(from: area)

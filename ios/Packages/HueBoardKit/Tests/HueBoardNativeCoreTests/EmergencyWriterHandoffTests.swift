@@ -113,6 +113,70 @@ final class EmergencyWriterHandoffTests: XCTestCase {
         XCTAssertFalse(mayImportAfterOff)
     }
 
+    func testBaselineAppearingDuringInventoryIsNeverOverwrittenByIdleOff() async throws {
+        let context = try Context()
+        defer { context.cleanUp() }
+        let area = room([light("a", 54)])
+        let earlier = room([light("a", 12)])
+        let client = EmergencyFixtureClient(context.persistence)
+        do {
+            _ = try await EmergencyOffOperation.run(profile: context.profile, credential: context.credential,
+                selectedArea: area, inventory: [area], client: client, coordinator: context.coordinator,
+                persistence: context.persistence) {
+                    _ = try await context.persistence.captureRestoreBaseline(
+                        bridgeID: context.profile.bridgeID, area: earlier, touchedIDs: [id("a")])
+                    return area
+                }
+            XCTFail("A stale nil-journal read must not authorize replacing a new baseline")
+        } catch HueBoardError.unsupported {}
+        let journal = try await context.persistence.loadRestoreJournal()
+        XCTAssertEqual(journal?.snapshots.first?.action.dimming?.brightness, 12)
+        let log = await client.log()
+        XCTAssertTrue(log.isEmpty)
+    }
+
+    func testOverlappingCapturesAppendAndLateReadbackCannotClearNewBaseline() async throws {
+        let context = try Context()
+        defer { context.cleanUp() }
+        let original = room([light("a", 11)])
+        _ = try await context.persistence.captureRestoreBaseline(bridgeID: context.profile.bridgeID,
+            area: original, touchedIDs: [id("a")])
+        let before = try await context.persistence.loadRestoreJournal()
+        let changed = room([light("a", 87), light("b", 21), light("c", 31)])
+        async let left = context.persistence.captureRestoreBaseline(bridgeID: context.profile.bridgeID,
+            area: changed, touchedIDs: [id("a"), id("b")])
+        async let right = context.persistence.captureRestoreBaseline(bridgeID: context.profile.bridgeID,
+            area: changed, touchedIDs: [id("a"), id("c")])
+        _ = try await (left, right)
+        let cleared = try await context.persistence.replaceRestoreJournal(nil, matching: before)
+        XCTAssertFalse(cleared)
+        let current = try await context.persistence.loadRestoreJournal()
+        XCTAssertEqual(current?.capturedLightIDs, [id("a"), id("b"), id("c")])
+        XCTAssertEqual(current?.snapshots.first(where: { $0.lightID == id("a") }), before?.snapshots.first)
+    }
+
+    func testUnreadableRecoveryRecordCannotBeSilentlyReplacedByIdleOff() async throws {
+        let context = try Context()
+        defer { context.cleanUp() }
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: context.suite))
+        let key = "hue-board.native.recovery.v2"
+        defaults.set(["unexpected", "type"], forKey: key)
+        let area = room([light("a", 54)])
+        let client = EmergencyFixtureClient(context.persistence)
+        do {
+            _ = try await EmergencyOffOperation.run(profile: context.profile, credential: context.credential,
+                selectedArea: area, inventory: [area], client: client,
+                coordinator: context.coordinator, persistence: context.persistence) {
+                    XCTFail("An unreadable recovery record must block new baseline capture")
+                    return area
+                }
+            XCTFail("Expected unreadable recovery record")
+        } catch HueBoardError.invalidResponse { }
+        let log = await client.log()
+        XCTAssertTrue(log.isEmpty)
+        XCTAssertEqual(defaults.stringArray(forKey: key), ["unexpected", "type"])
+    }
+
     func testIdleReadFailureSendsNoOffAndCreatesNoBaseline() async throws {
         let context = try Context()
         defer { context.cleanUp() }

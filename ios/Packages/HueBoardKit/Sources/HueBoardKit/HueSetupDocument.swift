@@ -10,7 +10,7 @@ public enum HueSetupSection: String, CaseIterable, Hashable, Sendable {
         case .cues: "Cue sequence"
         case .mixes: "Saved mixes"
         case .favorites: "Scene favorites"
-        case .layout: "Selected room layout"
+        case .layout: "Room layouts"
         case .safety: "Physical-light safety preferences"
         }
     }
@@ -35,13 +35,14 @@ public struct HueSetupDocument: Equatable, Sendable {
     public let cuesEnabled: Bool?
     public let mixes: [HueSceneDocument]?
     public let favorites: [String]?
-    public let layout: HueSetupRoom?
+    public let layouts: [HueSetupRoom]
+    public var layout: HueSetupRoom? { layouts.count == 1 ? layouts.first : nil }
     public let safety: HueSafetyPreferences?
 
     public init(
         draft: HueStudioDraft? = nil, palette: [String]? = nil, cues: HueCueSequence? = nil,
         cuesEnabled: Bool? = nil, mixes: [HueSceneDocument]? = nil, favorites: [String]? = nil,
-        layout: HueSetupRoom? = nil, safety: HueSafetyPreferences? = nil
+        layout: HueSetupRoom? = nil, layouts: [HueSetupRoom] = [], safety: HueSafetyPreferences? = nil
     ) {
         self.draft = draft.map {
             var value = $0
@@ -58,7 +59,7 @@ public struct HueSetupDocument: Equatable, Sendable {
         self.cuesEnabled = cuesEnabled
         self.mixes = mixes
         self.favorites = favorites
-        self.layout = layout
+        self.layouts = layouts + (layout.map { [$0] } ?? [])
         self.safety = safety
     }
 
@@ -69,7 +70,7 @@ public struct HueSetupDocument: Equatable, Sendable {
         if cues != nil { result.insert(.cues) }
         if mixes != nil { result.insert(.mixes) }
         if favorites != nil { result.insert(.favorites) }
-        if layout != nil { result.insert(.layout) }
+        if !layouts.isEmpty { result.insert(.layout) }
         if safety != nil { result.insert(.safety) }
         return result
     }
@@ -114,7 +115,8 @@ enum HueSetupCodec {
         if let cues = setup.cues { try HuePortableDataCodec.validate(.cues(cues), contract: contract) }
         if let mixes = setup.mixes { try HuePortableDataCodec.validate(.mixLibrary(mixes), contract: contract) }
         if let ids = setup.favorites { try HuePortableDataCodec.validate(.favorites(ids), contract: contract) }
-        if let room = setup.layout {
+        guard Set(setup.layouts.map(\.scope)).count == setup.layouts.count else { throw malformed }
+        for room in setup.layouts {
             guard room.scope.utf8.count == 64,
                   room.scope.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else { throw malformed }
             try HuePortableDataCodec.validate(.roomLayout(room.layout), contract: contract)
@@ -154,17 +156,33 @@ enum HueSetupCodec {
         if let palette = setup.palette { sections["palette"] = palette }
         if let mixes = setup.mixes { sections["mixes"] = try object(mixes) }
         if let favorites = setup.favorites { sections["favorites"] = favorites }
-        if let layout = setup.layout { sections["layout"] = try object(layout) }
+        let schema: Int
+        if setup.layouts.count > 1 {
+            schema = 2
+            sections["layouts"] = try object(setup.layouts)
+        } else {
+            schema = 1
+            if let layout = setup.layout { sections["layout"] = try object(layout) }
+        }
         if let safety = setup.safety { sections["safety"] = try object(safety) }
-        return try JSONSerialization.data(withJSONObject: ["format": format, "schema": 1, "sections": sections],
+        return try JSONSerialization.data(withJSONObject: ["format": format, "schema": schema, "sections": sections],
                                           options: [.sortedKeys, .withoutEscapingSlashes])
     }
 
     static func decode(root: [String: Any], contract: HueBoardContract) throws -> HueSetupDocument {
         guard Set(root.keys) == ["format", "schema", "sections"],
-              let schema = root["schema"], try typed(Int.self, from: schema) == 1,
-              let sections = root["sections"] as? [String: Any],
-              Set(sections.keys).isSubset(of: Set(HueSetupSection.allCases.map(\.rawValue) + ["seed"])) else { throw malformed }
+              let version = root["schema"], let sections = root["sections"] as? [String: Any] else { throw malformed }
+        let schema = try typed(Int.self, from: version)
+        var keys = Set(HueSetupSection.allCases.map(\.rawValue) + ["seed"])
+        switch schema {
+        case 1: break
+        case 2:
+            keys.remove("layout")
+            keys.insert("layouts")
+            guard let layouts = sections["layouts"] as? [Any], layouts.count > 1 else { throw malformed }
+        default: throw malformed
+        }
+        guard Set(sections.keys).isSubset(of: keys) else { throw malformed }
         func read<T: Codable>(_ key: String, _ type: T.Type) throws -> T? {
             try sections[key].map { try typed(type, from: $0) }
         }
@@ -194,7 +212,8 @@ enum HueSetupCodec {
         let result = try HueSetupDocument(
             draft: draft, palette: read("palette", [String].self), cues: cues, cuesEnabled: enabled,
             mixes: read("mixes", [HueSceneDocument].self), favorites: read("favorites", [String].self),
-            layout: read("layout", HueSetupRoom.self), safety: read("safety", HueSafetyPreferences.self)
+            layout: read("layout", HueSetupRoom.self), layouts: read("layouts", [HueSetupRoom].self) ?? [],
+            safety: read("safety", HueSafetyPreferences.self)
         )
         try validate(result, contract: contract)
         return result
