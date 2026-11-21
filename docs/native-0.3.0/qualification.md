@@ -1,6 +1,18 @@
 # Native 0.3.0 internal qualification
 
-November 21, 2026 · Development app 0.3.0 (7) · Source integration on `main`
+November 21, 2026 · Development builds 7 and 8 · Source integration on `main`
+
+## Build 8 interface
+
+The interface was redesigned in `f8a60056d5c66ca3b6a67459c2fec2f137c835a7`. The visual review led to two refinements in `cc0ce29bd685a01e0b41713e486c4fe306f4b3c7`. Room shows matching Hue layouts directly below the map, and the Studio destination is named **Inputs & playback**. Lights separates the room dimmer from the Studio mix. Scenes opens each result in a detail page, with explicit actions to edit or play. Studio opens a mix editor, cue sequence, saved mixes or playback settings from its room preview. Room opens on the light positions. Settings contains Bridge management, playback limits and file transfer. [Navigation guide](../../ios/README.md#browse-and-compose)
+
+Four Mac Catalyst hosted-view tests passed on the production view sources. At a 390 × 780 viewport with the largest accessibility text size requested, the Scenes test entered and cleared a search and checked the changing count. Each test checked for zero lighting writes, writer acquisitions and recovery-journal mutations. Four reviewed pairs of before-and-after captures showed six complete scene results, all four Studio destinations, the room map and the individual lights in their respective opening viewports. The fixture data was synthetic. Lights and Room used a busy fixture for the earlier captures and an idle fixture for the redesigned captures. The subsequent favorites persistence fix changed the model and its tests, with identical view sources.
+
+Node 22.23.1 and pnpm 10.17.1 passed all 202 JavaScript tests and TypeScript again on `cc0ce29`. On `f8a6005`, eight timing scenarios and 194 Scriptable browser assertions also passed. Both bundle checks passed, and regenerating the iOS contract produced the tracked bytes.
+
+Two fresh preference copies from the paired iPhone identified the installed app as **0.2.2 (6)**. Each had a valid checksum, idle playback and empty recovery and live-session records. The phone still requires separate verification of build 8.
+
+## Build 7 qualification
 
 The repaired core source is `e2783e8bdfe100b75c5ad9e9f6e5a849fce13af5`. The separate screen probe’s capture source is `a8addd67d288701063524aa674fc7f0745ff1c36`; its packaging repair is `27d3677c34a88f7bc5984f1f11123f610b1b6f54`. CI privacy and receipt handling is at `5986f98a745b32fdea5b8cf3bc9a86ce1b0055d4`. The public source includes these internal changes. A fresh device inventory confirmed the installed **0.2.2 (6)**, previously built from `41bc092a3007fec03a79b7ab1d47a305d131e920`. The execution ledger records evidence and outstanding work for each of the plan’s 166 tasks. [Task ledger](execution.tsv) · [Plan](../native-0.3.0-plan.md)
 
