@@ -109,9 +109,17 @@ These checks were recorded during development of the local candidate. They do no
 - On November 21, 2026, the published `a9a5d905` checkpoint passed eight focused Apple package tests on Xcode 27.2, including the schema-2, eleven-decimal 512-frame JavaScriptCore digest and six transport tests.
 - The existing-installation device runner's XcodeGen project generated successfully. Its physical-device assertions are qualified separately below.
 
+### November 21 candidate source checks
+
+On candidate `1c25352`, the full Apple package run passed **80 tests** with Xcode 27.2. It reproduced the 512-frame JavaScriptCore digest and covered restore readback, portable JSON, saved-mix palettes, spatial limits, cue ordering, and interruption and restart using synthetic clients.
+
+On Node 22.23.1 and pnpm 10.17.1, all **201 JavaScript tests**, the **8 focused parity tests**, TypeScript, and the timing suite passed. Regenerating the contract left the tracked parity resources unchanged. XcodeGen 2.46.0 generated the app and the standalone DeviceSmoke project.
+
+The signed generic iPhoneOS Debug build of `1c25352` passed. Signature verification succeeded, and the app bundle identified itself as **0.2.2 (build 6)**. Generic iPhoneOS `build-for-testing` compiled both app test targets. The standalone DeviceSmoke target also built for testing, and its runner signature verified after automatic development provisioning. CoreSimulator discovery stalled in both the default and an isolated device set, leaving simulator execution and rendered review unverified. Build receipts are stored under ignored `ios/DerivedData/qualification/` on the Mac.
+
 ## Installed candidate evidence
 
-A November 21, 2026 physical-iPhone app query reports **0.2.1 (build 5)**. A fresh, checksum-valid copy reported a recovery journal, idle playback, and no live descriptor. The journal prevents the browse-only test and the in-place candidate installation under this qualification procedure. The reusable [existing-installation device runner](DeviceSmoke/README.md) is versioned separately from the app.
+A November 21, 2026 physical-iPhone app query reports **0.2.1 (build 5)**. Two fresh copies independently verified the state and recovery checksums and reported a recovery journal, idle playback, and no live descriptor. The journal blocked the browse-only test and the in-place candidate installation. The reusable [existing-installation device runner](DeviceSmoke/README.md) is versioned separately from the app.
 
 The earlier device session reached **Bridge connected** and recorded the following results before the current journal appeared.
 
