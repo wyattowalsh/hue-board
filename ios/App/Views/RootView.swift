@@ -66,9 +66,13 @@ struct RootView: View {
             await model.bootstrap()
             if scenePhase == .active { model.startEventMonitoring() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: SystemLightMotionPreference.didChangeNotification)) { _ in
+            model.systemLightMotion.refresh()
+        }
         .onChange(of: scenePhase, initial: true) { _, phase in
             switch phase {
             case .active:
+                model.systemLightMotion.refresh()
                 model.setStudioSceneBackgrounded(false)
                 model.startEventMonitoring()
             case .background:

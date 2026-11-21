@@ -20,7 +20,9 @@ public struct HueRoomLayoutStore {
 
     public static func encoded(_ layout: HueRoomLayout, for area: HueArea) throws -> Data {
         try layout.validate(for: area)
-        return try JSONEncoder().encode(layout)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return try encoder.encode(layout)
     }
 
     public func save(_ layout: HueRoomLayout, bridgeID: String, area: HueArea) throws {

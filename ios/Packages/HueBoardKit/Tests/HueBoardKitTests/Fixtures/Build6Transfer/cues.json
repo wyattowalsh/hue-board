@@ -1,0 +1,14 @@
+{
+  "format" : "hue-board.native-data",
+  "kind" : "cues",
+  "payload" : {
+    "holdSeconds" : 75,
+    "order" : "shuffle",
+    "presetIDs" : [
+      "ion-eclipse",
+      "deep-orbit"
+    ],
+    "seed" : 683
+  },
+  "schema" : 1
+}

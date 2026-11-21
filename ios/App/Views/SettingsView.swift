@@ -36,6 +36,10 @@ struct SettingsView: View {
             set: { value in Task { await model.setReduceLightMotion(value) } }
           )
         )
+        if model.systemLightMotion.isEnabled {
+          Text("iOS Dim Flashing Lights is enabled. New playback sessions use reduced light motion.")
+            .font(.footnote)
+        }
         Text(
           "Uses slower Ambient Live transitions and pattern timing, bounds engine speed, energy, depth, and phase movement, and caps Bridge Play speed. The Bridge may still move a recalled scene."
         )
@@ -67,7 +71,11 @@ struct SettingsView: View {
         .font(.caption)
         .foregroundStyle(.secondary)
       }
-      .disabled(model.isBusy)
+      .disabled(!model.canEditPhysicalSafetySettings)
+      if model.isLiveRunning || model.playbackSnapshot.mode == .bridge {
+        Text("Stop and restore playback before changing its motion or brightness limits.")
+          .font(.footnote)
+      }
 
       PortableDataSection()
 

@@ -157,7 +157,10 @@ final class BrowseExistingHueBoard: XCTestCase {
         }
 
         app.tabBars.buttons["Room"].tap()
-        XCTAssertTrue(app.staticTexts["Room, not a list."].waitForExistence(timeout: 5))
+        let roomTitle = app.staticTexts.matching(NSPredicate(
+            format: "identifier == %@ OR label == %@", "room-arrangement-heading", "Room, not a list."
+        )).firstMatch
+        XCTAssertTrue(roomTitle.waitForExistence(timeout: 5))
         reveal(app.staticTexts["Spatial map"], in: app)
         capture("10-Room-map", in: app)
         reveal(app.sliders["Output trim"], in: app)

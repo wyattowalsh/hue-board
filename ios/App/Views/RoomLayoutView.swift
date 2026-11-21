@@ -10,7 +10,20 @@ struct RoomLayoutView: View {
         model.roomLayout?.placements.first(where: { $0.id == model.focusedFixtureID })
     }
 
+    @ViewBuilder
     var body: some View {
+        #if DEBUG && targetEnvironment(simulator)
+        if let scenario = RoomDiscoveryFixture.requestedScenario {
+            RoomDiscoveryFixture(scenario: scenario)
+        } else {
+            roomContent
+        }
+        #else
+        roomContent
+        #endif
+    }
+
+    private var roomContent: some View {
         Group {
             if !model.isReady {
                 ConnectPrompt()
@@ -22,6 +35,7 @@ struct RoomLayoutView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Room arrangement")
                                 .font(.title2.bold())
+                                .accessibilityIdentifier("room-arrangement-heading")
                                 .accessibilityAddTraits(.isHeader)
                             Text("Arrange lights by position and phase. Editing the map never changes your bulbs.")
                                 .foregroundStyle(.secondary)
@@ -42,7 +56,7 @@ struct RoomLayoutView: View {
                                         .font(.headline)
                                         .accessibilityAddTraits(.isHeader)
                                     Spacer()
-                                    Text("\(layout.selectedEntries(in: area).count) active")
+                                    Text("\(layout.selectedEntries(in: area, brightnessLimit: model.effectiveDynamicBrightness).count) active")
                                         .font(.caption.monospacedDigit())
                                         .foregroundStyle(.secondary)
                                 }
@@ -67,7 +81,6 @@ struct RoomLayoutView: View {
                             }
                             .padding(16)
                             .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 20))
-
                             .id("room-map")
 
                             Button("Use positions for sweep", systemImage: "arrow.right") {
@@ -288,7 +301,7 @@ struct RoomArrangementPreviewSheet: View {
     }
 }
 
-private struct RoomFixtureMap: View {
+struct RoomFixtureMap: View {
     let area: HueArea
     let layout: HueRoomLayout
     let focusedID: HueResourceID?

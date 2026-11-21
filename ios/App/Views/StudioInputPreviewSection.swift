@@ -1,6 +1,7 @@
 import AVKit
 import HueBoardKit
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 struct StudioInputPreviewSection: View {
@@ -8,7 +9,8 @@ struct StudioInputPreviewSection: View {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var choosingFile = false
 
-  private var manualReadings: Bool { reduceMotion || model.safetySettings.reduceLightMotion }
+  private var limitsLightMotion: Bool { model.safetySettings.reduceLightMotion || model.systemLightMotion.isEnabled }
+  private var manualReadings: Bool { reduceMotion || limitsLightMotion }
   private var selectionLocked: Bool { model.isBusy || model.isLiveRunning }
 
   var body: some View {
@@ -98,8 +100,8 @@ struct StudioInputPreviewSection: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Selected video playback")
         }
-        Text(model.safetySettings.reduceLightMotion
-          ? "Reduce Light Motion keeps physical Live playback on Engine."
+        Text(limitsLightMotion
+          ? "Light motion preferences keep physical Live playback on Engine."
           : "Start Studio Live sends this input to your selected lights. Keep Hue Board on screen.")
           .font(.caption)
           .foregroundStyle(.secondary)

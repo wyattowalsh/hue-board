@@ -92,6 +92,9 @@ extension AppModel {
         })
       }
     }
+    if batch.resources.contains(where: { $0.type == "entertainment" || $0.type == "entertainment_configuration" }) {
+      roomDiscoveryRevision &+= 1
+    }
     if batch.requiresInventoryRefresh {
       scheduleInventoryRefreshFromEvents()
     } else if hasRestorePoint, requiresRecovery, !lightUpdates.isEmpty {
@@ -137,6 +140,8 @@ extension AppModel {
           outputLimits: self.preservedOutputCeilings()
         )
         guard self.eventRefreshGeneration == generation, self.profile?.bridgeID == profile.bridgeID else { return }
+        let previousRoomID = self.selectedArea?.id
+        let previousMembers = Set(self.selectedArea?.lights.map(\.id) ?? [])
         self.areas = values
         await self.reconcileAcceptedRestore(in: values, bridgeID: profile.bridgeID)
         if !values.contains(where: { $0.id == self.selectedAreaID }) {
@@ -144,7 +149,10 @@ extension AppModel {
           try await self.persistence.saveSelectedAreaID(self.selectedAreaID, bridgeID: profile.bridgeID)
         }
         guard self.eventRefreshGeneration == generation, !Task.isCancelled else { return }
-        self.loadCurrentRoomLayout()
+        if previousRoomID != self.selectedArea?.id
+          || previousMembers != Set(self.selectedArea?.lights.map(\.id) ?? []) {
+          self.loadCurrentRoomLayout()
+        }
       } catch {
         guard self.eventRefreshGeneration == generation else { return }
         self.eventStreamDetail = "Push updates remain connected, but structural refresh failed: \(error.localizedDescription)"

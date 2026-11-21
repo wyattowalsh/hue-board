@@ -1,0 +1,11 @@
+{
+  "format" : "hue-board.native-data",
+  "kind" : "customPalette",
+  "payload" : [
+    "#103050",
+    "#2468AC",
+    "#ACE024",
+    "#FEDCBA"
+  ],
+  "schema" : 1
+}

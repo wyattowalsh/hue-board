@@ -23,7 +23,7 @@ extension AppModel {
       contract: contract,
       preset: preset,
       brightness: effectiveDynamicBrightness,
-      reduceLightMotion: safetySettings.reduceLightMotion,
+      reduceLightMotion: effectiveSafetySettings.reduceLightMotion,
       outputLimits: preservedOutputCeilings()
     )
     let request = LightingPlaybackRequest(

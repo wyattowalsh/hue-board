@@ -25,12 +25,13 @@ test('native recovery journal expands without replacing prior baselines', () => 
 
 test('emergency off reports incomplete coverage and retains recovery', () => {
   const everyday = read('ios/App/AppModel+Everyday.swift');
-  assert.match(everyday, /targetIDs = journal\.capturedLightIDs/);
-  assert.match(everyday, /var unresolved = targetIDs\.subtracting\(eligibleIDs\)/);
-  assert.match(everyday, /unresolved\.insert\(id\)/);
+  const operation = read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/EmergencyOffOperation.swift');
+  assert.match(operation, /targetIDs = journal\.capturedLightIDs/);
+  assert.match(operation, /unresolved: targetIDs\.subtracting\(accepted\)/);
+  assert.match(operation, /accepted\.insert\(id\)/);
   assert.match(everyday, /Emergency off reached/);
   assert.match(everyday, /saved baseline is retained/);
-  assert.doesNotMatch(everyday, /saveRestoreJournal\(nil\)/);
+  assert.doesNotMatch(operation, /saveRestoreJournal\(nil\)/);
   const powerIndex = everyday.indexOf('func setAreaPower');
   const brightnessIndex = everyday.indexOf('func setAreaBrightness');
   assert.ok(powerIndex >= 0 && everyday.indexOf('ensureRestoreJournal', powerIndex) < everyday.indexOf('executeDirectFrame', powerIndex));

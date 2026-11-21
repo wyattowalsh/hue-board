@@ -1,0 +1,57 @@
+{
+  "createdAt" : "1970-01-01T00:00:00Z",
+  "documentId" : "legacy-fc1fdd8d1a0eef6f",
+  "format" : "hue-board.scene",
+  "kind" : "look",
+  "modifiedAt" : "1970-01-01T00:00:00Z",
+  "name" : "Imported Hue Board look",
+  "schema" : 2,
+  "scope" : "user-selected",
+  "settings" : {
+    "accentMix" : 100,
+    "ambientFloor" : 0,
+    "brightness" : 46,
+    "brightnessCurve" : 1,
+    "customColors" : [
+      "#102CBA",
+      "#00B9F2",
+      "#36E5D1",
+      "#A4ED51"
+    ],
+    "density" : 1,
+    "depth" : 75,
+    "directorSeconds" : 52,
+    "effect" : "",
+    "effectSpeed" : 0.4,
+    "effectTint" : false,
+    "energy" : 65,
+    "focus" : 55,
+    "gradient" : false,
+    "morph" : 0,
+    "nativeKind" : "palette",
+    "ownership" : "yield_off",
+    "paletteA" : 0,
+    "paletteB" : 1,
+    "phaseOffset" : 0,
+    "reverse" : false,
+    "saturation" : 100,
+    "seed" : 214,
+    "sequenceHold" : 90,
+    "sequenceIds" : [
+      "deep-orbit"
+    ],
+    "sequenceOrder" : "forward",
+    "showA" : "eclipse",
+    "showB" : "turbine",
+    "speed" : 1,
+    "spread" : 1.2,
+    "tension" : 65,
+    "topology" : "ring",
+    "transitionMs" : 4500
+  },
+  "source" : {
+    "engineABI" : 1,
+    "implementation" : "scriptable-legacy",
+    "productVersion" : "5.3.x"
+  }
+}

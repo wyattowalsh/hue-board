@@ -73,7 +73,6 @@ struct LiveView: View {
                 }
             }
         }
-
     }
 
     private var sourcePresetPicker: some View {
@@ -208,8 +207,6 @@ struct LiveView: View {
                 .foregroundStyle(.secondary)
         }
     }
-
-
 }
 
 private struct StudioSlider: View {

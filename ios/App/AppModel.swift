@@ -83,6 +83,7 @@ final class AppModel {
   var foreignRecoveryPending = false
   var emergencyOffInFlight = false
   var restoreAreaID: HueResourceID?
+  let systemLightMotion = SystemLightMotionPreference()
   var safetySettings: PhysicalLightSafetySettings = .default
   var pendingDynamicAction: PendingDynamicAction?
   var isDynamicLightSafetyPresented = false
@@ -214,7 +215,7 @@ final class AppModel {
     let eligible = roomLayout.selectedEntries(in: area, brightnessLimit: effectiveDynamicBrightness)
     guard !eligible.isEmpty else { return false }
     if studioLiveInput != .engine {
-      guard !studioSceneIsBackgrounded, !safetySettings.reduceLightMotion,
+      guard !studioSceneIsBackgrounded, !effectiveSafetySettings.reduceLightMotion,
             eligible.contains(where: { !$0.1.role.isStatic }) else { return false }
       if studioLiveInput == .media, studioMediaURL == nil { return false }
     }
@@ -242,6 +243,13 @@ final class AppModel {
       limits[light.id] = light.outputLimit
     }
     return limits
+  }
+
+  // Exports contain the user's preference. A new playback session also honors the system setting.
+  var effectiveSafetySettings: PhysicalLightSafetySettings {
+    var value = safetySettings
+    value.reduceLightMotion = value.reduceLightMotion || systemLightMotion.isEnabled
+    return value
   }
 
   var effectiveDynamicBrightness: Double {

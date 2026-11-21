@@ -3,6 +3,15 @@ import HueBoardKit
 import HueBoardNativeCore
 @testable import Hue_Board
 
+private struct PhaseSampler: HueEngineSampling {
+    func sample(time: Double, position: Double, settings: HueEngineSettings, surge: Double) async throws -> HueLightFrame {
+        .init(color: RGB(red: position, green: 0.2, blue: 0.1), brightness: 40)
+    }
+    func xy(_ color: RGB, gamut: HueGamut?) async throws -> HueXY { .init(x: color.red, y: 0.3) }
+}
+
+private struct CapturedSweepFrame: Error { let frame: LightingFrame }
+
 @MainActor
 final class RoomArrangementPersistenceTests: XCTestCase {
     private let room = StudioRehearsalRoom.sample.area
@@ -81,6 +90,17 @@ final class RoomArrangementPersistenceTests: XCTestCase {
         XCTAssertEqual(rehearsal.layout.placements.map(\.phase), [0, 0.91, 0.5])
         let frame = try await loadedModel.studioRehearsalFrame(loadedModel.studioRehearsalRequest(in: rehearsal, at: 0))
         XCTAssertEqual(Set(frame.targets.keys), [room.lights[0].id, room.lights[2].id])
+        let runner = NativeLiveRunner(engine: PhaseSampler())
+        do {
+            try await runner.run(area: rehearsal.area, layout: rehearsal.layout, settings: loadedModel.studioSettings,
+                                 cueSequence: nil, contract: loadedModel.contract, duration: 10, safetySettings: loadedModel.safetySettings,
+                                 submit: { throw CapturedSweepFrame(frame: $0) }, progress: { _ in })
+            XCTFail("Expected a captured synthetic frame")
+        } catch let captured as CapturedSweepFrame {
+            XCTAssertEqual(captured.frame.actions[room.lights[0].id]?.color?.xy.x, 0)
+            XCTAssertEqual(captured.frame.actions[room.lights[2].id]?.color?.xy.x, 0.5)
+            XCTAssertNil(captured.frame.actions[room.lights[1].id])
+        }
         let rearranged = try loadedModel.previewRoomArrangement(arrangement(), from: XCTUnwrap(loadedModel.roomDiscoveryScope))
         try loadedModel.saveRoomArrangement(rearranged)
         XCTAssertEqual(loadedModel.roomLayout?.placements.map(\.phase), [0, 0.91, 0.5])

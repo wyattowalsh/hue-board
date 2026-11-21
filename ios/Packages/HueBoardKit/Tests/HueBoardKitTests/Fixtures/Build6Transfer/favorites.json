@@ -1,0 +1,9 @@
+{
+  "format" : "hue-board.native-data",
+  "kind" : "favorites",
+  "payload" : [
+    "ion-eclipse",
+    "deep-orbit"
+  ],
+  "schema" : 1
+}

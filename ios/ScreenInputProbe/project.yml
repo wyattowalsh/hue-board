@@ -1,0 +1,29 @@
+name: HueBoardScreenProbe
+options:
+  minimumXcodeGenVersion: 2.46.0
+  deploymentTarget:
+    iOS: "27.0"
+targets:
+  HueBoardScreenProbe:
+    type: application
+    platform: iOS
+    sources:
+      - App
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Screen Input Probe
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UIBackgroundModes:
+          - screen-capture
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.wyattowalsh.HueBoard.ScreenInputProbe
+        MARKETING_VERSION: 0.1.0
+        CURRENT_PROJECT_VERSION: 1
+        SWIFT_VERSION: 6.0
+        SWIFT_STRICT_CONCURRENCY: complete
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO

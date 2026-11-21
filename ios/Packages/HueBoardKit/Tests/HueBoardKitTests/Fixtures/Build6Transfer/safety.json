@@ -1,0 +1,9 @@
+{
+  "format" : "hue-board.native-data",
+  "kind" : "safety",
+  "payload" : {
+    "maximumDynamicBrightness" : 62,
+    "reduceLightMotion" : true
+  },
+  "schema" : 1
+}

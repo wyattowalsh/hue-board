@@ -20,7 +20,9 @@ struct StudioDocumentStore {
 
     static func encoded(_ documents: [HueSceneDocument], contract: HueBoardContract) throws -> Data {
         try HueSceneDocumentCodec.validateLibrary(documents, contract: contract)
-        return try JSONEncoder().encode(documents)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return try encoder.encode(documents)
     }
 
     func save(_ documents: [HueSceneDocument], contract: HueBoardContract) throws {

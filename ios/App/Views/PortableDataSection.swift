@@ -14,6 +14,10 @@ struct PortableDataSection: View {
     @State private var feedback: String?
     @State private var failure: String?
 
+    #if DEBUG && targetEnvironment(simulator)
+    @State private var didOpenSampleSetup = false
+    #endif
+
     private enum SetupSheet: Identifiable {
         case export, review(HueSetupDocument)
 
@@ -115,6 +119,21 @@ struct PortableDataSection: View {
         } message: {
             Text(failure ?? "Try the transfer again.")
         }
+        #if DEBUG && targetEnvironment(simulator)
+        .task {
+            let env = ProcessInfo.processInfo.environment
+            guard !didOpenSampleSetup, env["HUE_BOARD_UI_TEST_MODE"] == "1",
+                  env["HUE_BOARD_SETUP_FIXTURE"] == "limits" else { return }
+            didOpenSampleSetup = true
+            do {
+                let fixture = HueSetupDocument(favorites: ["ion-eclipse"],
+                                               safety: .init(reduceLightMotion: true, maximumDynamicBrightness: 95))
+                try openImportReview(HuePortableDataCodec.encode(.setup(fixture), contract: model.contract))
+            } catch {
+                failure = error.localizedDescription
+            }
+        }
+        #endif
     }
 
     private var reviewPresented: Binding<Bool> {
@@ -133,15 +152,19 @@ struct PortableDataSection: View {
             do {
                 let url = try result.get()
                 let data = try await Task.detached(priority: .userInitiated) { try HuePortableFile.read(from: url) }.value
-                let value = try HuePortableDataCodec.decode(data, contract: model.contract)
-                if case .setup(let setup) = value {
-                    setupSheet = .review(setup)
-                } else {
-                    review = .init(value: value, message: try model.reviewPortableImport(value))
-                }
+                try openImportReview(data)
             } catch {
                 if !HuePortableFile.isCancellation(error) { failure = error.localizedDescription }
             }
+        }
+    }
+
+    private func openImportReview(_ data: Data) throws {
+        let value = try HuePortableDataCodec.decode(data, contract: model.contract)
+        if case .setup(let setup) = value {
+            setupSheet = .review(setup)
+        } else {
+            review = .init(value: value, message: try model.reviewPortableImport(value))
         }
     }
 

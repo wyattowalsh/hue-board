@@ -7,17 +7,19 @@ final class RoomArrangementDiscoveryTests: XCTestCase {
     func testLateReadFromPreviousVisitCannotReplaceNewerResult() async throws {
         let session = RoomDiscoverySession()
         let scope = RoomDiscoveryScope(bridgeID: "a", areaID: .init(rawValue: "room"), fixtureIDs: [], revision: 1)
-        let started = expectation(description: "The first read entered its fixture")
+        let (events, started) = AsyncStream<Void>.makeStream()
+        var reader = events.makeAsyncIterator()
         var resume: CheckedContinuation<HueRoomDiscovery, Never>?
         let oldRead = Task {
             await session.read(scope: scope, revision: 0) { _ in
                 await withCheckedContinuation { continuation in
                     resume = continuation
-                    started.fulfill()
+                    started.yield(())
+                    started.finish()
                 }
             }
         }
-        await fulfillment(of: [started], timeout: 2)
+        _ = await reader.next()
         await session.read(scope: scope, revision: 0) { _ in XCTFail("Duplicated read"); return .noSavedAreas }
         await session.read(scope: nil, revision: 0) { _ in XCTFail("Read while unavailable"); return .noSavedAreas }
         await session.read(scope: scope, revision: 0) { _ in .noMatchingPositions }

@@ -56,7 +56,7 @@ struct RoomDiscoveryCard: View {
                 Text("Couldn’t read saved Hue layouts. \(reason)")
                     .accessibilityIdentifier("room-layout-error")
             case .loaded(.noSavedAreas):
-                Text("Your Bridge has no saved Entertainment areas. Arrange lights on the map, or create an Entertainment area in the Hue app.")
+                Text("Your Bridge has no saved Entertainment areas. Apple Home rooms provide membership only. Arrange lights on the map, or save positions in the Hue app.")
                     .accessibilityIdentifier("room-layout-none")
                 manualButton
             case .loaded(.noMatchingPositions):

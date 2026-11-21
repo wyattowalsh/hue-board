@@ -1,0 +1,20 @@
+{
+  "format" : "hue-board.native-data",
+  "kind" : "roomLayout",
+  "payload" : {
+    "areaID" : "synthetic-area",
+    "placements" : [
+      {
+        "ceiling" : 47,
+        "id" : "synthetic-light",
+        "phase" : 0.5,
+        "role" : "accent",
+        "selected" : true,
+        "trim" : 0.8,
+        "x" : 0.25,
+        "y" : 0.75
+      }
+    ]
+  },
+  "schema" : 1
+}

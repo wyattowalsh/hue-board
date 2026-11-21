@@ -41,6 +41,11 @@ struct SetupExportView: View {
                 }
             }
         }
+        .onChange(of: model.roomLayoutScope) { _, _ in
+            if selection.remove(.layout) != nil {
+                errorMessage = "The selected room changed. Choose its layout again to include it."
+            }
+        }
         .fileExporter(
             isPresented: $choosingDestination, document: exportFile,
             contentType: .json, defaultFilename: "Hue Board Setup"
@@ -98,6 +103,7 @@ struct SetupImportReviewView: View {
                     if let review {
                         ForEach(Array(review.lines.enumerated()), id: \.offset) { _, line in
                             Text(verbatim: line)
+                                .accessibilityLabel(line.replacingOccurrences(of: " → ", with: " to "))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     } else if selection.isEmpty {

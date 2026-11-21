@@ -22,6 +22,9 @@ public actor AppPersistence {
     private let defaults: UserDefaults
     private let writerVersion: String
     private var cachedState: NativeAppState?
+    #if DEBUG
+    public private(set) var debugJournalMutations: UInt64 = 0
+    #endif
 
     public init(
         suiteName: String? = nil,
@@ -126,11 +129,18 @@ public actor AppPersistence {
 
     public func saveRestoreJournal(_ journal: RestoreJournal?) throws {
         _ = try loadState()
-        if let journal {
-            defaults.set(try encodeEnvelope(journal), forKey: Key.recoveryV2)
+        setRecoveryData(try journal.map(encodeEnvelope))
+    }
+
+    private func setRecoveryData(_ data: Data?) {
+        if let data {
+            defaults.set(data, forKey: Key.recoveryV2)
         } else {
             defaults.removeObject(forKey: Key.recoveryV2)
         }
+        #if DEBUG
+        debugJournalMutations &+= 1
+        #endif
     }
 
     public func loadLiveDescriptor() throws -> LiveSessionDescriptor? {
@@ -205,9 +215,7 @@ public actor AppPersistence {
                 state.liveStatus = .idle
             }
         }
-        if removesRecovery {
-            defaults.removeObject(forKey: Key.recoveryV2)
-        }
+        if removesRecovery { setRecoveryData(nil) }
     }
 
     public func migrationReport() -> PersistenceMigrationReport? {
@@ -237,7 +245,7 @@ public actor AppPersistence {
         restoreLegacyValue(backup.liveStatus, forKey: Key.legacyLiveStatus)
 
         defaults.removeObject(forKey: Key.stateV2)
-        defaults.removeObject(forKey: Key.recoveryV2)
+        setRecoveryData(nil)
         defaults.removeObject(forKey: Key.migrationReportV2)
         cachedState = nil
     }
@@ -337,7 +345,7 @@ public actor AppPersistence {
             migratedKeys: &migratedKeys,
             quarantinedKeys: &quarantinedKeys
         ) {
-            defaults.set(try encodeEnvelope(journal), forKey: Key.recoveryV2)
+            setRecoveryData(try encodeEnvelope(journal))
         }
 
         let report = PersistenceMigrationReport(

@@ -93,8 +93,13 @@ test('native app source preserves no-write-on-open and complete restore gates',(
   assert.match(recovery,/captureMissing\(from: area, touchedIDs: touchedIDs\)/);
   assert.match(journal,/let existing = capturedLightIDs/);
   assert.match(journal,/!existing\.contains\(\$0\.id\)/);
-  assert.match(everyday,/targetIDs = journal\.capturedLightIDs/);
-  assert.match(everyday,/No emergency-off command was accepted/);
+  const emergency=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/EmergencyOffOperation.swift');
+  assert.match(everyday,/try await EmergencyOffOperation\.run\(/);
+  assert.match(emergency,/targetIDs = journal\.capturedLightIDs/);
+  assert.match(emergency,/No emergency-off command was accepted/);
+  assert.match(emergency,/RestoreJournal\(bridgeID: profile\.bridgeID, area: fresh, lights: eligible\)\s+try await persistence\.saveRestoreJournal\(journal\)/);
+  const beforeStart=read('ios/App/AppModel+Live.swift').split('let previewDrain')[0];
+  assert.match(beforeStart,/guard liveDuration\.isFinite, liveDuration > 0 else/);
   assert.match(lightsView,/Button\("Apply brightness & turn on"\)/);
   assert.match(lightsView,/Moving the slider edits the value only/);
   assert.doesNotMatch(lightsView,/Slider\([^\n]+\)\{editing/);

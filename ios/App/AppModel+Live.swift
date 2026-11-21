@@ -8,14 +8,22 @@ extension AppModel {
     guard canStartLive, let profile, let credential, let area = selectedArea,
       let preset = selectedPreset, let spatialSnapshot = roomLayout
     else { return }
+    guard liveDuration.isFinite, liveDuration > 0 else {
+      errorMessage = "Choose a positive, finite Live duration."
+      return
+    }
+    let safety = effectiveSafetySettings
+    guard studioLiveInput == .engine || !safety.reduceLightMotion else {
+      errorMessage = "Select Engine to use Live with reduced light motion."
+      return
+    }
     guard !requiresDynamicLightConsent(for: .ambient) else { return }
     let previewDrain = studioInputPreview.stop()
     let startID = UUID()
     let input = studioLiveInput
     let mediaURL = studioMediaURL
     let requestedDuration = liveDuration
-    let brightness = effectiveDynamicBrightness
-    let safetySettings = safetySettings
+    let brightness = PhysicalLightSafetyPolicy.clampedBrightness(self.brightness, settings: safety)
     let cueSnapshot: HueCueSequence? = isCueSequenceEnabled
       ? HueCueSequence(
           presetIDs: cueIDs,
@@ -47,14 +55,14 @@ extension AppModel {
 
     do {
       await previewDrain?.value
-      try checkStudioLiveStartup(startID)
+      try checkStudioLiveStartup(startID, safety: safety)
       if let cueSnapshot { try cueSnapshot.validate(contract: contract) }
       let freshAreas = try await client.inventory(
         profile: profile,
         credential: credential,
         outputLimits: preservedOutputCeilings()
       )
-      try checkStudioLiveStartup(startID)
+      try checkStudioLiveStartup(startID, safety: safety)
       guard let freshArea = freshAreas.first(where: { $0.id == area.id }) else {
         throw HueBoardError.missingResource("The selected area is no longer available.")
       }
@@ -99,11 +107,11 @@ extension AppModel {
         signal = { _ in try await media.signal() }
         verifyInput = { try await media.verifyPlayback() }
       }
-      try checkStudioLiveStartup(startID)
+      try checkStudioLiveStartup(startID, safety: safety)
 
       let touched = Set(selected.map { $0.0.id })
       try await ensureRestoreJournal(profile: profile, area: freshArea, touchedIDs: touched)
-      try checkStudioLiveStartup(startID)
+      try checkStudioLiveStartup(startID, safety: safety)
 
       let transport = RestAmbientTransport(
         client: client,
@@ -119,7 +127,7 @@ extension AppModel {
       )
       let ownedLease = try await playbackCoordinator.begin(request, using: transport)
       lease = ownedLease
-      try checkStudioLiveStartup(startID)
+      try checkStudioLiveStartup(startID, safety: safety)
 
       let runner = NativeLiveRunner(engine: engine)
       let descriptor = LiveSessionDescriptor(
@@ -132,7 +140,7 @@ extension AppModel {
       )
       try await persistence.beginLiveSession(descriptor)
       startupDescriptorID = descriptor.id
-      try checkStudioLiveStartup(startID)
+      try checkStudioLiveStartup(startID, safety: safety)
       activePlaybackLease = ownedLease
 
       let persistence = persistence
@@ -147,7 +155,7 @@ extension AppModel {
             cueSequence: cueSnapshot,
             contract: contract,
             duration: duration,
-            safetySettings: safetySettings,
+            safetySettings: safety,
             signal: signal,
             submit: { frame in
               try await verifyInput()
@@ -291,9 +299,12 @@ extension AppModel {
     }
   }
 
-  private func checkStudioLiveStartup(_ startID: UUID) throws {
+  private func checkStudioLiveStartup(_ startID: UUID, safety: PhysicalLightSafetySettings) throws {
     try Task.checkCancellation()
     guard liveStartupID == startID else { throw CancellationError() }
+    guard effectiveSafetySettings == safety else {
+      throw HueBoardError.unsupported("Light safety settings changed. Review them before starting again.")
+    }
   }
 
   private func stopStudioCapture(sessionID: UUID? = nil) {

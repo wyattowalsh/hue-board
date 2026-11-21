@@ -97,7 +97,7 @@ extension AppModel {
             let updated = preferences.applying(to: safetySettings)
             isBusy = true
             defer { isBusy = false }
-            try PhysicalLightSafetyStore.saveSynchronously(updated)
+            try PhysicalLightSafetyStore.saveSynchronously(updated, defaults: setupDefaults)
             safetySettings = updated
         }
     }

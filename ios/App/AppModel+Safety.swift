@@ -4,6 +4,11 @@ import HueBoardNativeCore
 
 @MainActor
 extension AppModel {
+  var canEditPhysicalSafetySettings: Bool {
+    !isBusy && setupStorageIssue == nil && !requiresRecovery && !isLiveRunning
+      && playbackSnapshot.mode != .bridge && liveStartupID == nil && !emergencyOffInFlight
+  }
+
   func requiresDynamicLightConsent(for action: PendingDynamicAction) -> Bool {
     guard !safetySettings.warningAcknowledged else { return false }
     pendingDynamicAction = action
@@ -62,6 +67,10 @@ extension AppModel {
   }
 
   private func saveSafetySettings(_ value: PhysicalLightSafetySettings) async {
+    guard canEditPhysicalSafetySettings else {
+      errorMessage = "Safety settings can be changed when playback and the current operation have finished."
+      return
+    }
     do {
       try PhysicalLightSafetyStore.saveSynchronously(value, defaults: setupDefaults)
       safetySettings = value

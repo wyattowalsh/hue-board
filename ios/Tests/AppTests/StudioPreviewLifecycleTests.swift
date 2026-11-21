@@ -129,15 +129,7 @@ final class StudioPreviewLifecycleTests: XCTestCase {
     let url = FileManager.default.temporaryDirectory
       .appendingPathComponent("synthetic-silence-\(UUID().uuidString).caf")
     defer { try? FileManager.default.removeItem(at: url) }
-    let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 8_000, channels: 1))
-    let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 32_000))
-    buffer.frameLength = buffer.frameCapacity
-    let samples = try XCTUnwrap(buffer.floatChannelData?[0])
-    for index in 0..<Int(buffer.frameLength) { samples[index] = 0 }
-    do {
-      let file = try AVAudioFile(forWriting: url, settings: format.settings)
-      try file.write(from: buffer)
-    }
+    try writeStudioSilentFixture(to: url)
 
     let model = AppModel()
     model.selectedTab = .live
@@ -161,5 +153,18 @@ final class StudioPreviewLifecycleTests: XCTestCase {
     model.setStudioSceneBackgrounded(false)
     XCTAssertTrue(model.studioInputPreview.isIdle)
     XCTAssertNil(model.studioMedia.player)
+  }
+}
+
+@MainActor
+func writeStudioSilentFixture(to url: URL) throws {
+  let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 8_000, channels: 1))
+  let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 32_000))
+  buffer.frameLength = buffer.frameCapacity
+  let samples = try XCTUnwrap(buffer.floatChannelData?[0])
+  for index in 0..<Int(buffer.frameLength) { samples[index] = 0 }
+  do {
+    let file = try AVAudioFile(forWriting: url, settings: format.settings)
+    try file.write(from: buffer)
   }
 }

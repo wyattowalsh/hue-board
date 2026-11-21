@@ -1,0 +1,53 @@
+{
+  "format" : "hue-board.native-data",
+  "kind" : "studioDraft",
+  "payload" : {
+    "cuesEnabled" : true,
+    "duration" : 900,
+    "settings" : {
+      "accentMix" : 100,
+      "ambientFloor" : 0,
+      "brightness" : 37,
+      "brightnessCurve" : 1,
+      "customColors" : [
+        "#103050",
+        "#2468AC",
+        "#ACE024",
+        "#FEDCBA"
+      ],
+      "density" : 1,
+      "depth" : 65,
+      "directorSeconds" : 52,
+      "effect" : "",
+      "effectSpeed" : 0.4,
+      "effectTint" : false,
+      "energy" : 58,
+      "focus" : 55,
+      "gradient" : false,
+      "morph" : 0,
+      "nativeKind" : "palette",
+      "ownership" : "yield_off",
+      "paletteA" : 0,
+      "paletteB" : 0,
+      "phaseOffset" : 0,
+      "reverse" : false,
+      "saturation" : 100,
+      "seed" : 683,
+      "sequenceHold" : 75,
+      "sequenceIds" : [
+        "ion-eclipse",
+        "deep-orbit"
+      ],
+      "sequenceOrder" : "shuffle",
+      "showA" : "eclipse",
+      "showB" : "eclipse",
+      "speed" : 0.8,
+      "spread" : 1.2,
+      "tension" : 65,
+      "topology" : "ring",
+      "transitionMs" : 4500
+    },
+    "sourceLookID" : "ion-eclipse"
+  },
+  "schema" : 1
+}

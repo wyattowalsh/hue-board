@@ -6,26 +6,27 @@ struct StudioRehearsalView: View {
   @Environment(AppModel.self) private var model
   @Environment(\.scenePhase) private var scenePhase
   @State private var elapsed: Double = 0
-  @State private var completedRequest: StudioRehearsalRequest?
-  @State private var frame: StudioPlannedFrame?
-  @State private var issue: String?
+  @State private var presentation = StudioRehearsalPresentation()
+  @Environment(\.dynamicTypeSize) private var typeSize
 
   var body: some View {
     let room = model.studioRehearsalRoom
-    let request = scenePhase == .active ? room.map { model.studioRehearsalRequest(in: $0, at: elapsed) } : nil
-    let visibleFrame = completedRequest == request ? frame : nil
+    let request = scenePhase == .active && model.selectedTab == .live ? room.map { model.studioRehearsalRequest(in: $0, at: elapsed) } : nil
+    let matchingComposition = request.map { presentation.renderedRequest?.hasSameComposition(as: $0) == true } ?? false
+    let visibleFrame = matchingComposition ? presentation.frame : nil
     VStack(alignment: .leading, spacing: 12) {
-      HStack {
+      let headerLayout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading)) : AnyLayout(HStackLayout())
+      headerLayout {
         Label("Engine preview", systemImage: "sparkles")
           .font(.headline)
           .accessibilityAddTraits(.isHeader)
-        Spacer()
+        if !typeSize.isAccessibilitySize { Spacer() }
         Text("No light writes").font(.caption)
       }
       if let room {
         Text(room.area.name)
           .font(.subheadline.bold())
-        if let issue, completedRequest == request {
+        if let issue = presentation.issue, presentation.renderedRequest == request {
           Text(issue).font(.footnote).foregroundStyle(.secondary)
         } else {
           roomMap(room, frame: visibleFrame)
@@ -39,13 +40,27 @@ struct StudioRehearsalView: View {
               Text("Cue \(cue.position + 1) of \(cue.count) · \(name)")
             }
           }
-          timeline
+          if model.liveDuration.isFinite, (0...86_400).contains(model.liveDuration), model.liveDuration > 0 {
+            timeline
+          }
           if !room.area.lights.isEmpty {
+            let placements = Dictionary(grouping: room.layout.placements, by: \.id)
             DisclosureGroup("Fixture targets") {
               VStack(alignment: .leading, spacing: 6) {
                 ForEach(Array(room.area.lights.enumerated()), id: \.element.id) { index, light in
                   let target = visibleFrame?.targets[light.id]
-                  LabeledContent("\(index + 1). \(light.name)") {
+                  let rowLayout = typeSize.isAccessibilitySize
+                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
+                    : AnyLayout(HStackLayout(alignment: .firstTextBaseline))
+                  rowLayout {
+                    VStack(alignment: .leading, spacing: 2) {
+                      Text("\(index + 1). \(light.name)").fixedSize(horizontal: false, vertical: true)
+                      if let placement = placements[light.id]?.first {
+                        Text("X \(Int((placement.x * 100).rounded()))%, Y \(Int((placement.y * 100).rounded()))%")
+                          .font(.caption).foregroundStyle(.secondary)
+                      }
+                    }
+                    if !typeSize.isAccessibilitySize { Spacer() }
                     if let target {
                       Text("\(target.brightness.formatted(.number.precision(.fractionLength(0...1))))% · \(rgbHex(target.color))")
                         .monospacedDigit()
@@ -74,22 +89,13 @@ struct StudioRehearsalView: View {
     }
     .padding(16)
     .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 20))
-    .task(id: request) {
-      guard let request else { completedRequest = nil; frame = nil; issue = nil; return }
-      do {
-        let result = try await model.studioRehearsalFrame(request)
-        try Task.checkCancellation()
-        frame = result
-        issue = nil
-        completedRequest = request
-      } catch {
-        guard !Task.isCancelled else { return }
-        issue = error.localizedDescription
-        frame = nil
-        completedRequest = request
-      }
+    .onChange(of: request, initial: true) { _, next in
+      presentation.update(next) { try await model.studioRehearsalFrame($0) }
     }
-    .onChange(of: model.liveDuration) { _, duration in elapsed = min(elapsed, duration) }
+    .onDisappear { presentation.clear() }
+    .onChange(of: model.liveDuration) { _, duration in
+      elapsed = duration.isFinite && duration > 0 ? min(elapsed, duration) : 0
+    }
   }
 
   private var timeline: some View {
@@ -102,7 +108,8 @@ struct StudioRehearsalView: View {
         .accessibilityLabel("Rehearsal time")
         .accessibilityValue("\(Int(elapsed)) seconds")
         .accessibilityIdentifier("studio-rehearsal-time")
-      HStack {
+      let stepLayout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading)) : AnyLayout(HStackLayout())
+      stepLayout {
         Button {
           elapsed = max(0, model.isCueSequenceEnabled ? (ceil(elapsed / step) - 1) * step : elapsed - step)
         } label: {
@@ -110,7 +117,7 @@ struct StudioRehearsalView: View {
         }
         .disabled(elapsed <= 0)
         .accessibilityIdentifier("studio-rehearsal-previous")
-        Spacer()
+        if !typeSize.isAccessibilitySize { Spacer() }
         Button {
           elapsed = min(duration, model.isCueSequenceEnabled ? (floor(elapsed / step) + 1) * step : elapsed + step)
         } label: {

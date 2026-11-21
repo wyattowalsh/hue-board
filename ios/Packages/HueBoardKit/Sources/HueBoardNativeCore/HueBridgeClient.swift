@@ -60,6 +60,10 @@ public actor HueBridgeClient {
     private let pacer = HueRequestPacer()
     private var localConnections: [String: LocalConnection] = [:]
 
+    #if DEBUG
+    public private(set) var debugWriteAttempts: UInt64 = 0
+    #endif
+
     public init() {
         let configuration = Self.configuration()
         discoverySession = URLSession(
@@ -311,6 +315,7 @@ public actor HueBridgeClient {
 
     private func auditWrite(_ operation: String) {
         #if DEBUG
+        debugWriteAttempts &+= 1
         guard ProcessInfo.processInfo.environment["HUE_BOARD_WRITE_AUDIT"] == "1" else {
             return
         }

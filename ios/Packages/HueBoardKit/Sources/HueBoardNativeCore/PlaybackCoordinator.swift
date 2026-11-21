@@ -12,6 +12,10 @@ public actor PlaybackCoordinator {
     private var draining: ActiveWriter?
     private var drainWaiters: [CheckedContinuation<Void, Never>] = []
 
+    #if DEBUG
+    public private(set) var debugWriterAcquisitions: UInt64 = 0
+    #endif
+
     public init() {}
 
     public func begin(
@@ -38,6 +42,9 @@ public actor PlaybackCoordinator {
             startedAt: date
         )
         active = .init(lease: lease, transport: transport)
+        #if DEBUG
+        debugWriterAcquisitions &+= 1
+        #endif
 
         do {
             try await transport.prepare(request, lease: lease)

@@ -12,7 +12,7 @@ test('dynamic playback requires persisted first-use consent',()=>{
   const live=read('ios/App/AppModel+Live.swift');
   const rootView=read('ios/App/Views/RootView.swift');
   assert.match(model,/pendingDynamicAction/);
-  assert.match(safety,/try PhysicalLightSafetyStore\.saveSynchronously\(updated\)\s+safetySettings = updated/);
+  assert.match(safety,/try PhysicalLightSafetyStore\.saveSynchronously\(updated, defaults: setupDefaults\)\s+safetySettings = updated/);
   const store=read('ios/Packages/HueBoardKit/Sources/HueBoardNativeCore/PhysicalLightSafetyStore.swift');
   assert.match(store,/payloadSHA256/);
   assert.match(store,/quarantine/);
