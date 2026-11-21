@@ -42,7 +42,7 @@ struct CueSequencerSection: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-            ForEach(Array(model.cueIDs.enumerated()), id: \.element) { index, id in
+            ForEach(Array(model.cueIDs.enumerated()), id: \.offset) { index, id in
                 let name = model.contract.preset(id: id)?.name ?? "Unknown cue"
                 HStack(spacing: 0) {
                     Text("\(index + 1).")

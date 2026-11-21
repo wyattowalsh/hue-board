@@ -58,6 +58,26 @@ final class HuePortableDataTests: XCTestCase {
         XCTAssertThrowsError(try HuePortableDataCodec.decode(oversized, contract: contract))
     }
 
+    func testPaletteAndDraftImportsRejectColorsTheSharedEngineWouldIgnore() throws {
+        let contract = try HueBoardContractLoader.load()
+        let look = try XCTUnwrap(contract.presets.first)
+        let settings = HueSceneSettings(engineSettings: .from(preset: look))
+        let files: [HuePortableData] = [
+            .customPalette(settings.customColors),
+            .studioDraft(.init(settings: settings, sourceLookID: look.id, duration: 600, cuesEnabled: false))
+        ]
+        for file in files {
+            let valid = try HuePortableDataCodec.encode(file, contract: contract)
+            let json = String(decoding: valid, as: UTF8.self)
+            let color = try XCTUnwrap(settings.customColors.first)
+            XCTAssertTrue(json.contains(color))
+            for malformed in ["#-12345", " \(color) "] {
+                let changed = Data(json.replacingOccurrences(of: color, with: malformed).utf8)
+                XCTAssertThrowsError(try HuePortableDataCodec.decode(changed, contract: contract), malformed)
+            }
+        }
+    }
+
     func testLibraryImportIsIdempotentAndRejectsConflictsBeforeChangingAnyMix() throws {
         let contract = try HueBoardContractLoader.load()
         let source = HueSceneDocumentSource(productVersion: contract.release, implementation: "native")

@@ -136,6 +136,7 @@ public enum HuePortableDataCodec {
         switch value {
         case .studioDraft(let draft):
             try HueSceneDocumentCodec.validate(draft.settings, contract: contract)
+            try validatePortableColors(draft.settings.customColors)
             guard contract.preset(id: draft.sourceLookID) != nil, (300...3_600).contains(draft.duration) else {
                 throw HueBoardError.invalidResponse("The Studio draft has an invalid source look or session duration.")
             }
@@ -148,7 +149,7 @@ public enum HuePortableDataCodec {
                 ).validate(contract: contract)
             }
         case .customPalette(let colors):
-            try HueSceneDocumentCodec.validateCustomColors(colors)
+            try validatePortableColors(colors)
         case .cues(let cues):
             guard (0...999_999).contains(cues.seed) else {
                 throw HueBoardError.invalidResponse("The cue sequence has an invalid random seed.")
@@ -173,6 +174,14 @@ public enum HuePortableDataCodec {
             guard (10...100).contains(preferences.maximumDynamicBrightness) else {
                 throw HueBoardError.invalidResponse("The maximum dynamic brightness must be 10–100%.")
             }
+        }
+    }
+
+    private static func validatePortableColors(_ colors: [String]) throws {
+        guard colors.count == 4, colors.allSatisfy({ color in
+            color.utf8.count == 7 && color.range(of: "#[0-9A-Fa-f]{6}", options: .regularExpression) != nil
+        }) else {
+            throw HueBoardError.invalidResponse("A custom palette requires four colors in #RRGGBB format.")
         }
     }
 }
