@@ -10,7 +10,13 @@ Four Mac Catalyst hosted-view tests passed on the production view sources. At a 
 
 Node 22.23.1 and pnpm 10.17.1 passed all 202 JavaScript tests and TypeScript again on `cc0ce29`. On `f8a6005`, eight timing scenarios and 194 Scriptable browser assertions also passed. Both bundle checks passed, and regenerating the iOS contract produced the tracked bytes.
 
-Two fresh preference copies from the paired iPhone identified the installed app as **0.2.2 (6)**. Each had a valid checksum, idle playback and empty recovery and live-session records. The phone still requires separate verification of build 8.
+Xcode 27.2 (27B52) ran the complete 46-method app model suite in an isolated Mac Catalyst host. All 46 passed with zero skips, including room dimmer isolation, favorites import failure, scoped restore readiness, and retaining unresolved color and temperature baselines. The host used the production models and app tests from `f8a6005`, which are byte-identical in `cc0ce29`. The host substituted a stub for iOS background scheduling. Testing that behavior requires iOS. The GitHub Actions job for `dcd360b` ran zero steps. Its check annotation reported a billing lock. [Hosted run](https://github.com/wyattowalsh/hue-board/actions/runs/44911591183)
+
+Xcode built the `cc0ce29` Debug app and its hosted and UI test bundles against the generic iPhoneOS SDK. The saved Xcode result reported success with zero errors and zero warnings. The generated test manifest and application metadata identified **0.3.0 (8)**. The command wrapper stalled after Xcode completed. An independent result-bundle and product inspection recovered the receipt.
+
+The focused Swift package run passed nine tests, including the schema 2, eleven-decimal, 512-frame JavaScriptCore digest and all six playback transport tests. The full Apple package run then passed 129 cases with zero skips. Xcode produced a signed **0.3.0 (8)** development app with the existing development bundle identifier and signing team. Both the app and the independent DeviceSmoke runner passed strict signature checks. The signed products stay in the ignored qualification directory on the Mac.
+
+Two fresh preference copies from the paired iPhone identified the installed app as **0.2.2 (6)**. Each had a valid checksum, idle playback and empty recovery and live-session records. At the subsequent browse preflight iOS reported that a passcode was required. The runner stopped before launching the app. Build 8 still requires separate verification on iPhone.
 
 ## Build 7 qualification
 
