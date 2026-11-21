@@ -1,0 +1,49 @@
+{
+  "revision": "F02-1",
+  "provenance": "Hand-authored synthetic household and independent expected values for the Hue Board 0.3.0 test suite.",
+  "rooms": [
+    {"id": "paper-stage", "fixtures": [
+      {"id": "right", "name": "Lamp", "capability": "color", "x": 0.9},
+      {"id": "left", "name": "Lamp", "capability": "color", "x": 0.1},
+      {"id": "mid-a", "name": "Middle A", "capability": "color", "x": 0.3},
+      {"id": "mid-b", "name": "Middle B", "capability": "color", "x": 0.3},
+      {"id": "steady", "name": "Reading", "capability": "color", "x": 0.2, "role": "task"},
+      {"id": "excluded", "name": "Spare", "capability": "color", "x": 0.4, "selected": false},
+      {"id": "bright-min", "name": "Spot", "capability": "color", "x": 0.8, "minimumBrightness": 70},
+      {"id": "white", "name": "White lamp", "capability": "white", "x": 0.25}
+    ]},
+    {"id": "paper-hall", "fixtures": [
+      {"id": "hall-lamp", "name": "Lamp", "capability": "color", "x": 0.4},
+      {"id": "hall-strip", "name": "Strip", "capability": "color", "x": 0.6}
+    ]}
+  ],
+  "configurations": [
+    {"id": "area-b", "name": "Desk", "locations": {"service_locations": [
+      {"service": {"rid": "right", "rtype": "light"}, "position": {"x": 0, "y": 0, "z": 0}}
+    ]}},
+    {"id": "area-a", "name": "Desk", "locations": {"service_locations": [
+      {"service": {"rid": "left", "rtype": "light"}, "position": {"x": 0, "y": 0, "z": 0}}
+    ]}},
+    {"id": "area-wide", "name": "Movie", "locations": {"service_locations": [
+      {"service": {"rid": "renderer-left", "rtype": "entertainment"}, "position": {"x": -0.5, "y": 0.75, "z": 0}},
+      {"service": {"rid": "right", "rtype": "light"}, "position": {"x": 0.75, "y": -0.5, "z": 0}},
+      {"service": {"rid": "hall-lamp", "rtype": "light"}, "position": {"x": 0.75, "y": -0.5, "z": 1}},
+      {"service": {"rid": "hall-strip", "rtype": "light"}, "positions": [{"x": 0.25, "y": 0, "z": 0}, {"x": 0.75, "y": 0.5, "z": 0}]}
+    ]}}
+  ],
+  "services": [{"id": "renderer-left", "renderer_reference": {"rid": "left", "rtype": "light"}}],
+  "discovery": [
+    {"roomID": "paper-stage", "fixtureCount": 8,
+     "ranked": [{"id": "area-wide", "fixtureIDs": ["left", "right"]}, {"id": "area-a", "fixtureIDs": ["left"]}, {"id": "area-b", "fixtureIDs": ["right"]}],
+     "topView": {"left": [0.30, 0.20], "right": [0.80, 0.70]}},
+    {"roomID": "paper-hall", "fixtureCount": 2,
+     "ranked": [{"id": "area-wide", "fixtureIDs": ["hall-lamp", "hall-strip"]}],
+     "topView": {"hall-lamp": [0.80, 0.70], "hall-strip": [0.70, 0.40]}}
+  ],
+  "sweep": {
+    "roomID": "paper-stage", "brightnessLimit": 50, "distinctRanks": 3,
+    "eligibleIDs": ["right", "left", "mid-a", "mid-b"],
+    "expectedPhases": {"right": 0.6666666666666666, "left": 0, "mid-a": 0.3333333333333333, "mid-b": 0.3333333333333333,
+                       "steady": 0.91, "excluded": 0.91, "bright-min": 0.91, "white": 0.91}
+  }
+}

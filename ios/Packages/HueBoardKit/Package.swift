@@ -29,7 +29,7 @@ let package = Package(
         .testTarget(
             name: "HueBoardKitTests",
             dependencies: ["HueBoardKit"],
-            resources: [.copy("Fixtures/Build6Transfer")]
+            resources: [.copy("Fixtures/Build6Transfer"), .copy("Fixtures/synthetic-household-v1.json")]
         ),
         .testTarget(
             name: "HueBoardNativeCoreTests",

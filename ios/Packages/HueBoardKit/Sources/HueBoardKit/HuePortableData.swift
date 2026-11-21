@@ -44,6 +44,12 @@ public enum HuePortableData: Equatable, Sendable {
     case setup(HueSetupDocument)
 }
 
+/// Review metadata is local to a single import. It is never encoded into a transfer file.
+public struct HuePortableImport: Equatable, Sendable {
+    public let value: HuePortableData
+    public let warnings: [String]
+}
+
 public enum HuePortableDataCodec {
     public static let maximumFileSize = 512 * 1024
 
@@ -89,16 +95,20 @@ public enum HuePortableDataCodec {
     }
 
     public static func decode(_ data: Data, contract: HueBoardContract) throws -> HuePortableData {
+        try decodeForReview(data, contract: contract).value
+    }
+
+    public static func decodeForReview(_ data: Data, contract: HueBoardContract) throws -> HuePortableImport {
         try checkSize(data)
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw HueBoardError.invalidResponse("Choose a Hue Board JSON document.")
         }
         if root["format"] as? String == HueSetupCodec.format {
-            return .setup(try HueSetupCodec.decode(root: root, contract: contract))
+            return .init(value: .setup(try HueSetupCodec.decode(root: root, contract: contract)), warnings: [])
         }
         guard root["format"] as? String == format else {
             let result = try HueSceneDocumentCodec.decode(data, contract: contract)
-            return .mixLibrary([result.document])
+            return .init(value: .mixLibrary([result.document]), warnings: result.warnings)
         }
         let decoder = JSONDecoder()
         guard Set(root.keys) == ["format", "schema", "kind", "payload"],
@@ -110,6 +120,7 @@ public enum HuePortableDataCodec {
             try decoder.decode(File<Payload>.self, from: data).payload
         }
         let value: HuePortableData
+        var warnings: [String] = []
         switch header.kind {
         case .studioDraft: value = .studioDraft(try decodePayload(HueStudioDraft.self))
         case .customPalette: value = .customPalette(try decodePayload([String].self))
@@ -119,16 +130,18 @@ public enum HuePortableDataCodec {
                   documents.count <= HueSceneDocumentCodec.maximumLibraryCount else {
                 throw HueBoardError.invalidResponse("This file exceeds the Studio library limit or is malformed.")
             }
-            value = .mixLibrary(try documents.map { document in
+            value = .mixLibrary(try documents.enumerated().map { index, document in
                 let documentData = try JSONSerialization.data(withJSONObject: document)
-                return try HueSceneDocumentCodec.decode(documentData, contract: contract).document
+                let result = try HueSceneDocumentCodec.decode(documentData, contract: contract)
+                warnings.append(contentsOf: result.warnings.map { "Mix \(index + 1): \($0)" })
+                return result.document
             })
         case .favorites: value = .favorites(try decodePayload([String].self))
         case .roomLayout: value = .roomLayout(try decodePayload(HueRoomLayout.self))
         case .safety: value = .safety(try decodePayload(HueSafetyPreferences.self))
         }
         try validate(value, contract: contract)
-        return value
+        return .init(value: value, warnings: warnings)
     }
 
     private static func checkSize(_ data: Data) throws {

@@ -30,6 +30,12 @@ extension AppModel {
         ))
     }
 
+    func reviewPortableImport(_ imported: HuePortableImport) throws -> String {
+        let changes = try reviewPortableImport(imported.value)
+        guard !imported.warnings.isEmpty else { return changes }
+        return ([changes] + imported.warnings).joined(separator: "\n\n")
+    }
+
     func reviewPortableImport(_ value: HuePortableData) throws -> String {
         try requireIdleTransfer()
         switch value {

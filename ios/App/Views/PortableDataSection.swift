@@ -7,7 +7,6 @@ struct PortableDataSection: View {
     @State private var isImporting = false
     @State private var isExporting = false
     @State private var isReadingFile = false
-    @State private var review: ImportReview?
     @State private var setupSheet: SetupSheet?
     @State private var exportFile: HuePortableFile?
     @State private var exportName = "Hue Board"
@@ -19,19 +18,15 @@ struct PortableDataSection: View {
     #endif
 
     private enum SetupSheet: Identifiable {
-        case export, review(HueSetupDocument)
+        case export, review(HueSetupDocument), file(HuePortableImport, String)
 
         var id: String {
             switch self {
             case .export: "export"
             case .review: "review"
+            case .file: "file"
             }
         }
-    }
-
-    private struct ImportReview {
-        let value: HuePortableData
-        let message: String
     }
 
     var body: some View {
@@ -81,6 +76,10 @@ struct PortableDataSection: View {
                 SetupExportView(available: model.availableSetupExportSections) {
                     feedback = "Setup exported."
                 }
+            case let .file(imported, message):
+                PortableFileReviewView(imported: imported, message: message) {
+                    feedback = "File imported."
+                }
             case .review(let setup):
                 SetupImportReviewView(setup: setup) {
                     feedback = "Setup imported."
@@ -93,27 +92,6 @@ struct PortableDataSection: View {
                 failure = error.localizedDescription
             }
         }
-        .alert("Import Hue Board file", isPresented: reviewPresented, presenting: review) { pending in
-            Button("Import") {
-                Task {
-                    do {
-                        // A changed inventory or local setting needs a new confirmation.
-                        let currentMessage = try model.reviewPortableImport(pending.value)
-                        guard pending.message == currentMessage else {
-                            failure = "Local data changed while you reviewed this file. Open the file again to see the current changes."
-                            return
-                        }
-                        try await model.applyPortableImport(pending.value)
-                        feedback = "File imported. Your lights were untouched."
-                    } catch {
-                        failure = error.localizedDescription
-                    }
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: { pending in
-            Text(pending.message)
-        }
         .alert("Couldn’t transfer file", isPresented: failurePresented) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -123,21 +101,24 @@ struct PortableDataSection: View {
         .task {
             let env = ProcessInfo.processInfo.environment
             guard !didOpenSampleSetup, env["HUE_BOARD_UI_TEST_MODE"] == "1",
-                  env["HUE_BOARD_SETUP_FIXTURE"] == "limits" else { return }
+                  let fixture = env["HUE_BOARD_SETUP_FIXTURE"] else { return }
             didOpenSampleSetup = true
             do {
-                let fixture = HueSetupDocument(favorites: ["ion-eclipse"],
-                                               safety: .init(reduceLightMotion: true, maximumDynamicBrightness: 95))
-                try openImportReview(HuePortableDataCodec.encode(.setup(fixture), contract: model.contract))
+                switch fixture {
+                case "legacy":
+                    let json = ##"{"app":"hue-board","schema":3,"settings":{"brightness":150,"customColors":["#bad"]}}"##
+                    try openImportReview(Data(json.utf8))
+                case "limits":
+                    let limits = HueSetupDocument(favorites: ["ion-eclipse"],
+                                                  safety: .init(reduceLightMotion: true, maximumDynamicBrightness: 95))
+                    try openImportReview(HuePortableDataCodec.encode(.setup(limits), contract: model.contract))
+                default: break
+                }
             } catch {
                 failure = error.localizedDescription
             }
         }
         #endif
-    }
-
-    private var reviewPresented: Binding<Bool> {
-        Binding(get: { review != nil }, set: { if !$0 { review = nil } })
     }
 
     private var failurePresented: Binding<Bool> {
@@ -160,11 +141,11 @@ struct PortableDataSection: View {
     }
 
     private func openImportReview(_ data: Data) throws {
-        let value = try HuePortableDataCodec.decode(data, contract: model.contract)
-        if case .setup(let setup) = value {
+        let imported = try HuePortableDataCodec.decodeForReview(data, contract: model.contract)
+        if case .setup(let setup) = imported.value {
             setupSheet = .review(setup)
         } else {
-            review = .init(value: value, message: try model.reviewPortableImport(value))
+            setupSheet = .file(imported, try model.reviewPortableImport(imported))
         }
     }
 
@@ -183,5 +164,68 @@ extension HuePortableFile {
     static func isCancellation(_ error: Error) -> Bool {
         let cocoa = error as NSError
         return cocoa.domain == NSCocoaErrorDomain && cocoa.code == NSUserCancelledError
+    }
+}
+
+private struct PortableFileReviewView: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let imported: HuePortableImport
+    let didImport: () -> Void
+    @State private var message: String
+    @State private var notice: String?
+    @State private var saving = false
+
+    init(imported: HuePortableImport, message: String, didImport: @escaping () -> Void) {
+        self.imported = imported
+        self.didImport = didImport
+        _message = State(initialValue: message)
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Changes on this iPhone") {
+                    ForEach(Array(message.components(separatedBy: "\n\n").enumerated()), id: \.offset) { _, paragraph in
+                        Text(verbatim: paragraph).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                if let notice { Text(notice) }
+                if saving { ProgressView("Importing file…") }
+            }
+            .navigationTitle("Review file")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }.disabled(saving)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Import") {
+                        guard !saving else { return }
+                        saving = true
+                        Task { await confirm() }
+                    }
+                    .disabled(saving || !model.canImportPortableData)
+                }
+            }
+        }
+        .interactiveDismissDisabled(saving)
+    }
+
+    private func confirm() async {
+        defer { saving = false }
+        do {
+            let current = try model.reviewPortableImport(imported)
+            guard message == current else {
+                message = current
+                notice = "Local data changed. Check the updated review before importing."
+                return
+            }
+            try await model.applyPortableImport(imported.value)
+            didImport()
+            dismiss()
+        } catch {
+            notice = error.localizedDescription
+        }
     }
 }

@@ -598,8 +598,8 @@ public enum HueSceneDocumentCodec {
             name: String
         ) -> Int {
             guard let value, value.isFinite else { return fallback }
-            let rounded = Int(value.rounded())
-            let result = min(max(rounded, range.lowerBound), range.upperBound)
+            let clamped = min(max(value, Double(range.lowerBound)), Double(range.upperBound))
+            let result = Int(clamped.rounded())
             if Double(result) != value { warnings.append("Normalized \(name) to the supported range.") }
             return result
         }

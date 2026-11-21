@@ -27,33 +27,35 @@ final class HueRoomDiscoveryTests: XCTestCase {
         XCTAssertEqual(HueRoomDiscovery(configurations: [duplicate, duplicate], services: [], in: room), .noMatchingPositions)
     }
 
-    func testCoverageUsesCurrentRoomMembershipAndStableOrder() {
-        let configurations = [configuration("b", ["left"]), configuration("a", ["right"]),
-                              configuration("whole", ["right", "outside", "left"])]
-        let result = HueRoomDiscovery(configurations: configurations, services: [], in: area(["right", "left"]))
-        guard case let .matches(options, count) = result else { return XCTFail("Expected three layouts") }
-        XCTAssertEqual(count, 2)
-        XCTAssertEqual(options.map { $0.id.rawValue }, ["whole", "a", "b"])
-        XCTAssertEqual(options.map(\.matchedCount), [2, 1, 1])
+    func testCoverageUsesCurrentRoomMembershipAndStableOrder() throws {
+        let fixture = try SyntheticHousehold.load()
+        for expected in fixture.discovery {
+            let room = try fixture.room(expected.roomID)
+            let result = HueRoomDiscovery(configurations: fixture.configurations, services: fixture.services, in: room.area)
+            guard case let .matches(options, count) = result else { return XCTFail("Missing layouts for \(room.id)") }
+            XCTAssertEqual(count, expected.fixtureCount)
+            XCTAssertEqual(options.map { $0.id.rawValue }, expected.ranked.map(\.id))
+            for (option, match) in zip(options, expected.ranked) {
+                XCTAssertEqual(option.matchedCount, match.fixtureIDs.count)
+                let matched = room.area.lights.filter { option.hasPosition(for: $0.id) }
+                XCTAssertEqual(Set(matched.map { $0.id.rawValue }), Set(match.fixtureIDs))
+            }
+        }
     }
 
     func testAsymmetricTopViewUsesHorizontalAndDepthIndependentOfHeight() throws {
-        let ids = ["left-front", "right-back", "elevated"]
-        let room = area(ids)
-        let coords: [HueEntertainmentPosition] = [.init(x: -0.5, y: 0.75, z: 0), .init(x: 0.75, y: -0.5, z: 0),
-                                                   .init(x: 0.75, y: -0.5, z: 1)]
-        let locations = zip(ids, coords).map { id, point in
-            HueEntertainmentConfigurationResource.ServiceLocation(
-                service: .init(resourceID: .init(rawValue: id), resourceType: "light"), positions: nil, position: point)
-        }
-        let saved = HueEntertainmentConfigurationResource(id: .init(rawValue: "test"), metadata: nil, name: nil,
-                                                         locations: .init(serviceLocations: locations))
-        let result = HueRoomDiscovery(configurations: [saved], services: [], in: room)
-        let layout = try XCTUnwrap(result.arrangements.first).applying(to: .startingLayout(for: room), in: room)
-        let expected = [(0.3, 0.2), (0.8, 0.7), (0.8, 0.7)]
-        for (actual, point) in zip(layout.placements, expected) {
-            XCTAssertEqual(actual.x, point.0, accuracy: 1e-12)
-            XCTAssertEqual(actual.y, point.1, accuracy: 1e-12)
+        let fixture = try SyntheticHousehold.load()
+        for expected in fixture.discovery {
+            let room = try fixture.room(expected.roomID)
+            let result = HueRoomDiscovery(configurations: fixture.configurations, services: fixture.services, in: room.area)
+            let saved = try XCTUnwrap(result.arrangements.first)
+            let layout = try saved.applying(to: room.layout, in: room.area)
+            for (id, point) in expected.topView {
+                let actual = try XCTUnwrap(layout.placements.first { $0.id.rawValue == id })
+                XCTAssertEqual(point.count, 2)
+                XCTAssertEqual(actual.x, try XCTUnwrap(point.first), accuracy: 1e-12)
+                XCTAssertEqual(actual.y, try XCTUnwrap(point.last), accuracy: 1e-12)
+            }
         }
     }
 }

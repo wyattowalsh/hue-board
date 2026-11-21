@@ -41,6 +41,34 @@ final class HuePortableDataTests: XCTestCase {
         XCTAssertEqual(library.first?.settings.brightness, 46)
     }
 
+    func testImportReviewCarriesStandaloneAndPerMemberMigrationWarnings() throws {
+        let contract = try HueBoardContractLoader.load()
+        let raw = Data(#"{"app":"hue-board","schema":3,"settings":{"brightness":150,"customColors":["#bad"]}}"#.utf8)
+        let migrated = try HueSceneDocumentCodec.decode(raw, contract: contract)
+        let standalone = try HuePortableDataCodec.decodeForReview(raw, contract: contract)
+        XCTAssertEqual(standalone.warnings, migrated.warnings)
+        XCTAssertTrue(standalone.warnings.contains("Clamped brightness to the supported range."))
+        XCTAssertTrue(standalone.warnings.contains("Replaced invalid custom colors with defaults."))
+        XCTAssertEqual(standalone.value, .mixLibrary([migrated.document]))
+        XCTAssertEqual(try HuePortableDataCodec.decode(raw, contract: contract), standalone.value)
+
+        let canonical = HueSceneDocumentCodec.makeDocument(name: "Existing canonical mix", settings: .init(),
+                                                           source: .init(productVersion: contract.release, implementation: "native"))
+        let canonicalBytes = try HueSceneDocumentCodec.encode(canonical, contract: contract)
+        XCTAssertTrue(try HuePortableDataCodec.decodeForReview(canonicalBytes, contract: contract).warnings.isEmpty)
+        let members = try [JSONSerialization.jsonObject(with: canonicalBytes), JSONSerialization.jsonObject(with: raw)]
+        let library = try JSONSerialization.data(withJSONObject: [
+            "format": "hue-board.native-data", "schema": 1, "kind": "mixLibrary", "payload": members
+        ])
+        let reviewed = try HuePortableDataCodec.decodeForReview(library, contract: contract)
+        XCTAssertEqual(reviewed.warnings, migrated.warnings.map { "Mix 2: \($0)" })
+        XCTAssertEqual(reviewed.value, .mixLibrary([canonical, migrated.document]))
+
+        let encoded = try HuePortableDataCodec.encode(reviewed.value, contract: contract)
+        XCTAssertFalse(String(decoding: encoded, as: UTF8.self).contains("Clamped brightness"))
+        XCTAssertTrue(try HuePortableDataCodec.decodeForReview(encoded, contract: contract).warnings.isEmpty)
+    }
+
     func testRejectsBadSchemaScopesFavoritesAndPayloadSize() throws {
         let contract = try HueBoardContractLoader.load()
         let badValues: [HuePortableData] = [

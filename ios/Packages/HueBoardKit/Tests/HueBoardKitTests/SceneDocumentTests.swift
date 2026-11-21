@@ -69,6 +69,26 @@ final class SceneDocumentTests: XCTestCase {
         XCTAssertThrowsError(try HueSceneDocumentCodec.decode(unknownSetting, contract: contract))
     }
 
+    func testLegacyIntegerFieldsClampBeforeConversionAndPreserveOrdinaryRounding() throws {
+        let contract = try contract
+        let lastPalette = try XCTUnwrap(contract.palettes.map(\.index).max())
+        for (literal, seed, density, palette) in [
+            ("1e30", 999_999, 4, lastPalette),
+            ("-1e30", 0, 1, 0),
+            ("2.5", 3, 3, 3),
+            ("2", 2, 2, 2)
+        ] {
+            let data = Data("""
+                {"app":"hue-board","schema":3,"settings":{"seed":\(literal),"density":\(literal),"paletteA":\(literal)}}
+                """.utf8)
+            let migrated = try HueSceneDocumentCodec.decode(data, contract: contract)
+            XCTAssertEqual(migrated.document.settings.seed, seed)
+            XCTAssertEqual(migrated.document.settings.density, density)
+            XCTAssertEqual(migrated.document.settings.paletteA, palette)
+            XCTAssertEqual(migrated.warnings.contains("Normalized seed to the supported range."), literal != "2")
+        }
+    }
+
     func testLegacySchema3MigrationIsDeterministicAndClamped() throws {
         let contract = try contract
         let data = Data(

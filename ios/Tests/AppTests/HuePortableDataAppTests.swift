@@ -33,6 +33,22 @@ final class HuePortableDataAppTests: XCTestCase {
     }
 
     @MainActor
+    func testFilesReviewExplainsLegacySubstitutionsBeforeSaving() throws {
+        let name = "HueBoard.LegacyReview." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let model = AppModel(setupDefaults: defaults)
+        let raw = Data(#"{"app":"hue-board","schema":3,"settings":{"brightness":150,"customColors":["#bad"]}}"#.utf8)
+        let imported = try HuePortableDataCodec.decodeForReview(raw, contract: model.contract)
+        let message = try model.reviewPortableImport(imported)
+        XCTAssertTrue(message.contains("1 new mix"))
+        XCTAssertTrue(message.contains("Clamped brightness to the supported range."))
+        XCTAssertTrue(message.contains("Replaced invalid custom colors with defaults."))
+        XCTAssertEqual(try model.reviewPortableImport(imported), message)
+        XCTAssertTrue(model.savedStudioDocuments.isEmpty)
+    }
+
+    @MainActor
     func testImportDuringRecoveryPreservesDraftAndRecoveryFlag() async throws {
         let model = AppModel()
         let initial = model.studioSettings.customColors

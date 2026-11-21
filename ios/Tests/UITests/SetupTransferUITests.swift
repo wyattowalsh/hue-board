@@ -9,6 +9,39 @@ final class SetupTransferUITests: XCTestCase {
         #endif
     }
 
+    func testLegacyConversionWarningsAppearBeforeImport() {
+        let app = XCUIApplication()
+        app.launchEnvironment["HUE_BOARD_UI_TEST_MODE"] = "1"
+        app.launchEnvironment["HUE_BOARD_SETUP_FIXTURE"] = "legacy"
+        app.launch()
+        let settings = app.buttons["Settings"]
+        XCTAssertTrue(settings.wait(for: \.isHittable, toEqual: true, timeout: 10))
+        settings.tap()
+        let review = app.navigationBars["Review file"]
+        for _ in 0..<8 {
+            if review.waitForExistence(timeout: 0.3) { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        for text in ["Migrated a legacy Scriptable schema 3 mix to scene schema 2.",
+                     "Replaced invalid custom colors with defaults.",
+                     "Clamped brightness to the supported range."] {
+            let warning = app.staticTexts[text]
+            for _ in 0..<6 {
+                if warning.exists && warning.isHittable { break }
+                app.swipeUp()
+            }
+            XCTAssertTrue(warning.isHittable)
+        }
+        let capture = XCTAttachment(screenshot: app.screenshot())
+        capture.name = "Synthetic-legacy-migration-warnings"
+        capture.lifetime = .keepAlways
+        add(capture)
+        XCTAssertTrue(review.buttons["Import"].isEnabled)
+        review.buttons["Cancel"].tap()
+        XCTAssertTrue(review.waitForNonExistence(timeout: 5))
+    }
+
     func testReviewSelectedLimitsAndCancelWithoutChangingTheDevice() {
         let app = XCUIApplication()
         app.launchEnvironment["HUE_BOARD_UI_TEST_MODE"] = "1"
