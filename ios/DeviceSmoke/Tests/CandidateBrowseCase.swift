@@ -27,7 +27,7 @@ class CandidateBrowseCase: XCTestCase {
         let playback = app.buttons["studio-playback"]
         reveal(playback, in: app)
         playback.tap()
-        XCTAssertTrue(app.navigationBars["Playback"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Inputs & playback"].waitForExistence(timeout: 5))
     }
 
     func menuItem(_ title: String, in app: XCUIApplication) -> XCUIElement {

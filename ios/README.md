@@ -40,12 +40,12 @@ The navigation update is the **0.3.0 (build 8)** internal source. Build 7 has se
 | --- | --- |
 | **Lights** | Choose a room or zone. **Turn on** and **Turn off** act immediately. Set the brightness slider, then tap **Apply brightness & turn on** to apply that level. Tap an individual light for the controls it supports. |
 | **Scenes** | Find a scene by name, color or mood. Open its details to mark a favorite, **Edit in Studio**, or **Play on lights** using the Bridge. Browsing and editing work offline. |
-| **Studio** | Preview the mix in your selected room or the offline sample. Scrub the timeline and expand **Light details** for individual targets. **Edit mix**, **Cue sequence**, **Saved mixes** and **Playback** each open a dedicated editor. |
+| **Studio** | Preview the mix in your selected room or the offline sample. Scrub the timeline and expand **Light details** for individual targets. **Edit mix**, **Cue sequence**, **Saved mixes** and **Inputs & playback** each open a dedicated editor. |
 | **Room** | Place lights on the map or use **Fine-tune position** for precise adjustments. **Studio settings for this light** controls its role, output trim and ceiling. |
 
 For a layout already saved in Hue, select the matching Entertainment area under **Room → Layouts from Hue** and review the positions. **Save positions** updates matched lights on the local map and preserves their animation timing. To set the movement order from those positions, choose **Preview left-to-right sweep**, review the affected lights and tap **Save timing**. Room membership comes from the Hue Bridge. Apple Home geometry and two-way layout sync are unsupported.
 
-For reactive lighting, open **Studio → Playback** and select **Microphone** or **Audio or video file**. **Preview input** shows a level or video tint on the phone. **Play mix on lights** starts a bounded session for the selected room. When Reduce Light Motion or iOS Dim Flashing Lights is enabled, choose **Patterns** for playback on lights. Change motion and brightness limits in **Settings → Playback limits**.
+For reactive lighting, open **Studio → Inputs & playback** and select **Microphone** or **Audio or video file**. **Preview input** shows a level or video tint on the phone. **Play mix on lights** starts a bounded session for the selected room. When Reduce Light Motion or iOS Dim Flashing Lights is enabled, choose **Patterns** for playback on lights. Change motion and brightness limits in **Settings → Playback limits**.
 
 ## Architecture
 
@@ -111,6 +111,8 @@ On Apple test hosts, `HueBoardAppleEngineTests` executes those 512 cases through
 ## Candidate build evidence
 
 These checks were recorded during development of the named revisions. The build 6 qualification below applies to **0.2.2 (6)**. The **0.3.0 (7)** qualification record predates the build 8 navigation update. Installation and device evidence is recorded separately below.
+
+The build 8 record covers the redesigned screens, the synthetic rendering conditions, and the installed version checked on the paired iPhone. [Build 8 interface verification](../docs/native-0.3.0/qualification.md#build-8-interface)
 
 - Xcode 27.2 signed generic iPhoneOS Debug build: passed, code signature verified. The spatial/cue candidate was subsequently installed as **0.2.1 (build 5)**.
 - Swift package tests: nine spatial/cue model and persistence tests passed, plus two synthetic Native Live frame tests with no Bridge writes.

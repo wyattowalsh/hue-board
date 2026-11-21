@@ -18,7 +18,7 @@ final class StudioInputPreviewUITests: XCTestCase {
     let playback = app.buttons["studio-playback"]
     reveal(playback, in: app)
     playback.tap()
-    XCTAssertTrue(app.navigationBars["Playback"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.navigationBars["Inputs & playback"].waitForExistence(timeout: 5))
     let source = app.buttons["studio-live-input"]
     XCTAssertTrue(source.wait(for: \.isHittable, toEqual: true, timeout: 5))
     source.tap()

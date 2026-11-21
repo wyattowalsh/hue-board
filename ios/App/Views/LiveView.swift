@@ -36,7 +36,7 @@ struct LiveView: View {
 
             Section {
                 NavigationLink(value: AppModel.StudioDestination.playback) {
-                    Label("Playback", systemImage: "lightbulb.2")
+                    Label("Inputs & playback", systemImage: "lightbulb.2")
                 }
                 .accessibilityIdentifier("studio-playback")
             }
@@ -201,7 +201,7 @@ struct LiveView: View {
                 }
             }
         }
-        .navigationTitle("Playback")
+        .navigationTitle("Inputs & playback")
         .navigationBarTitleDisplayMode(.inline)
         .onDisappear { model.studioInputPreview.stop() }
     }

@@ -21,6 +21,16 @@ struct RoomLayoutView: View {
         model.selectedTab == .room && scenePhase == .active ? model.roomDiscoveryScope : nil
     }
 
+    private var visibleDiscovery: RoomDiscoverySession.State {
+        guard let scope = discoveryScope, scope == session.scope else { return .idle }
+        return session.state
+    }
+
+    private var hasMatchingLayouts: Bool {
+        if case .loaded(.matches) = visibleDiscovery { return true }
+        return false
+    }
+
     private var activePlacement: HueFixturePlacement? {
         model.roomLayout?.placements.first(where: { $0.id == model.focusedFixtureID })
     }
@@ -47,6 +57,16 @@ struct RoomLayoutView: View {
                         if let issue = model.roomLayoutIssue {
                             Label(issue, systemImage: "exclamationmark.triangle")
                         } else if let area = model.selectedArea, let layout = model.roomLayout {
+                            let scope = discoveryScope
+                            let hueLayouts = RoomDiscoveryCard(
+                                state: visibleDiscovery, canRead: scope != nil,
+                                onRefresh: { refresh &+= 1 },
+                                onManual: { reader.scrollTo("room-map", anchor: .top) }
+                            ) { arrangement in
+                                guard let scope, scope == discoveryScope, scope == session.scope else { return }
+                                do { layoutPreview = try model.previewRoomArrangement(arrangement, from: scope) }
+                                catch { model.errorMessage = error.localizedDescription }
+                            }
                             Section {
                                 RoomFixtureMap(
                                     area: area, layout: layout, focusedID: model.focusedFixtureID,
@@ -60,6 +80,7 @@ struct RoomLayoutView: View {
                                     }
                                 )
                                 .id("room-map")
+                                if hasMatchingLayouts { hueLayouts }
                                 Picker("Light", selection: Binding(
                                     get: { model.focusedFixtureID },
                                     set: { model.focusedFixtureID = $0 }
@@ -94,17 +115,8 @@ struct RoomLayoutView: View {
                                 }
                             }
 
-                            Section {
-                                RoomDiscoveryCard(
-                                    state: discoveryScope != nil && discoveryScope == session.scope ? session.state : .idle,
-                                    canRead: discoveryScope != nil,
-                                    onRefresh: { refresh &+= 1 },
-                                    onManual: { reader.scrollTo("room-map", anchor: .top) }
-                                ) { arrangement in
-                                    guard let scope = discoveryScope, scope == session.scope else { return }
-                                    do { layoutPreview = try model.previewRoomArrangement(arrangement, from: scope) }
-                                    catch { model.errorMessage = error.localizedDescription }
-                                }
+                            if !hasMatchingLayouts {
+                                Section { hueLayouts }
                             }
                             Section("Layout tools") {
                                 Button("Preview left-to-right sweep", systemImage: "arrow.right") {

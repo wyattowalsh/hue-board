@@ -160,7 +160,7 @@ Physical orientation requires a known asymmetric Hue Entertainment area. Compare
 
 **Pass:** Native Live is bounded, interruptible, single-area, and recoverable. Do not expect high-rate Hue Entertainment fidelity.
 
-For separately approved Live input checks, choose **Microphone** or **Local media** under Studio **Playback**. Confirm selecting the input or a local file sends no lighting commands. With the approved fixtures and brightness limit, test permission denial, changes between quiet and loud audio, video tint, and moving Hue Board to the background. Capture and media playback should stop on backgrounding. Verify the saved baseline before continuing with further lighting actions.
+For separately approved Live input checks, choose **Microphone** or **Audio or video file** under **Studio → Inputs & playback**. Confirm selecting the input or a local file sends no lighting commands. With the approved fixtures and brightness limit, test permission denial, changes between quiet and loud audio, video tint, and moving Hue Board to the background. Capture and media playback should stop on backgrounding. Verify the saved baseline before continuing with further lighting actions.
 
 ### E. Native Live background behavior
 
