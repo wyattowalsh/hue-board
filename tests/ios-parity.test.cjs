@@ -35,12 +35,12 @@ test('native contract mirrors JavaScript definitions',()=>{
 });
 
 test('native engine manifest covers all 512 deterministic frames',()=>{
-  assert.equal(golden.schema,1);
+  assert.equal(golden.schema,2);
   assert.equal(golden.release,require('../package.json').version);
   assert.equal(golden.algorithm,'sha256');
-  assert.equal(golden.numberFormat,'fixed-12-posix');
+  assert.equal(golden.numberFormat,'fixed-11-posix');
   assert.equal(golden.caseCount,PRESET_LIBRARY.length*golden.times.length*golden.positions.length);
-  const fixed=value=>Math.abs(value)<5e-13?'0.000000000000':Number(value).toFixed(12);
+  const fixed=value=>Math.abs(value)<5e-12?'0.00000000000':Number(value).toFixed(11);
   const lines=[];
   const observed=[];
   for(const preset of PRESET_LIBRARY){

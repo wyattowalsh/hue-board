@@ -123,7 +123,8 @@ final class HueBridgeTrustDelegate: NSObject, URLSessionDelegate, URLSessionTask
         guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
               challenge.protectionSpace.host.lowercased() == expectedHost,
               let trust = challenge.protectionSpace.serverTrust,
-              let leaf = SecTrustGetCertificateAtIndex(trust, 0)
+              let chain = SecTrustCopyCertificateChain(trust) as? [SecCertificate],
+              let leaf = chain.first
         else {
             completionHandler(.cancelAuthenticationChallenge, nil)
             return

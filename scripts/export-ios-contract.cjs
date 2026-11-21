@@ -18,7 +18,10 @@ const contract={
   }))
 };
 const times=[0,7.25,31.5,83.125],positions=[0,.125,.5,.875];
-const fixed=value=>Math.abs(value)<5e-13?'0.000000000000':Number(value).toFixed(12);
+// V8 and JavaScriptCore can differ by one unit at the 12th decimal after transcendental math.
+// Eleven fixed decimals remain far tighter than Hue output precision while producing a stable
+// cross-runtime digest. Anchors retain 12 decimals for inspectable diagnostics.
+const fixed=value=>Math.abs(value)<5e-12?'0.00000000000':Number(value).toFixed(11);
 const lines=[];const anchors=[];
 for(const preset of PRESET_LIBRARY){
   const settings=ENGINE.clean({...ENGINE.defaults,...preset.settings,brightness:72,seed:731,topology:'ring'});
@@ -29,7 +32,7 @@ for(const preset of PRESET_LIBRARY){
     if(index<4||index>=PRESET_LIBRARY.length*times.length*positions.length-4)anchors.push({preset:preset.id,time,position,rgb:frame.rgb.map(v=>+v.toFixed(12)),brightness:+frame.b.toFixed(12)});
   }
 }
-const golden={schema:1,release:pkg.version,algorithm:'sha256',numberFormat:'fixed-12-posix',brightness:72,seed:731,topology:'ring',times,positions,caseCount:lines.length,sha256:crypto.createHash('sha256').update(lines.join(''),'utf8').digest('hex'),anchors};
+const golden={schema:2,release:pkg.version,algorithm:'sha256',numberFormat:'fixed-11-posix',brightness:72,seed:731,topology:'ring',times,positions,caseCount:lines.length,sha256:crypto.createHash('sha256').update(lines.join(''),'utf8').digest('hex'),anchors};
 const out=path.join(root,'ios/Packages/HueBoardKit/Sources/HueBoardKit/Resources');
 fs.mkdirSync(out,{recursive:true});
 fs.writeFileSync(path.join(out,'hue-board-contract.json'),JSON.stringify(contract,null,2)+'\n');

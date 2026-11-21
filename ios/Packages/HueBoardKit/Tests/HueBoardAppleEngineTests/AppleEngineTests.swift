@@ -14,10 +14,10 @@ final class AppleEngineTests: XCTestCase {
         let manifest = try HueEngineGoldenLoader.load()
         let engine = try JavaScriptHueEngine()
 
-        XCTAssertEqual(manifest.schema, 1)
+        XCTAssertEqual(manifest.schema, 2)
         XCTAssertEqual(manifest.release, contract.release)
         XCTAssertEqual(manifest.algorithm, "sha256")
-        XCTAssertEqual(manifest.numberFormat, "fixed-12-posix")
+        XCTAssertEqual(manifest.numberFormat, "fixed-11-posix")
         XCTAssertEqual(
             manifest.caseCount,
             contract.presets.count * manifest.times.count * manifest.positions.count
@@ -90,9 +90,9 @@ final class AppleEngineTests: XCTestCase {
     }
 
     private func fixed(_ input: Double) -> String {
-        let value = abs(input) < 5e-13 ? 0 : input
+        let value = abs(input) < 5e-12 ? 0 : input
         return String(
-            format: "%.12f",
+            format: "%.11f",
             locale: Locale(identifier: "en_US_POSIX"),
             value
         )

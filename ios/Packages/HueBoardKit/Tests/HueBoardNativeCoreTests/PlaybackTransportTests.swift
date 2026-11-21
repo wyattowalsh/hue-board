@@ -174,8 +174,22 @@ final class PlaybackTransportTests: XCTestCase {
             try await coordinator.submit(frame, lease: lease)
         }
         await client.waitForFirstWrite()
-        _ = await coordinator.stopCurrent(reason: .cancelled)
+        let stopping = Task { [coordinator] in
+            await coordinator.stopCurrent(reason: .cancelled)
+        }
+        do {
+            try await waitUntil("direct-control ownership release") {
+                await coordinator.currentLease() == nil
+            }
+        } catch {
+            await client.resumeFirstWrite()
+            _ = await stopping.value
+            submission.cancel()
+            throw error
+        }
         await client.resumeFirstWrite()
+        let stopped = await stopping.value
+        XCTAssertEqual(stopped, lease)
         do {
             try await submission.value
             XCTFail("Cancelled write must become stale")
@@ -213,8 +227,21 @@ final class PlaybackTransportTests: XCTestCase {
             try await coordinator.begin(request, using: transport)
         }
         await client.waitForSceneUpdate()
-        let stopped = await coordinator.stopCurrent(reason: .cancelled)
+        let stopping = Task { [coordinator] in
+            await coordinator.stopCurrent(reason: .cancelled)
+        }
+        do {
+            try await waitUntil("Bridge-scene ownership release") {
+                await coordinator.currentLease() == nil
+            }
+        } catch {
+            await client.resumeSceneUpdate()
+            _ = await stopping.value
+            begin.cancel()
+            throw error
+        }
         await client.resumeSceneUpdate()
+        let stopped = await stopping.value
         do {
             _ = try await begin.value
             XCTFail("Cancelled scene update must not proceed to recall")
@@ -223,6 +250,21 @@ final class PlaybackTransportTests: XCTestCase {
         }
         let events = await client.events()
         XCTAssertEqual(events, ["inventory", "lookup", "update"])
+    }
+
+    private func waitUntil(
+        _ description: String,
+        timeout: Duration = .seconds(2),
+        condition: @escaping @Sendable () async -> Bool
+    ) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+        while !(await condition()) {
+            guard clock.now < deadline else {
+                throw TestWaitError.timedOut(description)
+            }
+            await Task.yield()
+        }
     }
 
     private func makeBridgeTransport(
@@ -308,7 +350,7 @@ private actor FakePlaybackClient: HueBridgePlaybackClient {
     private let expectedJournalScope: LightingScope?
     private let failRecall: Bool
     private let suspendUpdate: Bool
-    private var sceneUpdateStarted = false
+    private var sceneUpdateSuspended = false
     private var sceneUpdateWaiter: CheckedContinuation<Void, Never>?
     private var sceneUpdateContinuation: CheckedContinuation<Void, Never>?
     private var recordedEvents: [String] = []
@@ -367,11 +409,11 @@ private actor FakePlaybackClient: HueBridgePlaybackClient {
         try await assertJournalExists()
         recordedEvents.append("update")
         if suspendUpdate {
-            sceneUpdateStarted = true
-            sceneUpdateWaiter?.resume()
-            sceneUpdateWaiter = nil
             await withCheckedContinuation { continuation in
                 sceneUpdateContinuation = continuation
+                sceneUpdateSuspended = true
+                sceneUpdateWaiter?.resume()
+                sceneUpdateWaiter = nil
             }
         }
     }
@@ -401,15 +443,17 @@ private actor FakePlaybackClient: HueBridgePlaybackClient {
     func lightWriteIDs() -> [HueResourceID] { recordedLightWrites }
 
     func waitForSceneUpdate() async {
-        if sceneUpdateStarted { return }
+        if sceneUpdateSuspended { return }
         await withCheckedContinuation { continuation in
             sceneUpdateWaiter = continuation
         }
     }
 
     func resumeSceneUpdate() {
-        sceneUpdateContinuation?.resume()
+        guard let continuation = sceneUpdateContinuation else { return }
         sceneUpdateContinuation = nil
+        sceneUpdateSuspended = false
+        continuation.resume()
     }
 
     private func assertJournalExists() async throws {
@@ -425,7 +469,7 @@ private actor FakePlaybackClient: HueBridgePlaybackClient {
 
 private actor SuspendingLightClient: HueLightUpdateSending {
     private var writes: [HueResourceID] = []
-    private var firstWriteStarted = false
+    private var firstWriteSuspended = false
     private var firstWriteWaiter: CheckedContinuation<Void, Never>?
     private var firstWriteContinuation: CheckedContinuation<Void, Never>?
 
@@ -437,28 +481,34 @@ private actor SuspendingLightClient: HueLightUpdateSending {
     ) async throws {
         writes.append(id)
         if writes.count == 1 {
-            firstWriteStarted = true
-            firstWriteWaiter?.resume()
-            firstWriteWaiter = nil
             await withCheckedContinuation { continuation in
                 firstWriteContinuation = continuation
+                firstWriteSuspended = true
+                firstWriteWaiter?.resume()
+                firstWriteWaiter = nil
             }
         }
     }
 
     func waitForFirstWrite() async {
-        if firstWriteStarted { return }
+        if firstWriteSuspended { return }
         await withCheckedContinuation { continuation in
             firstWriteWaiter = continuation
         }
     }
 
     func resumeFirstWrite() {
-        firstWriteContinuation?.resume()
+        guard let continuation = firstWriteContinuation else { return }
         firstWriteContinuation = nil
+        firstWriteSuspended = false
+        continuation.resume()
     }
 
     func writeIDs() -> [HueResourceID] { writes }
+}
+
+private enum TestWaitError: Error {
+    case timedOut(String)
 }
 
 private struct TestContext {

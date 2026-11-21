@@ -18,8 +18,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.wyattowalsh.HueBoard
         PRODUCT_NAME: Hue Board
-        MARKETING_VERSION: 0.1.0
-        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: 0.2.2
+        CURRENT_PROJECT_VERSION: 6
         SWIFT_VERSION: 6.0
         SWIFT_STRICT_CONCURRENCY: complete
         INFOPLIST_FILE: App/Info.plist
@@ -36,6 +36,9 @@ targets:
         product: HueBoardNativeCore
       - package: HueBoardKit
         product: HueBoardAppleEngine
+    # The target-owned scheme already uses Debug for run/test and Release for archive.
+    # XcodeGen `configVariants` creates one scheme per named environment and requires
+    # paired debug/release configurations; it is not a Debug/Release selector.
     scheme:
       testTargets:
         - HueBoardAppTests

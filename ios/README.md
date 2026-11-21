@@ -80,15 +80,31 @@ The generated contract covers **32 looks, 24 patterns and 19 palettes**. `script
 
 On Apple test hosts, `HueBoardAppleEngineTests` executes those 512 cases through JavaScriptCore and must reproduce the same digest. Eight named anchor cases remain in the manifest for readable diagnostics. The bundled engine runtime has its own independent SHA-256 integrity check before execution.
 
-## Local candidate evidence (November 17, 2026)
+## Candidate build evidence
 
-This section describes tests actually run against a **local, uncommitted development worktree**. It is not the published GitHub release.
+These checks were recorded during development of the local candidate. They do not establish that every subsequent worktree change or the published GitHub release passed the same checks. The current project prepares **0.2.2 (build 6)**; that version has not been installed or physically qualified in this session.
 
-- Xcode 27.2 signed generic iPhoneOS Debug build: passed, code signature verified. **This spatial/cue candidate has not been installed on the physical iPhone.**
+- Xcode 27.2 signed generic iPhoneOS Debug build: passed, code signature verified. The spatial/cue candidate was subsequently installed as **0.2.1 (build 5)**.
 - Swift package tests: nine spatial/cue model and persistence tests passed, plus two synthetic Native Live frame tests with no Bridge writes.
 - JavaScript controller and native structural regression suite: 201/201 passed.
-- The earlier native candidate had six passing iOS simulator tests, but after these changes the new simulator app-level test execution stalled during Apple test launch. Build-for-testing passed; the current UI/runtime tests are **unverified**, not passed.
-- Previous physical-iPhone installation, launch, and Hue Bridge pairing applied to the *earlier* native build. They cannot qualify new spatial controls or cue playback.
+- The earlier native candidate had six passing iOS simulator tests. After the spatial/cue changes, build-for-testing passed, but simulator app-level execution stalled during Apple test launch. That simulator runtime check remains unverified.
+
+### Reconciliation checkpoint checks
+
+- Current JavaScript native-parity tests: **8/8 passed**.
+- Current TypeScript check: **passed**.
+- The focused `AppleEngineTests|PlaybackTransportTests` Swift run hit a 180-second process budget during compilation and was stopped; it produced no test result. The current schema-2, eleven-decimal JavaScriptCore digest and the revised transport cancellation tests still require a completed Swift run.
+- The existing-installation device runner's XcodeGen project generated successfully. Its physical-device assertions are qualified separately below.
+
+## Installed candidate evidence
+
+A fresh physical-iPhone app query reports **0.2.1 (build 5)**. The existing pairing remains usable, and the app reaches **Bridge connected**. The reusable [existing-installation device runner](DeviceSmoke/README.md) is versioned separately from the app; its XcodeGen project generates successfully, while full device execution remains subject to the qualifications below.
+
+- The explicit Stop & restore retry completed. The copied on-device state has a valid payload checksum, no recovery journal, no live descriptor, and idle playback. A later independent copy confirmed that the cleared state persisted.
+- The original pre-installation baseline backup remains preserved. Recovery was cleared through the app's restore path, not by deleting its preferences.
+- A partial paired-device UI check reached Lights, an individual-light sheet, and Scenes before its Scenes search-field lookup failed. The active debug write audit recorded zero Hue write attempts, and the post-check preferences remained checksum-valid, idle, and free of recovery/live-session records. This is not a passing full navigation or visual qualification.
+- The standalone UI runner was revised to reveal search before querying it, rebuilt, and its signature verified. The next run was blocked before UI execution because iOS reported that the phone was locked. Studio, Room, search behavior, and screenshot review remain unverified in this device pass.
+- The current restore comparator confirms power and brightness readback only. It does not verify saved XY color or color temperature, and Bridge readback does not establish emitted optical output.
 
 ## Remaining release gates
 

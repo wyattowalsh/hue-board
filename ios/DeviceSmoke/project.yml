@@ -1,0 +1,20 @@
+name: HueBoardDeviceSmoke
+options:
+  minimumXcodeGenVersion: 2.46.0
+  deploymentTarget:
+    iOS: "18.0"
+targets:
+  HueBoardDeviceSmoke:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.wyattowalsh.HueBoardDeviceSmoke
+        SWIFT_VERSION: 6.0
+        SWIFT_STRICT_CONCURRENCY: complete
+        GENERATE_INFOPLIST_FILE: YES
+    scheme:
+      testTargets:
+        - HueBoardDeviceSmoke

@@ -30,3 +30,4 @@ ios/HueBoard.xcodeproj/
 ios/DerivedData/
 ios/.swiftpm/
 ios/Packages/HueBoardKit/.build/
+ios/Packages/HueBoardKit/.swiftpm/
