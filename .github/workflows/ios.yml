@@ -35,6 +35,14 @@ concurrency:
 
 env:
   DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+  SANITIZE_NATIVE_EVIDENCE: >-
+    ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' ||
+        startsWith(github.ref, 'refs/heads/native/0.3.0-') ||
+        github.ref == 'refs/heads/native/v6-reconcile-2026-11-20' ||
+        startsWith(github.head_ref, 'native/0.3.0-') ||
+        github.head_ref == 'native/v6-reconcile-2026-11-20' ||
+        startsWith(github.base_ref, 'native/0.3.0-') ||
+        github.base_ref == 'native/v6-reconcile-2026-11-20' }}
 
 jobs:
   build-test-archive:
@@ -42,6 +50,14 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Identify qualification checkout and Xcode toolchain
+        if: env.SANITIZE_NATIVE_EVIDENCE == 'true'
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          xcodebuild -version | tee "$RUNNER_TEMP/xcode-version"
+          grep -Fx 'Xcode 27.2' "$RUNNER_TEMP/xcode-version"
+          test "$(xcrun --sdk iphonesimulator --show-sdk-version)" = 27.2
+          echo "Source $GITHUB_SHA, Xcode 27.2, iOS simulator SDK 27.2." >> "$GITHUB_STEP_SUMMARY"
       - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
         with:
           version: 10.17.1
@@ -61,10 +77,16 @@ jobs:
           ios/Packages/HueBoardKit/Sources/HueBoardAppleEngine/Resources
       - run: node --test tests/ios-*.test.cjs
       - name: Test shared Swift packages
-        run: >-
-          swift test --package-path ios/Packages/HueBoardKit
-          -Xswiftc -warnings-as-errors
-          -Xswiftc -strict-concurrency=complete
+        id: packages
+        run: |
+          if [[ "$SANITIZE_NATIVE_EVIDENCE" == true ]]; then
+            exec > "$RUNNER_TEMP/native-package-tests.log" 2>&1
+          fi
+          swift test --package-path ios/Packages/HueBoardKit \
+            -Xswiftc -warnings-as-errors -Xswiftc -strict-concurrency=complete
+      - name: Record qualification package test counts
+        if: always() && env.SANITIZE_NATIVE_EVIDENCE == 'true' && (steps.packages.outcome == 'success' || steps.packages.outcome == 'failure')
+        run: python3 ios/scripts/ci-candidate-receipt.py package-counts "$RUNNER_TEMP/native-package-tests.log" >> "$GITHUB_STEP_SUMMARY"
       - name: Build pinned XcodeGen
         run: |
           git clone --no-checkout https://github.com/yonaskolb/XcodeGen.git /tmp/XcodeGen
@@ -93,30 +115,35 @@ jobs:
           print(f'runtime={runtime}')
           PY
       - name: Test app and UI targets
-        run: >-
-          xcodebuild
-          -project ios/HueBoard.xcodeproj
-          -scheme HueBoard
-          -configuration Debug
-          -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}'
-          -derivedDataPath ios/DerivedData/ci
-          -resultBundlePath ios/DerivedData/HueBoardTests.xcresult
-          CODE_SIGNING_ALLOWED=NO
-          test
+        id: simulator-tests
+        run: |
+          if [[ "$SANITIZE_NATIVE_EVIDENCE" == true ]]; then
+            exec > "$RUNNER_TEMP/native-simulator-tests.log" 2>&1
+          fi
+          xcodebuild -project ios/HueBoard.xcodeproj -scheme HueBoard -configuration Debug \
+            -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
+            -derivedDataPath ios/DerivedData/ci -resultBundlePath ios/DerivedData/HueBoardTests.xcresult \
+            CODE_SIGNING_ALLOWED=NO test
+      - name: Record qualification simulator test counts
+        if: always() && env.SANITIZE_NATIVE_EVIDENCE == 'true' && (steps.simulator-tests.outcome == 'success' || steps.simulator-tests.outcome == 'failure')
+        run: |
+          xcrun xcresulttool get test-results summary --path ios/DerivedData/HueBoardTests.xcresult > "$RUNNER_TEMP/simulator-summary.json"
+          python3 ios/scripts/ci-candidate-receipt.py simulator-counts "$RUNNER_TEMP/simulator-summary.json" >> "$GITHUB_STEP_SUMMARY"
       - name: Archive release configuration without signing
-        run: >-
-          xcodebuild
-          -project ios/HueBoard.xcodeproj
-          -scheme HueBoard
-          -configuration Release
-          -destination 'generic/platform=iOS'
-          -archivePath ios/DerivedData/HueBoard.xcarchive
-          CODE_SIGNING_ALLOWED=NO
-          archive
+        run: |
+          if [[ "$SANITIZE_NATIVE_EVIDENCE" == true ]]; then
+            exec > "$RUNNER_TEMP/native-archive.log" 2>&1
+          fi
+          xcodebuild -project ios/HueBoard.xcodeproj -scheme HueBoard -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath ios/DerivedData/HueBoard.xcarchive \
+            CODE_SIGNING_ALLOWED=NO archive
       - name: Verify privacy manifest is packaged in archive
         run: test -f 'ios/DerivedData/HueBoard.xcarchive/Products/Applications/Hue Board.app/PrivacyInfo.xcprivacy'
+      - name: Verify qualification archive identity and privacy declarations
+        if: env.SANITIZE_NATIVE_EVIDENCE == 'true'
+        run: python3 ios/scripts/ci-candidate-receipt.py archive ios/DerivedData/HueBoard.xcarchive >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: always()
+        if: always() && env.SANITIZE_NATIVE_EVIDENCE == 'false'
         with:
           name: native-ios-evidence-${{ github.sha }}
           path: |

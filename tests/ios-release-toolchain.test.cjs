@@ -55,3 +55,19 @@ test('hosted native workflow uses pinned Xcode 27.2, tests, archive, privacy che
   assert.match(workflow,/PrivacyInfo\.xcprivacy/);
   assert.match(workflow,/actions\/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02/);
 });
+
+test('main and internal candidate qualification keep native evidence on the runner',()=>{
+  const workflow=read('.github/workflows/ios.yml');
+  assert.ok(workflow.includes("github.ref == 'refs/heads/main'"));
+  assert.ok(workflow.includes("github.base_ref == 'main'"));
+  for(const [context,prefix] of [['ref','refs/heads/'],['head_ref',''],['base_ref','']]){
+    assert.ok(workflow.includes(`startsWith(github.${context}, '${prefix}native/0.3.0-')`));
+    assert.ok(workflow.includes(`github.${context} == '${prefix}native/v6-reconcile-2026-11-20'`));
+  }
+  const uploads=workflow.split(/\n\s+- uses: actions\/upload-artifact@/).slice(1);
+  assert.equal(uploads.length,1);
+  assert.match(uploads[0],/^[^\n]*\n\s+if: always\(\) && env\.SANITIZE_NATIVE_EVIDENCE == 'false'\s*$/m);
+  for(const operation of ['package-counts','simulator-counts','archive']){
+    assert.ok(workflow.includes(`ci-candidate-receipt.py ${operation} `));
+  }
+});
