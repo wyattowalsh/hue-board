@@ -24,6 +24,8 @@
 
 Native SwiftUI is now Hue Board’s primary product direction. The implementation under [`ios/`](ios/README.md) provides system-native Lights, Scenes, Native Live, Settings, Bridge pairing, restore recovery, and playback status surfaces.
 
+The **0.3.0 internal candidate** adds Hue Entertainment layout discovery, cue rehearsal, microphone and local audio/video previews, and selective setup import and export. The last verified phone installation is **0.2.2 (6)**. [Native qualification results](docs/native-0.3.0/qualification.md)
+
 The native app shares a generated contract with Scriptable: **32 looks, 24 patterns, and 19 palettes**. Its `HueBoardAppleEngine` target runs the exact shared JavaScript engine through JavaScriptCore, verifies the bundled runtime digest before use, and recomputes a canonical SHA-256 over **512 deterministic scene frames** on Apple test hosts.
 
 - **Play** creates or updates a compatible Bridge-native dynamic scene. Once the Bridge acknowledges recall, playback continues independently of the phone.
