@@ -18,6 +18,8 @@ The focused Swift package run passed nine tests, including the schema 2, eleven-
 
 Two fresh preference copies from the paired iPhone identified the installed app as **0.2.2 (6)**. Each had a valid checksum, idle playback and empty recovery and live-session records. At the subsequent browse preflight iOS reported that a passcode was required. The runner stopped before launching the app. Build 8 still requires separate verification on iPhone.
 
+The last collected Mac receipt showed the follow-up rendering run on `cc0ce29` in progress. Results for that run, the default-size tab renders, the simulator build and the Release archive remain unconfirmed. CoreSimulator inventory timed out in this session. The four reviewed screen pairs above cover the earlier redesign. Real iPhone navigation, VoiceOver, reduced motion and discovery of the owner's Hue layout remain open for build 8.
+
 ## Build 7 qualification
 
 The repaired core source is `e2783e8bdfe100b75c5ad9e9f6e5a849fce13af5`. The separate screen probe’s capture source is `a8addd67d288701063524aa674fc7f0745ff1c36`; its packaging repair is `27d3677c34a88f7bc5984f1f11123f610b1b6f54`. CI privacy and receipt handling is at `5986f98a745b32fdea5b8cf3bc9a86ce1b0055d4`. The public source includes these internal changes. A fresh device inventory confirmed the installed **0.2.2 (6)**, previously built from `41bc092a3007fec03a79b7ab1d47a305d131e920`. The execution ledger records evidence and outstanding work for each of the plan’s 166 tasks. [Task ledger](execution.tsv) · [Plan](../native-0.3.0-plan.md)
