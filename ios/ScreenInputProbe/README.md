@@ -21,6 +21,8 @@ xcodebuild -project ios/ScreenInputProbe/HueBoardScreenProbe.xcodeproj \
 
 For a separately authorized iOS 27+ phone trial, sign and install this bundle under its own identity. Record the binary hash, derived Info.plist, signing outcome, OS and scope privately. Its app ID is `com.wyattowalsh.HueBoard.ScreenInputProbe`. Leave the paired Hue Board installation and preferences in place.
 
+Inspect the probe bundle’s `PrivacyInfo.xcprivacy` alongside its Info.plist. The probe uses system uptime for elapsed capture, sample-age and stop measurements. Its manifest declares `NSPrivacyAccessedAPICategorySystemBootTime` with reason `35F9.1`, empty collected-data and tracking-domain lists, and tracking disabled. The probe keeps uptime values on the device. [Apple’s allowed reasons](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitypereasons)
+
 ## Device matrix
 
 1. Select **This app → Screen color → Choose content**. Cancel the picker once and verify Idle. Repeat and grant the selection. Toggle between red and blue synthetic panels. The average color should shift toward the selected panel while playback remains silent. A valid black picture is a measurement.
