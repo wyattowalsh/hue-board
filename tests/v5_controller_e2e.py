@@ -15,6 +15,20 @@ async def main():
   async def cycle(extra=None):
    nonlocal state,r
    packet=await page.evaluate('(s)=>JSON.parse(window.DECK.exchange(s))',state);packet.update(extra or {});r=await host(packet);state=r['state'];await page.evaluate('(s)=>window.DECK.report(s)',state);return r
+  async def restore_and_read_back():
+   touched_before_restore = state['touched']
+   await page.get_by_role('button', name='Restore session', exact=True).click()
+   accepted = await cycle()
+   assert touched_before_restore > 0 and state['touched'] == touched_before_restore
+   assert state['session']['recoveryRequired']
+
+   accepted_at = state['clock']
+   confirmed = await cycle({'run': 2500})  # Advance the mock clock to the next telemetry read.
+   readback_calls = confirmed['calls'][len(accepted['calls']):]
+   assert all(call['method'] == 'GET' for call in readback_calls)
+   assert any(call['path'] == 'light' and call['at'] > accepted_at for call in readback_calls)
+   assert confirmed['writes'] == accepted['writes']
+   assert state['touched'] == 0 and not state['session']['recoveryRequired']
   def bulb(id):return next(l for l in r['bulbs'] if l['id']==id)
   check('opening workspace has no light writes',r['writes']==0)
   await page.get_by_role('button',name='Bright 100% · same color',exact=True).click();await cycle();check('Bright obeys preexisting 85% ceiling and 75% trim',bulb('l1')['dimming']['brightness']==85 and bulb('l2')['dimming']['brightness']==75);check('new uncapped lamps can reach normal 100%',bulb('l3')['dimming']['brightness']==100 and bulb('l5')['dimming']['brightness']==100);check('brightness does not turn on nondimmable switch',bulb('l4')['on']['on'] is False)
@@ -23,10 +37,21 @@ async def main():
   await page.get_by_role('button',name='Bright 100% · same color',exact=True).click();await cycle();check('Bright now reaches 100% on formerly capped lamp',bulb('l1')['dimming']['brightness']==100)
   await page.get_by_role('button',name='Turn on Accent plug',exact=True).click();await cycle();check('switch-only resource has a usable power control',bulb('l4')['on']['on'] is True)
   await page.get_by_role('button',name='Warm 2700 K · 45%',exact=True).click();await cycle();check('Warm targets white lamps and keeps trims',bulb('l1')['color_temperature']['mirek']==370 and bulb('l2')['dimming']['brightness']==33.75 and bulb('l3')['dimming']['brightness']==100)
-  await page.get_by_role('button',name='Restore session',exact=True).click();await cycle();check('manual controls all restore captured static baselines',state['touched']==0 and bulb('l1')['dimming']['brightness']==45 and bulb('l2')['on']['on'] is False and bulb('l3')['dimming']['brightness']==70 and bulb('l4')['on']['on'] is False)
+  await restore_and_read_back()
+  check(
+   'manual controls all restore captured static baselines',
+   bulb('l1')['dimming']['brightness'] == 45
+   and bulb('l2')['on']['on'] is False
+   and bulb('l3')['dimming']['brightness'] == 70
+   and bulb('l4')['on']['on'] is False,
+  )
   await page.get_by_text('Your saved Hue scenes',exact=True).click();before=r['writes'];await page.get_by_role('button',name='Read saved scenes',exact=True).click();await cycle({'scenes':True});check('scene enumeration is read-only and scoped',r['writes']==before and len(state['savedScenes']['items'])==1)
   await page.get_by_role('button',name='Evening unwind',exact=True).click();await cycle();check('saved static scene applied with no source-scene mutation',bulb('l1')['dimming']['brightness']==40 and bulb('l3')['on']['on'] is False and all(c['path'].startswith('light/') for c in r['calls'] if c['method'] in ['PUT','POST','DELETE']))
-  await page.get_by_role('button',name='Restore session',exact=True).click();await cycle();check('saved scene static copy is restorable',bulb('l1')['dimming']['brightness']==45 and bulb('l3')['on']['on'] is True)
+  await restore_and_read_back()
+  check(
+   'saved scene static copy is restorable',
+   bulb('l1')['dimming']['brightness'] == 45 and bulb('l3')['on']['on'] is True,
+  )
   check('background capability is reflected from actual Hue resource inventory',state['background']['available'] is True and state['background']['count']>=1)
   await page.get_by_role('button',name='Play · phone-free',exact=True).click();await cycle()
   check('one tap hands off a dynamic palette to Hue Bridge',state['mode']=='delegated' and state['native'] is True and any(c['path'].startswith('scene/') and c['method']=='PUT' and c['payload'].get('recall',{}).get('action')=='dynamic_palette' for c in r['calls']))

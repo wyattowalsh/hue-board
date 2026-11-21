@@ -21,9 +21,31 @@ async def main():
   await page.get_by_role('tab',name='Settings',exact=True).click();await page.get_by_role('button',name='App & recovery',exact=True).click();await page.get_by_label('Interface theme',exact=True).select_option('light');r=await cycle();assert r['writes']==before and state['ui']['theme']=='light'
   await page.get_by_role('tab',name='Scenes',exact=True).click();await page.get_by_role('button',name='Preview Pacific Swell',exact=True).click();await cycle();assert state['settings']['showA']=='tide' and state['mode']=='paused'
   await page.get_by_text('Build a cue sequence',exact=True).click();await page.get_by_role('slider',name='Hold each cue',exact=True).fill('30');await cycle();await page.get_by_role('button',name='Start sequence and lights',exact=True).click();await cycle();await cycle(31000);assert state['sequence']['enabled'] and state['sequence']['index']==1
-  await page.get_by_role('button',name='Restore',exact=True).click();r=await cycle();assert state['mode']=='paused' and state['touched']==0
-  assert all(l['dimming']['brightness']==45 and l['on']['on'] for l in r['bulbs'])
-  result={'passed':7,'checks':['no writes opening React view','React Start reaches real controller mock writes','React Pause reaches state machine','theme persists without writes when paused','library preset applies without starting','cue sequence advances through real controller','React Restore restores all six mock baselines'],'physicalHardware':False}
+  touched_before_restore = state['touched']
+  await page.get_by_role('button', name='Restore', exact=True).click()
+  accepted = await cycle()
+  assert touched_before_restore > 0 and state['touched'] == touched_before_restore
+  assert state['mode'] == 'paused' and state['session']['recoveryRequired']
+  assert all(light['dimming']['brightness'] == 45 and light['on']['on'] for light in accepted['bulbs'])
+
+  accepted_at = state['clock']
+  reads_at_acceptance = state['telemetry']['readCount']
+  confirmed = await cycle(2500)  # Advance the mock clock to the next telemetry read.
+  assert state['telemetry']['readCount'] > reads_at_acceptance
+  assert state['telemetry']['lastRead'] > accepted_at
+  assert confirmed['writes'] == accepted['writes']
+  assert state['touched'] == 0 and not state['session']['recoveryRequired']
+  checks = [
+   'no writes opening React view',
+   'React Start reaches real controller mock writes',
+   'React Pause reaches state machine',
+   'theme persists without writes when paused',
+   'library preset applies without starting',
+   'cue sequence advances through real controller',
+   'React Restore restores all six mock baselines',
+   'fresh readback clears the retained baseline without a new write',
+  ]
+  result = {'passed': len(checks), 'checks': checks, 'physicalHardware': False}
   (OUT/'animation-e2e.json').write_text(json.dumps(result,indent=2));print(json.dumps(result,indent=2));await browser.close()
  await host({'close':True});proc.stdin.close();await proc.wait()
 asyncio.run(main())
