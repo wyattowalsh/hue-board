@@ -6,6 +6,29 @@ public extension RestoreJournal {
         Set(snapshots.map(\.lightID))
     }
 
+    func snapshotsEligibleForRestore(in areas: [HueArea]) -> [HueLightSnapshot] {
+        let lights = Self.lightsByID(in: areas)
+        return snapshots.filter { snapshot in
+            guard let light = lights[snapshot.lightID] else { return false }
+            return snapshot.canRestore(to: light)
+        }
+    }
+
+    func snapshotsAwaitingRestoreReadback(in areas: [HueArea]) -> [HueLightSnapshot] {
+        let lights = Self.lightsByID(in: areas)
+        return snapshots.filter { snapshot in
+            guard let light = lights[snapshot.lightID] else { return true }
+            return !snapshot.matchesRestoreReadback(light)
+        }
+    }
+
+    private static func lightsByID(in areas: [HueArea]) -> [HueResourceID: HueLight] {
+        Dictionary(
+            areas.lazy.flatMap(\.lights).map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+    }
+
     /// Extends an existing restore point before a later playback action addresses newly eligible lights.
     /// Existing snapshots are immutable baselines and are never replaced with post-playback state.
     @discardableResult

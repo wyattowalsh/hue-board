@@ -92,9 +92,20 @@ extension AppModel {
         })
       }
     }
-    if batch.requiresInventoryRefresh { scheduleInventoryRefreshFromEvents() }
-    Task { [weak self] in
-      await self?.reconcileAcceptedRestore()
+    if batch.requiresInventoryRefresh {
+      scheduleInventoryRefreshFromEvents()
+    } else if hasRestorePoint, requiresRecovery, !lightUpdates.isEmpty {
+      // A partial push update can carry forward stale fields or omit other
+      // fixtures' state. Verify accepted restores with a fresh inventory.
+      let generation = eventMonitorGeneration
+      Task { [weak self] in
+        guard let self,
+              let journal = try? await self.persistence.loadRestoreJournal(),
+              journal.restoreAcceptedAt != nil,
+              self.eventMonitorGeneration == generation,
+              self.profile?.bridgeID == journal.bridgeID else { return }
+        self.scheduleInventoryRefreshFromEvents()
+      }
     }
     if playback.snapshot.mode == .bridge,
        playback.snapshot.phase == .accepted,
@@ -127,7 +138,7 @@ extension AppModel {
         )
         guard self.eventRefreshGeneration == generation, self.profile?.bridgeID == profile.bridgeID else { return }
         self.areas = values
-        await self.reconcileAcceptedRestore()
+        await self.reconcileAcceptedRestore(in: values, bridgeID: profile.bridgeID)
         if !values.contains(where: { $0.id == self.selectedAreaID }) {
           self.selectedAreaID = values.first?.id
           try await self.persistence.saveSelectedAreaID(self.selectedAreaID, bridgeID: profile.bridgeID)

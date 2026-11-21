@@ -3,6 +3,24 @@ import HueBoardKit
 
 @MainActor
 extension AppModel {
+    var studioSceneSettings: HueSceneSettings {
+        var draft = studioSettings
+        draft.brightness = brightness
+        var settings = HueSceneSettings(engineSettings: draft)
+        settings.sequenceIds = cueIDs
+        settings.sequenceHold = cueHoldSeconds
+        settings.sequenceOrder = cueOrder.rawValue
+        return settings
+    }
+
+    func applyStudioSceneSettings(_ settings: HueSceneSettings) {
+        studioSettings = settings.nativeEngineSettings
+        brightness = studioSettings.brightness
+        cueIDs = settings.sequenceIds
+        cueHoldSeconds = settings.sequenceHold
+        cueOrder = HueCueOrder(rawValue: settings.sequenceOrder) ?? .forward
+    }
+
     @discardableResult
     func saveStudioMix(named rawName: String) -> Bool {
         guard studioLibraryIssue == nil else {
@@ -17,15 +35,9 @@ extension AppModel {
             return false
         }
 
-        var draft = studioSettings
-        draft.brightness = brightness
-        var sceneSettings = HueSceneSettings(engineSettings: draft)
-        sceneSettings.sequenceIds = cueIDs
-        sceneSettings.sequenceHold = cueHoldSeconds
-        sceneSettings.sequenceOrder = cueOrder.rawValue
         let document = HueSceneDocumentCodec.makeDocument(
             name: name,
-            settings: sceneSettings,
+            settings: studioSceneSettings,
             source: .init(
                 productVersion: contract.release,
                 implementation: "native"
@@ -54,11 +66,7 @@ extension AppModel {
         }
         do {
             try HueSceneDocumentCodec.validate(document, contract: contract)
-            studioSettings = document.settings.nativeEngineSettings
-            brightness = studioSettings.brightness
-            cueIDs = document.settings.sequenceIds
-            cueHoldSeconds = document.settings.sequenceHold
-            cueOrder = HueCueOrder(rawValue: document.settings.sequenceOrder) ?? .forward
+            applyStudioSceneSettings(document.settings)
             isCueSequenceEnabled = false
             note = "Loaded \(document.name) into Studio. No light command was sent."
         } catch {

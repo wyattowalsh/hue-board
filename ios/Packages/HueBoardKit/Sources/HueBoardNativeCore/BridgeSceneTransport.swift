@@ -32,7 +32,7 @@ public actor BridgeSceneTransport: LightingTransport {
     private let reduceLightMotion: Bool
     private let outputLimits: [HueResourceID: Double]
     private var plan: PreparedPlan?
-    private var activeLease: PlaybackWriterLease?
+    private(set) var activeLease: PlaybackWriterLease?
     private var currentOutcome: BridgeSceneOutcome = .idle
     private var bridgeCallsInFlight = 0
     private var bridgeCallWaiters: [CheckedContinuation<Void, Never>] = []

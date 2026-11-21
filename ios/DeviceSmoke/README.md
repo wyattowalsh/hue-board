@@ -4,10 +4,13 @@ This separate XCTest runner activates the already-installed
 `com.wyattowalsh.HueBoard.dev` app. It has no app-target dependency and does not
 reinstall Hue Board or reset its pairing/preferences.
 
-The test navigates Lights, an individual-light sheet, Scenes/search, Studio,
-and Room. It never presses power, Apply, Play, Start, or Stop & restore, and it
-does not modify saved mixes, cues, or room layouts. It requires a connected
-Bridge and no pending recovery record; it is not a restore test.
+The test navigates Lights, an individual-light sheet, Scenes, Studio, and Room.
+It checks a known search result, an empty result, clearing and dismissing the
+keyboard, Studio's preview and editing sections, and Room's fixture controls.
+The runner supports the earlier navigation-bar search and the current inline
+search. It requires a connected Bridge and idle playback with no pending
+recovery. The test uses browsing controls and leaves physical actions and
+saved mixes, cues, and room layouts untouched.
 
 ## Run
 
@@ -37,7 +40,10 @@ xcodebuild -project HueBoardDeviceSmoke.xcodeproj -scheme HueBoardDeviceSmoke \
   -resultBundlePath Results/Browse.xcresult test-without-building
 ```
 
-Use a new result path for each run; retain earlier failures for diagnosis.
+Use a new result path for each run and retain earlier failures for diagnosis.
+Review the labeled screenshots for keyboard layout, scrolling, and clipped
+content. Check VoiceOver, accessibility text sizes, and Reduce Motion separately
+on the same installed binary.
 Verbose failure diagnostics are disabled because their optional device
 collection stalled in the source session. Assertions and screenshot attachments
 remain enabled.

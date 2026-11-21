@@ -1,10 +1,13 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import HueBoardKit
 
 struct StudioLibrarySection: View {
     @Environment(AppModel.self) private var model
     @State private var mixName = ""
     @State private var pendingDeletionID: String?
+    @State private var exportFile: HuePortableFile?
+    @State private var isExporting = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -52,13 +55,20 @@ struct StudioLibrarySection: View {
                             }
                             .buttonStyle(.bordered)
                             .disabled(model.isLiveRunning)
-                            Button(role: .destructive) {
-                                pendingDeletionID = document.documentId
+                            Menu {
+                                Button("Export mix", systemImage: "square.and.arrow.up") {
+                                    exportMix(document)
+                                }
+                                Button(role: .destructive) {
+                                    pendingDeletionID = document.documentId
+                                } label: {
+                                    Label("Delete mix", systemImage: "trash")
+                                }
                             } label: {
-                                Image(systemName: "trash")
+                                Image(systemName: "ellipsis.circle")
                             }
                             .buttonStyle(.bordered)
-                            .accessibilityLabel("Delete \(document.name)")
+                            .accessibilityLabel("Actions for \(document.name)")
                         }
                     }
                 }
@@ -69,6 +79,9 @@ struct StudioLibrarySection: View {
         }
         .padding(16)
         .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 20))
+        .fileExporter(isPresented: $isExporting, document: exportFile, contentType: .json, defaultFilename: "Hue Board Mix") { result in
+            if case .failure(let error) = result { model.errorMessage = error.localizedDescription }
+        }
         .confirmationDialog(
             "Delete this saved mix?",
             isPresented: Binding(
@@ -85,6 +98,15 @@ struct StudioLibrarySection: View {
             Button("Cancel", role: .cancel) { pendingDeletionID = nil }
         } message: {
             Text("This removes the local saved copy. It never changes Hue Bridge scenes or lights.")
+        }
+    }
+
+    private func exportMix(_ document: HueSceneDocument) {
+        do {
+            exportFile = .init(data: try HueSceneDocumentCodec.encode(document, contract: model.contract))
+            isExporting = true
+        } catch {
+            model.errorMessage = error.localizedDescription
         }
     }
 }

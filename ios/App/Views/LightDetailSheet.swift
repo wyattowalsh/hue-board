@@ -5,6 +5,7 @@ import HueBoardKit
 struct LightDetailSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     let initialLight: HueLight
     @State private var brightness: Double
@@ -13,51 +14,77 @@ struct LightDetailSheet: View {
 
     init(light: HueLight) {
         initialLight = light
-        _brightness = State(initialValue: min(
-            max(light.brightness ?? 50, light.minimumBrightness),
-            light.outputLimit
-        ))
+        _brightness = State(initialValue: light.brightness ?? 50)
         _color = State(initialValue: swiftUIColor(light.color))
         _temperatureMirek = State(initialValue: Double(
-            light.colorTemperatureMirek
-                ?? light.supportedTemperatureRange?.lowerBound
-                ?? 250
+            light.colorTemperatureMirek ?? light.supportedTemperatureRange?.lowerBound ?? 250
         ))
+    }
+
+    private var currentLight: HueLight? {
+        model.selectedArea?.lights.first { $0.id == initialLight.id }
     }
 
     private var light: HueLight {
-        model.selectedArea?.lights.first(where: { $0.id == initialLight.id })
-            ?? initialLight
+        currentLight ?? initialLight
     }
 
     private var canEdit: Bool {
-        model.canUseEverydayControls && !light.capabilities.streaming
+        model.canUseEverydayControls && currentLight != nil && !light.capabilities.streaming
+    }
+
+    private var editingStatus: String? {
+        if !model.isReady { return "Reconnect the Bridge to edit this light." }
+        if currentLight == nil { return "This light is no longer in the selected room or zone." }
+        if light.capabilities.streaming { return "An Entertainment stream controls this light." }
+        if model.isBusy { return "Wait for the current Bridge operation to finish." }
+        if !canEdit { return "Stop and restore playback before editing this light." }
+        return nil
+    }
+
+    private var powerReadback: String {
+        guard light.isOn else { return "Off" }
+        guard let level = light.brightness else { return "On" }
+        return "\(Self.levelLabel(level)) on"
     }
 
     var body: some View {
+        let powerLayout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(spacing: 12))
         NavigationStack {
             Form {
                 Section {
                     HStack(spacing: 14) {
                         Circle()
-                            .fill(swiftUIColor(light.color))
+                            .fill(swiftUIColor(light.colorTemperatureMirek == nil ? light.color : nil))
                             .frame(width: 48, height: 48)
                             .overlay(Circle().stroke(.white.opacity(0.2)))
+                            .accessibilityHidden(true)
                         VStack(alignment: .leading) {
                             Text(light.name).font(.title3.bold())
-                            Text(light.capabilities.streaming ? "Entertainment stream active" : "Bridge readback")
+                            Text(model.isReady && currentLight != nil ? "Bridge readback" : "Last known state")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            Text(light.isOn
-                                ? (light.brightness.map { "\(Int($0))% on" } ?? "On")
-                                : "Off")
-                                .font(.subheadline.monospacedDigit())
+                            Text(powerReadback).font(.subheadline.monospacedDigit())
+                            if light.isOn, let mirek = light.colorTemperatureMirek, mirek > 0 {
+                                Text("White · \(Self.kelvinLabel(Double(mirek)))")
+                                    .font(.caption)
+                            } else if light.isOn, light.color != nil {
+                                Text("Color").font(.caption)
+                            }
                         }
+                    }
+                    .accessibilityElement(children: .combine)
+                    if let editingStatus {
+                        Text(editingStatus)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
                 }
 
                 Section("Power") {
-                    HStack(spacing: 12) {
+                    powerLayout {
                         Button("Turn on") {
                             Task { await model.setLightPower(light.id, on: true) }
                         }
@@ -70,26 +97,15 @@ struct LightDetailSheet: View {
                     .disabled(!canEdit || !light.capabilities.power)
                 }
 
-                if light.capabilities.dimming,
-                   light.minimumBrightness <= light.outputLimit {
+                if light.capabilities.dimming {
                     Section("Brightness") {
-                        HStack {
-                            Text("Set brightness")
-                            Spacer()
-                            Text("\(Int(brightness))%").monospacedDigit()
+                        if light.minimumBrightness <= light.outputLimit {
+                            brightnessControls(light.minimumBrightness...light.outputLimit)
+                        } else {
+                            Text("The output ceiling is below this fixture’s reported minimum.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
                         }
-                        Slider(
-                            value: $brightness,
-                            in: light.minimumBrightness...light.outputLimit,
-                            step: 1
-                        )
-                        .disabled(!canEdit)
-                        Button("Apply brightness & turn on") {
-                            Task {
-                                await model.setLightBrightness(light.id, value: brightness)
-                            }
-                        }
-                        .disabled(!canEdit)
                     }
                 }
 
@@ -121,34 +137,7 @@ struct LightDetailSheet: View {
                 if light.capabilities.colorTemperature {
                     Section("White temperature") {
                         if let range = light.supportedTemperatureRange {
-                            HStack {
-                                Text("White tone")
-                                Spacer()
-                                Text("\(Int(1_000_000 / temperatureMirek)) K")
-                                    .monospacedDigit()
-                            }
-                            Slider(
-                                value: $temperatureMirek,
-                                in: Double(range.lowerBound)...Double(range.upperBound),
-                                step: 1
-                            )
-                            .disabled(!canEdit)
-                            HStack {
-                                Text("Cooler")
-                                Spacer()
-                                Text("Warmer")
-                            }
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            Button("Apply white & turn on") {
-                                Task {
-                                    await model.setLightTemperature(
-                                        light.id,
-                                        mirek: Int(temperatureMirek.rounded())
-                                    )
-                                }
-                            }
-                            .disabled(!canEdit)
+                            temperatureControls(Double(range.lowerBound)...Double(range.upperBound))
                         } else {
                             Text("The Bridge did not report a safe white-temperature range for this fixture.")
                                 .font(.footnote)
@@ -158,16 +147,16 @@ struct LightDetailSheet: View {
                 }
 
                 Section("Safety & recovery") {
-                    LabeledContent("Output ceiling", value: "\(Int(light.outputLimit))%")
-                    LabeledContent("Minimum level", value: "\(light.minimumBrightness.formatted())%")
-                    Text("Changes are only sent when you tap a button. Hue Board captures a restorable baseline first, respects reported fixture capabilities, and will not override Entertainment streaming lights.")
+                    if light.capabilities.dimming {
+                        LabeledContent("Output ceiling", value: Self.levelLabel(light.outputLimit))
+                        LabeledContent("Minimum level", value: Self.levelLabel(light.minimumBrightness))
+                    }
+                    Text("Power and Apply send changes. Hue Board saves the current state for restoration first.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    if !canEdit {
-                        Text("Editing is unavailable during playback, recovery, or streaming.")
-                            .font(.footnote)
-                            .foregroundStyle(.orange)
-                    }
+                    Button("Reset draft") { resetDraft() }
+                        .disabled(!model.isReady || currentLight == nil)
+                        .accessibilityHint("Uses the latest Bridge readback for the draft controls.")
                 }
             }
             .navigationTitle("Individual light")
@@ -178,5 +167,74 @@ struct LightDetailSheet: View {
                 }
             }
         }
+    }
+
+    private func brightnessControls(_ range: ClosedRange<Double>) -> some View {
+        let value = Binding(
+            get: { min(max(brightness, range.lowerBound), range.upperBound) },
+            set: { brightness = $0 }
+        )
+        return Group {
+            LabeledContent("Draft brightness", value: Self.levelLabel(value.wrappedValue))
+            if range.lowerBound < range.upperBound {
+                Slider(value: value, in: range)
+                    .accessibilityLabel("Draft brightness")
+                    .accessibilityValue(Text(Self.levelLabel(value.wrappedValue)))
+            }
+            Button("Apply brightness & turn on") {
+                let level = value.wrappedValue
+                Task { await model.setLightBrightness(light.id, value: level) }
+            }
+        }
+        .disabled(!canEdit)
+    }
+
+    private func temperatureControls(_ range: ClosedRange<Double>) -> some View {
+        let value = Binding(
+            get: { min(max(temperatureMirek, range.lowerBound), range.upperBound) },
+            set: { temperatureMirek = $0 }
+        )
+        return Group {
+            LabeledContent("Draft white tone", value: Self.kelvinLabel(value.wrappedValue))
+            if range.lowerBound < range.upperBound {
+                Slider(value: value, in: range, step: 1)
+                    .accessibilityLabel("Draft white temperature")
+                    .accessibilityValue("\(Int(1_000_000 / value.wrappedValue)) kelvin")
+                HStack {
+                    Text("Cooler")
+                    Spacer()
+                    Text("Warmer")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            }
+            Button("Apply white & turn on") {
+                let mirek = Int(value.wrappedValue.rounded())
+                Task { await model.setLightTemperature(light.id, mirek: mirek) }
+            }
+        }
+        .disabled(!canEdit)
+    }
+
+    private func resetDraft() {
+        guard let currentLight else { return }
+        if let level = currentLight.brightness {
+            brightness = level
+        }
+        if let xy = currentLight.color {
+            color = swiftUIColor(xy)
+        }
+        if let mirek = currentLight.colorTemperatureMirek {
+            temperatureMirek = Double(mirek)
+        }
+    }
+
+    private static func levelLabel(_ level: Double) -> String {
+        "\(level.formatted(.number.precision(.fractionLength(0...1))))%"
+    }
+
+    private static func kelvinLabel(_ mirek: Double) -> String {
+        "\(Int(1_000_000 / mirek)) K"
     }
 }

@@ -7,19 +7,16 @@ struct StudioCustomPaletteSection: View {
 
     private let names = ["Base", "Motion", "Secondary", "Accent"]
 
-    private var selectedCustomPalette: Bool {
-        guard let custom = model.contract.palettes.first(where: {
-            $0.name == "Custom four-color"
-        }) else { return false }
-        return model.studioSettings.paletteA == custom.index
-            || model.studioSettings.paletteB == custom.index
+    private var customPaletteIndex: Int? {
+        model.contract.palettes.first(where: { $0.name == "Custom four-color" })?.index
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label("Create your own palette", systemImage: "paintpalette.fill")
                 .font(.headline)
-            Text("Four colors for the actual shared pattern engine. Choose Custom four-color in Palette A or B to use them.")
+                .accessibilityAddTraits(.isHeader)
+            Text("Choose four colors, then use them in either side of your Studio mix.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -38,16 +35,13 @@ struct StudioCustomPaletteSection: View {
                         var b: CGFloat = 0
                         var a: CGFloat = 0
                         guard uiColor.getRed(&r, green: &g, blue: &b, alpha: &a),
+                              [r, g, b].allSatisfy(\.isFinite),
                               model.studioSettings.customColors.count == 4 else {
                             model.errorMessage = "The custom color could not be converted to sRGB."
                             return
                         }
-                        let hex = String(
-                            format: "#%02X%02X%02X",
-                            Int((r * 255).rounded()),
-                            Int((g * 255).rounded()),
-                            Int((b * 255).rounded())
-                        )
+                        let channels = [r, g, b].map { Int((min(max($0, 0), 1) * 255).rounded()) }
+                        let hex = String(format: "#%02X%02X%02X", channels[0], channels[1], channels[2])
                         var updated = model.studioSettings
                         updated.customColors[index] = hex
                         model.studioSettings = updated
@@ -55,17 +49,37 @@ struct StudioCustomPaletteSection: View {
                 ), supportsOpacity: false)
             }
 
-            if !selectedCustomPalette {
-                Text("Select Custom four-color in an A/B palette to preview these colors in the live engine.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                Label("Custom palette is active in the Studio preview", systemImage: "checkmark.circle.fill")
-                    .font(.caption)
+            if let customPaletteIndex {
+                let inA = model.studioSettings.paletteA == customPaletteIndex
+                let inB = model.studioSettings.paletteB == customPaletteIndex
+                ViewThatFits(in: .horizontal) {
+                    HStack {
+                        usePaletteButton(side: "A", assigned: inA, index: customPaletteIndex, keyPath: \.paletteA)
+                        usePaletteButton(side: "B", assigned: inB, index: customPaletteIndex, keyPath: \.paletteB)
+                    }
+                    VStack(alignment: .leading) {
+                        usePaletteButton(side: "A", assigned: inA, index: customPaletteIndex, keyPath: \.paletteA)
+                        usePaletteButton(side: "B", assigned: inB, index: customPaletteIndex, keyPath: \.paletteB)
+                    }
+                }
             }
         }
         .padding(16)
         .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 20))
         .disabled(model.isLiveRunning)
+    }
+
+    private func usePaletteButton(
+        side: String,
+        assigned: Bool,
+        index: Int,
+        keyPath: WritableKeyPath<HueEngineSettings, Int>
+    ) -> some View {
+        Button(assigned ? "Using in \(side)" : "Use in \(side)", systemImage: assigned ? "checkmark" : "plus") {
+            model.studioSettings[keyPath: keyPath] = index
+        }
+        .buttonStyle(.bordered)
+        .disabled(assigned)
+        .accessibilityIdentifier("studio-custom-palette-\(side)")
     }
 }

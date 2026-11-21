@@ -243,6 +243,6 @@ extension AppModel {
         }
         loadCurrentRoomLayout()
         try await loadRecoveryState()
-        await reconcileAcceptedRestore()
+        await reconcileAcceptedRestore(in: values, bridgeID: profile.bridgeID)
     }
 }

@@ -24,6 +24,7 @@ struct CueSequencerSection: View {
             HStack {
                 Label("Cue sequencer", systemImage: "list.number")
                     .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
                 Spacer()
                 Text("\(model.cueIDs.count)/12")
                     .font(.caption.monospacedDigit())
@@ -41,32 +42,35 @@ struct CueSequencerSection: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-            ForEach(Array(model.cueIDs.enumerated()), id: \.offset) { index, id in
-                HStack(spacing: 8) {
+            ForEach(Array(model.cueIDs.enumerated()), id: \.element) { index, id in
+                let name = model.contract.preset(id: id)?.name ?? "Unknown cue"
+                HStack(spacing: 0) {
                     Text("\(index + 1).")
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
-                    Text(model.contract.preset(id: id)?.name ?? "Unknown cue")
+                        .padding(.trailing, 8)
+                        .accessibilityHidden(true)
+                    Text(name)
                         .font(.subheadline)
+                        .accessibilityLabel("Cue \(index + 1), \(name)")
                     Spacer()
-                    Button {
-                        var next = model.cueIDs
-                        next.swapAt(index, index - 1)
-                        model.cueIDs = next
-                    } label: {
-                        Image(systemName: "arrow.up")
-                    }
-                    .disabled(index == 0 || model.isLiveRunning)
-                    .accessibilityLabel("Move cue \(index + 1) earlier")
-
+                    cueReorderButton(
+                        name: name, index: index, nextIndex: index - 1,
+                        direction: "earlier", icon: "arrow.up"
+                    )
+                    cueReorderButton(
+                        name: name, index: index, nextIndex: index + 1,
+                        direction: "later", icon: "arrow.down"
+                    )
                     Button(role: .destructive) {
                         model.cueIDs.remove(at: index)
                         if model.cueIDs.isEmpty { model.isCueSequenceEnabled = false }
                     } label: {
-                        Image(systemName: "xmark.circle")
+                        cueActionIcon("xmark.circle")
                     }
+                    .buttonStyle(.plain)
                     .disabled(model.isLiveRunning)
-                    .accessibilityLabel("Remove cue \(index + 1)")
+                    .accessibilityLabel("Remove \(name)")
                 }
             }
 
@@ -124,5 +128,32 @@ struct CueSequencerSection: View {
         }
         .padding(16)
         .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 20))
+        .onChange(of: model.cueIDs) { _, _ in
+            if !candidates.contains(where: { $0.id == candidateID }) {
+                candidateID = ""
+            }
+        }
+    }
+
+    private func cueReorderButton(
+        name: String, index: Int, nextIndex: Int, direction: String, icon: String
+    ) -> some View {
+        Button {
+            var next = model.cueIDs
+            guard next.indices.contains(index), next.indices.contains(nextIndex) else { return }
+            next.swapAt(index, nextIndex)
+            model.cueIDs = next
+        } label: {
+            cueActionIcon(icon)
+        }
+        .buttonStyle(.plain)
+        .disabled(!model.cueIDs.indices.contains(nextIndex) || model.isLiveRunning)
+        .accessibilityLabel("Move \(name) \(direction)")
+    }
+
+    private func cueActionIcon(_ symbol: String) -> some View {
+        Image(systemName: symbol)
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
     }
 }

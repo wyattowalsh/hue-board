@@ -173,18 +173,29 @@ final class PlaybackTransportTests: XCTestCase {
         let submission = Task { [coordinator, lease, frame] in
             try await coordinator.submit(frame, lease: lease)
         }
-        await client.waitForFirstWrite()
+        do {
+            try await waitUntil("first direct-control write suspension") {
+                await client.isFirstWriteSuspended()
+            }
+        } catch {
+            await client.resumeFirstWrite()
+            submission.cancel()
+            _ = try? await submission.value
+            throw error
+        }
         let stopping = Task { [coordinator] in
             await coordinator.stopCurrent(reason: .cancelled)
         }
         do {
-            try await waitUntil("direct-control ownership release") {
-                await coordinator.currentLease() == nil
+            // The coordinator drops its lease before awaiting the transport's drain.
+            try await waitUntil("direct-control transport ownership release") {
+                await transport.activeLease == nil
             }
         } catch {
             await client.resumeFirstWrite()
-            _ = await stopping.value
             submission.cancel()
+            _ = await stopping.value
+            _ = try? await submission.value
             throw error
         }
         await client.resumeFirstWrite()
@@ -226,18 +237,29 @@ final class PlaybackTransportTests: XCTestCase {
         let begin = Task { [coordinator, request, transport] in
             try await coordinator.begin(request, using: transport)
         }
-        await client.waitForSceneUpdate()
+        do {
+            try await waitUntil("Bridge-scene update suspension") {
+                await client.isSceneUpdateSuspended()
+            }
+        } catch {
+            await client.resumeSceneUpdate()
+            begin.cancel()
+            _ = await coordinator.stopCurrent(reason: .cancelled)
+            _ = try? await begin.value
+            throw error
+        }
         let stopping = Task { [coordinator] in
             await coordinator.stopCurrent(reason: .cancelled)
         }
         do {
-            try await waitUntil("Bridge-scene ownership release") {
-                await coordinator.currentLease() == nil
+            try await waitUntil("Bridge-scene transport ownership release") {
+                await transport.activeLease == nil
             }
         } catch {
             await client.resumeSceneUpdate()
-            _ = await stopping.value
             begin.cancel()
+            _ = await stopping.value
+            _ = try? await begin.value
             throw error
         }
         await client.resumeSceneUpdate()
@@ -349,9 +371,7 @@ private actor FakePlaybackClient: HueBridgePlaybackClient {
     private let persistence: AppPersistence?
     private let expectedJournalScope: LightingScope?
     private let failRecall: Bool
-    private let suspendUpdate: Bool
-    private var sceneUpdateSuspended = false
-    private var sceneUpdateWaiter: CheckedContinuation<Void, Never>?
+    private var suspendUpdate: Bool
     private var sceneUpdateContinuation: CheckedContinuation<Void, Never>?
     private var recordedEvents: [String] = []
     private var recordedLightWrites: [HueResourceID] = []
@@ -411,9 +431,6 @@ private actor FakePlaybackClient: HueBridgePlaybackClient {
         if suspendUpdate {
             await withCheckedContinuation { continuation in
                 sceneUpdateContinuation = continuation
-                sceneUpdateSuspended = true
-                sceneUpdateWaiter?.resume()
-                sceneUpdateWaiter = nil
             }
         }
     }
@@ -442,17 +459,12 @@ private actor FakePlaybackClient: HueBridgePlaybackClient {
     func events() -> [String] { recordedEvents }
     func lightWriteIDs() -> [HueResourceID] { recordedLightWrites }
 
-    func waitForSceneUpdate() async {
-        if sceneUpdateSuspended { return }
-        await withCheckedContinuation { continuation in
-            sceneUpdateWaiter = continuation
-        }
-    }
+    func isSceneUpdateSuspended() -> Bool { sceneUpdateContinuation != nil }
 
     func resumeSceneUpdate() {
+        suspendUpdate = false
         guard let continuation = sceneUpdateContinuation else { return }
         sceneUpdateContinuation = nil
-        sceneUpdateSuspended = false
         continuation.resume()
     }
 
@@ -469,8 +481,7 @@ private actor FakePlaybackClient: HueBridgePlaybackClient {
 
 private actor SuspendingLightClient: HueLightUpdateSending {
     private var writes: [HueResourceID] = []
-    private var firstWriteSuspended = false
-    private var firstWriteWaiter: CheckedContinuation<Void, Never>?
+    private var suspendFirstWrite = true
     private var firstWriteContinuation: CheckedContinuation<Void, Never>?
 
     func updateLight(
@@ -480,27 +491,19 @@ private actor SuspendingLightClient: HueLightUpdateSending {
         credential: HueBridgeCredential
     ) async throws {
         writes.append(id)
-        if writes.count == 1 {
+        if writes.count == 1, suspendFirstWrite {
             await withCheckedContinuation { continuation in
                 firstWriteContinuation = continuation
-                firstWriteSuspended = true
-                firstWriteWaiter?.resume()
-                firstWriteWaiter = nil
             }
         }
     }
 
-    func waitForFirstWrite() async {
-        if firstWriteSuspended { return }
-        await withCheckedContinuation { continuation in
-            firstWriteWaiter = continuation
-        }
-    }
+    func isFirstWriteSuspended() -> Bool { firstWriteContinuation != nil }
 
     func resumeFirstWrite() {
+        suspendFirstWrite = false
         guard let continuation = firstWriteContinuation else { return }
         firstWriteContinuation = nil
-        firstWriteSuspended = false
         continuation.resume()
     }
 

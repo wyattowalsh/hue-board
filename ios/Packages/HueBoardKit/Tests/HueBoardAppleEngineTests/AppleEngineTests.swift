@@ -89,6 +89,37 @@ final class AppleEngineTests: XCTestCase {
         }
     }
 
+    func testCustomPaletteRoundTripPreservesSharedEngineOutput() async throws {
+        let contract = try HueBoardContractLoader.load()
+        let palette = try XCTUnwrap(contract.palettes.first { $0.name == "Custom four-color" })
+        let engine = try JavaScriptHueEngine()
+        var draft = HueEngineSettings()
+        draft.paletteA = palette.index
+        draft.paletteB = palette.index
+        let initialFrame = try await engine.sample(time: 7.25, position: 0.5, settings: draft)
+
+        let customColors = ["#FF0000", "#EE2211", "#CC3311", "#AA4400"]
+        draft.customColors = customColors
+        let editedFrame = try await engine.sample(time: 7.25, position: 0.5, settings: draft)
+        XCTAssertNotEqual(editedFrame.color, initialFrame.color)
+
+        let document = HueSceneDocumentCodec.makeDocument(
+            name: "Custom palette test",
+            settings: HueSceneSettings(engineSettings: draft),
+            source: .init(productVersion: contract.release, implementation: "native")
+        )
+        let encoded = try HueSceneDocumentCodec.encode(document, contract: contract)
+        let restored = try HueSceneDocumentCodec.decode(encoded, contract: contract)
+        let restoredSettings = restored.document.settings.nativeEngineSettings
+        XCTAssertEqual(restoredSettings.customColors, customColors)
+        XCTAssertEqual(restoredSettings.paletteA, palette.index)
+        XCTAssertEqual(restoredSettings.paletteB, palette.index)
+        let restoredFrame = try await engine.sample(
+            time: 7.25, position: 0.5, settings: restoredSettings
+        )
+        XCTAssertEqual(restoredFrame, editedFrame)
+    }
+
     private func fixed(_ input: Double) -> String {
         let value = abs(input) < 5e-12 ? 0 : input
         return String(

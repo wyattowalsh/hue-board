@@ -35,6 +35,10 @@ final class AppModel {
   var focusedFixtureID: HueResourceID?
   var roomLayoutScope: String?
   var selectedPresetID: String
+  private(set) var favoritePresetIDs = Set(
+    UserDefaults.standard.stringArray(forKey: AppModel.favoritePresetsKey) ?? []
+  )
+  static let favoritePresetsKey = "hue-board.native.favorite-presets.v1"
   // An editable Studio draft. Editing it never sends a Bridge command.
   var studioSettings: HueEngineSettings = .init()
   var savedStudioDocuments: [HueSceneDocument] = []
@@ -128,6 +132,17 @@ final class AppModel {
     guard !isLiveRunning else { return }
     selectedPresetID = preset.id
     studioSettings = HueEngineSettings.from(preset: preset, brightness: brightness)
+  }
+
+  func saveFavoritePresets(_ ids: Set<String>) {
+    UserDefaults.standard.set(ids.sorted(), forKey: Self.favoritePresetsKey)
+    favoritePresetIDs = ids
+  }
+
+  func toggleFavoritePreset(_ id: String) {
+    var ids = favoritePresetIDs
+    if ids.remove(id) == nil { ids.insert(id) }
+    saveFavoritePresets(ids)
   }
   var isReady: Bool { connectionState == .ready && profile != nil && credential != nil }
   var playbackSnapshot: HuePlaybackSnapshot { playback.snapshot }

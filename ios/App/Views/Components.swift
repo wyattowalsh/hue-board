@@ -30,31 +30,57 @@ struct PlaybackBanner: View {
   var body: some View {
     if model.playbackSnapshot.mode != .idle || model.hasRestorePoint || model.foreignRecoveryPending {
       VStack(alignment:.leading,spacing:8){
-        HStack{
-          VStack(alignment:.leading,spacing:2){
-            Text(title).font(.headline)
-            Text(model.playbackSnapshot.message).font(.caption).foregroundStyle(.secondary).lineLimit(3)
-          }
-          .accessibilityElement(children:.combine)
-          Spacer()
-          if !model.foreignRecoveryPending && (model.hasRestorePoint || model.playbackSnapshot.phase == .running || model.requiresRecovery) {
-            Button("Stop & restore") { Task{await model.stopAndRestore()} }
-              .buttonStyle(.borderedProminent)
-              .disabled(model.isBusy)
-          }
-          Button("Turn off now", role: .destructive) { Task { await model.turnOffNow() } }
+        VStack(alignment:.leading,spacing:2){
+          Text(title).font(.headline)
+          Text(model.playbackSnapshot.message)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal:false,vertical:true)
+        }
+        .accessibilityElement(children:.combine)
+        if showsRestore && !model.isReady {
+          Text("Reconnect the saved Bridge to restore the baseline.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+          Button("Reconnect Bridge") { model.presentConnection() }
             .buttonStyle(.bordered)
-            .disabled(!model.canTurnOffNow)
-            .accessibilityHint("Stops Hue Board playback and turns eligible lights off. The saved baseline stays available.")
+            .disabled(model.isBusy)
+        }
+        ViewThatFits(in: .horizontal) {
+          HStack {
+            actions
+          }
+          VStack(alignment: .leading, spacing: 8) {
+            actions
+          }
         }
         if model.playbackSnapshot.phase == .running && model.playbackSnapshot.progress > 0 {
           ProgressView(value:model.playbackSnapshot.progress)
         }
       }
       .padding(12)
+      .frame(maxWidth: .infinity, alignment: .leading)
       .background(.ultraThinMaterial)
     }
   }
+
+  private var showsRestore: Bool {
+    !model.foreignRecoveryPending
+      && (model.hasRestorePoint || model.playbackSnapshot.phase == .running || model.requiresRecovery)
+  }
+
+  @ViewBuilder private var actions: some View {
+    if showsRestore {
+      Button("Stop & restore") { Task { await model.stopAndRestore() } }
+        .buttonStyle(.borderedProminent)
+        .disabled(!model.canStopAndRestore)
+    }
+    Button("Turn off now", role: .destructive) { Task { await model.turnOffNow() } }
+      .buttonStyle(.bordered)
+      .disabled(!model.canTurnOffNow)
+      .accessibilityHint("Stops Hue Board playback and turns eligible lights off. The saved baseline stays available.")
+  }
+
   private var title:String{
     switch model.playbackSnapshot.mode{
     case .bridge:"Bridge Play"

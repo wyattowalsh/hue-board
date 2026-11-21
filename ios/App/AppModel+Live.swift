@@ -214,7 +214,15 @@ extension AppModel {
   }
 
   func stopAndRestore() async {
-    guard let profile, let credential, !isBusy else { return }
+    guard !isBusy, !emergencyOffInFlight else { return }
+    guard !foreignRecoveryPending else {
+      errorMessage = "Reconnect the original Bridge to restore its saved baseline."
+      return
+    }
+    guard canStopAndRestore, let profile, let credential else {
+      errorMessage = "Reconnect the saved Bridge before trying to restore."
+      return
+    }
     isBusy = true
     playback.beginStopping()
     currentCueStatus = nil
@@ -225,7 +233,7 @@ extension AppModel {
     defer { isBusy = false }
 
     do {
-      guard let journal = try await persistence.loadRestoreJournal() else {
+      guard var journal = try await persistence.loadRestoreJournal() else {
         playback.stop("No saved restore point was available.")
         hasRestorePoint = false
         restoreAreaID = nil
@@ -235,15 +243,35 @@ extension AppModel {
         throw HueBoardError.invalidResponse("Saved restore state belongs to a different Bridge.")
       }
 
+      let freshAreas = try await client.inventory(
+        profile: profile,
+        credential: credential,
+        outputLimits: preservedOutputCeilings()
+      )
+      guard !emergencyOffInFlight, playback.snapshot.mode == .stopping else { return }
+      let eligible = journal.snapshotsEligibleForRestore(in: freshAreas)
+      guard !eligible.isEmpty else {
+        throw HueBoardError.unsupported(
+          "The saved lights are unavailable, streaming, or no longer support their saved settings. The saved baseline is retained."
+        )
+      }
+      if journal.restoreAcceptedAt != nil {
+        // A new attempt supersedes prior acknowledgments but preserves every
+        // remaining snapshot until this attempt is accepted and verified.
+        journal.restoreAcceptedAt = nil
+        try await persistence.saveRestoreJournal(journal)
+      }
+      guard !emergencyOffInFlight, playback.snapshot.mode == .stopping else { return }
       let lease = try await beginDirectControl(
         profile: profile,
         credential: credential,
         areaID: journal.areaID,
-        allowedLightIDs: journal.capturedLightIDs,
+        allowedLightIDs: Set(eligible.map(\.lightID)),
         purpose: "restore-baseline"
       )
-      var failures: [HueResourceID] = []
-      for (index, snapshot) in journal.snapshots.enumerated() {
+      let skipped = journal.snapshots.count - eligible.count
+      var failures = 0
+      for (index, snapshot) in eligible.enumerated() {
         do {
           try await playbackCoordinator.submit(
             .init(
@@ -253,12 +281,13 @@ extension AppModel {
             lease: lease
           )
         } catch {
-          failures.append(snapshot.lightID)
+          failures += 1
         }
       }
       await finishDirectControl(lease)
+      guard !emergencyOffInFlight, playback.snapshot.mode == .stopping else { return }
 
-      if failures.isEmpty {
+      if failures == 0, skipped == 0 {
         var accepted = journal
         accepted.restoreAcceptedAt = Date()
         try await persistence.saveRestoreJournal(accepted)
@@ -271,7 +300,10 @@ extension AppModel {
           note = playback.snapshot.message
         }
       } else {
-        playback.fail("Restore failed for \(failures.count) lights; the baseline was retained.")
+        playback.fail(
+          "Restore incomplete. \(skipped) lights were unavailable or unsupported and \(failures) commands failed. The saved baseline is retained."
+        )
+        note = playback.snapshot.message
         errorMessage = playback.snapshot.message
       }
     } catch {

@@ -17,7 +17,7 @@ public struct HueCueAtTime: Equatable, Sendable {
 
 /// Immutable, deterministic cue schedule. The caller measures monotonic
 /// elapsed session time; missed cues are skipped, never replayed as catch-up writes.
-public struct HueCueSequence: Equatable, Sendable {
+public struct HueCueSequence: Codable, Equatable, Sendable {
     public let presetIDs: [String]
     public let holdSeconds: Double
     public let order: HueCueOrder

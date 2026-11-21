@@ -12,11 +12,11 @@ struct LightsView: View {
         List{
           Section { StatusCard(); AreaPicker() }
           Section("Everyday control"){
-            HStack{
-              Button("Turn on"){Task{await model.setAreaPower(true)}}.buttonStyle(.borderedProminent)
-              Button("Turn off"){Task{await model.setAreaPower(false)}}.buttonStyle(.bordered)
-              Spacer()
+            ViewThatFits(in: .horizontal) {
+              HStack { areaPowerButtons }
+              VStack(alignment: .leading, spacing: 8) { areaPowerButtons }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .disabled(!model.canUseEverydayControls)
             Button("Turn off now",role:.destructive){Task{await model.turnOffNow()}}
               .buttonStyle(.bordered)
@@ -26,13 +26,15 @@ struct LightsView: View {
               HStack{Text("Brightness");Spacer();Text("\(Int(model.brightness))%").monospacedDigit()}
               Slider(value: $model.brightness, in: 1...100, step: 1)
                 .disabled(!model.canUseEverydayControls)
+                .accessibilityLabel("Area brightness")
+                .accessibilityValue("\(Int(model.brightness)) percent")
               Button("Apply brightness & turn on") {
                 Task { await model.setAreaBrightness(model.brightness) }
               }
               .buttonStyle(.borderedProminent)
               .disabled(!model.canUseEverydayControls)
               .accessibilityHint("Sends the selected brightness only after this button is pressed.")
-              Text("Moving the slider edits the value only. It never writes to lights until Apply is pressed.")
+              Text("Moving the slider edits the value only. Apply sends it to this room or zone.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
@@ -55,10 +57,13 @@ struct LightsView: View {
                     Image(systemName: "slider.horizontal.3")
                       .font(.caption)
                       .foregroundStyle(.secondary)
+                      .accessibilityHidden(true)
                   }
+                  .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Edit \(light.name)")
+                .accessibilityValue(accessibleReadback(light))
               }
             }
           }
@@ -78,5 +83,19 @@ struct LightsView: View {
       ToolbarItem(placement:.topBarTrailing){Button{Task{await model.refreshInventory()}}label:{Image(systemName:"arrow.clockwise")}.disabled(!model.isReady||model.isBusy).accessibilityLabel("Refresh Bridge state")}
       ToolbarItem(placement:.topBarTrailing){Button{model.isSettingsPresented=true}label:{Image(systemName:"gearshape.fill")}.accessibilityLabel("Settings")}
     }
+  }
+
+  @ViewBuilder private var areaPowerButtons: some View {
+    Button("Turn on") { Task { await model.setAreaPower(true) } }
+      .buttonStyle(.borderedProminent)
+    Button("Turn off") { Task { await model.setAreaPower(false) } }
+      .buttonStyle(.bordered)
+  }
+
+  private func accessibleReadback(_ light: HueLight) -> String {
+    if light.capabilities.streaming { return "Entertainment stream active" }
+    if !light.isOn { return "Off" }
+    guard let level = light.brightness else { return "On" }
+    return "On, \(level.formatted(.number.precision(.fractionLength(0...1)))) percent"
   }
 }

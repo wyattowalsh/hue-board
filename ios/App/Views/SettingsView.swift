@@ -67,6 +67,9 @@ struct SettingsView: View {
         .font(.caption)
         .foregroundStyle(.secondary)
       }
+      .disabled(model.isBusy)
+
+      PortableDataSection()
 
       Section("Security"){
         Text("The native client accepts only private LAN IPv4 or trusted .local hosts, rejects redirects, verifies the certificate Bridge ID, and pins the leaf SHA-256 after first contact. The application key remains in Keychain.")

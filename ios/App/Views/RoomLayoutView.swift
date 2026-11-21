@@ -20,6 +20,7 @@ struct RoomLayoutView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Room, not a list.")
                                 .font(.title2.bold())
+                                .accessibilityAddTraits(.isHeader)
                             Text("Arrange lights by position and phase. Editing the map never changes your bulbs.")
                                 .foregroundStyle(.secondary)
                         }
@@ -34,6 +35,7 @@ struct RoomLayoutView: View {
                                 HStack {
                                     Label("Spatial map", systemImage: "circle.hexagongrid")
                                         .font(.headline)
+                                        .accessibilityAddTraits(.isHeader)
                                     Spacer()
                                     Text("\(layout.selectedEntries(in: area).count) active")
                                         .font(.caption.monospacedDigit())
@@ -52,7 +54,7 @@ struct RoomLayoutView: View {
                                         }
                                     }
                                 )
-                                Text("Tap a light to edit it; drag to move it. Positions are local coordinates, not measured distances.")
+                                Text("Tap a light to choose it. Drag it or use Position X and Y to move it.")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -108,10 +110,14 @@ struct RoomLayoutView: View {
                                         keyPath: \.ceiling, range: 5...100, percentage: false
                                     )
 
-                                    LabeledContent("Position X",
-                                        value: "\(Int(placement.x * 100))%")
-                                    LabeledContent("Position Y",
-                                        value: "\(Int(placement.y * 100))%")
+                                    placementSlider(
+                                        "Position X", id: light.id,
+                                        keyPath: \.x, range: 0...1, percentage: true
+                                    )
+                                    placementSlider(
+                                        "Position Y", id: light.id,
+                                        keyPath: \.y, range: 0...1, percentage: true
+                                    )
                                     LabeledContent("Bridge maximum",
                                         value: "\(Int(light.outputLimit))%")
                                 }
@@ -171,14 +177,16 @@ struct RoomLayoutView: View {
     ) -> some View {
         let current = model.roomLayout?.placements.first(where: { $0.id == id })?[keyPath: keyPath]
             ?? range.lowerBound
+        let displayValue = "\(Int((current * (percentage ? 100 : 1)).rounded()))%"
         return VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(title)
                 Spacer()
-                Text("\(Int(current * (percentage ? 100 : 1)))%")
+                Text(displayValue)
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
+            .accessibilityHidden(true)
             Slider(value: Binding(
                 get: {
                     model.roomLayout?.placements.first(where: { $0.id == id })?[keyPath: keyPath]
@@ -191,6 +199,7 @@ struct RoomLayoutView: View {
                 }
             ), in: range, step: percentage ? 0.01 : 5)
                 .accessibilityLabel(title)
+                .accessibilityValue(displayValue)
         }
     }
 }
@@ -205,17 +214,26 @@ private struct RoomFixtureMap: View {
 
     @State private var previewPositions: [HueResourceID: CGPoint] = [:]
 
+    private let markerSize: CGFloat = 44
+
     var body: some View {
         GeometryReader { geometry in
+            let inset = markerSize / 2
+            let mapSize = CGSize(
+                width: max(1, geometry.size.width - markerSize),
+                height: max(1, geometry.size.height - markerSize)
+            )
             ZStack {
                 RoundedRectangle(cornerRadius: 16)
                     .fill(.black.opacity(0.45))
                 Path { path in
-                    for fraction in [0.25, 0.5, 0.75] {
-                        path.move(to: CGPoint(x: geometry.size.width * fraction, y: 0))
-                        path.addLine(to: CGPoint(x: geometry.size.width * fraction, y: geometry.size.height))
-                        path.move(to: CGPoint(x: 0, y: geometry.size.height * fraction))
-                        path.addLine(to: CGPoint(x: geometry.size.width, y: geometry.size.height * fraction))
+                    for fraction in [CGFloat(0.25), 0.5, 0.75] {
+                        let x = inset + mapSize.width * fraction
+                        let y = inset + mapSize.height * fraction
+                        path.move(to: CGPoint(x: x, y: 0))
+                        path.addLine(to: CGPoint(x: x, y: geometry.size.height))
+                        path.move(to: CGPoint(x: 0, y: y))
+                        path.addLine(to: CGPoint(x: geometry.size.width, y: y))
                     }
                 }
                 .stroke(.white.opacity(0.10), lineWidth: 1)
@@ -230,40 +248,44 @@ private struct RoomFixtureMap: View {
                         } label: {
                             ZStack {
                                 Circle()
-                                    .fill(swiftUIColor(light.color))
+                                    .fill(swiftUIColor(light.color).opacity(placement.selected ? 1 : 0.35))
                                 Circle()
-                                    .stroke(
+                                    .strokeBorder(
                                         focusedID == placement.id ? Color.white : Color.white.opacity(0.3),
                                         lineWidth: focusedID == placement.id ? 3 : 1
                                     )
                                 Text("\(index + 1)")
-                                    .font(.subheadline.bold())
-                                    .foregroundStyle(.black)
+                                    .font(.caption.bold())
+                                    .foregroundStyle(.white)
+                                    .padding(4)
+                                    .background(.black.opacity(0.8), in: Capsule())
                             }
-                            .opacity(placement.selected ? 1 : 0.40)
-                            .frame(width: 42, height: 42)
+                            .frame(width: markerSize, height: markerSize)
+                            .contentShape(Circle())
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("\(light.name), \(placement.selected ? "selected" : "excluded")")
+                        .accessibilityLabel(light.name)
+                        .accessibilityValue(placement.selected ? "Selected for Studio" : "Excluded from Studio")
+                        .accessibilityAddTraits(focusedID == placement.id ? [.isSelected] : [])
+                        .accessibilityHint("Shows fixture settings and position controls")
                         .position(
-                            x: point.x * geometry.size.width,
-                            y: point.y * geometry.size.height
+                            x: inset + point.x * mapSize.width,
+                            y: inset + point.y * mapSize.height
                         )
+                        .zIndex(focusedID == placement.id ? 1 : 0)
                         .simultaneousGesture(
                             DragGesture(minimumDistance: 5, coordinateSpace: .named("room-map"))
                                 .onChanged { drag in
                                     guard isEditable else { return }
-                                    previewPositions[placement.id] = CGPoint(
-                                        x: min(max(drag.location.x / geometry.size.width, 0.04), 0.96),
-                                        y: min(max(drag.location.y / geometry.size.height, 0.06), 0.94)
+                                    previewPositions[placement.id] = position(
+                                        after: drag.translation, from: placement, in: mapSize
                                     )
                                 }
                                 .onEnded { drag in
                                     defer { previewPositions.removeValue(forKey: placement.id) }
                                     guard isEditable else { return }
-                                    let x = min(max(drag.location.x / geometry.size.width, 0.04), 0.96)
-                                    let y = min(max(drag.location.y / geometry.size.height, 0.06), 0.94)
-                                    onMove(placement.id, x, y)
+                                    let next = position(after: drag.translation, from: placement, in: mapSize)
+                                    onMove(placement.id, Double(next.x), Double(next.y))
                                     onFocus(placement.id)
                                 }
                         )
@@ -273,6 +295,18 @@ private struct RoomFixtureMap: View {
             .coordinateSpace(name: "room-map")
         }
         .frame(height: 290)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Interactive room fixture map")
+    }
+
+    private func position(
+        after translation: CGSize,
+        from placement: HueFixturePlacement,
+        in mapSize: CGSize
+    ) -> CGPoint {
+        CGPoint(
+            x: min(max(CGFloat(placement.x) + translation.width / mapSize.width, 0), 1),
+            y: min(max(CGFloat(placement.y) + translation.height / mapSize.height, 0), 1)
+        )
     }
 }

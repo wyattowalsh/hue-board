@@ -16,32 +16,12 @@ struct StudioDocumentStore {
     func load(contract: HueBoardContract) throws -> [HueSceneDocument] {
         guard let data = defaults.data(forKey: Self.key) else { return [] }
         let documents = try JSONDecoder().decode([HueSceneDocument].self, from: data)
-        guard documents.count <= 100 else {
-            throw HueBoardError.invalidResponse("The Studio library exceeds its 100-mix limit.")
-        }
-
-        var ids = Set<String>()
-        for document in documents {
-            try HueSceneDocumentCodec.validate(document, contract: contract)
-            guard ids.insert(document.documentId).inserted else {
-                throw HueBoardError.invalidResponse("Duplicate scene IDs in the saved library.")
-            }
-        }
+        try HueSceneDocumentCodec.validateLibrary(documents, contract: contract)
         return documents
     }
 
     func save(_ documents: [HueSceneDocument], contract: HueBoardContract) throws {
-        guard documents.count <= 100 else {
-            throw HueBoardError.unsupported("The Studio library holds at most 100 mixes.")
-        }
-        var ids = Set<String>()
-        for document in documents {
-            try HueSceneDocumentCodec.validate(document, contract: contract)
-            guard ids.insert(document.documentId).inserted else {
-                throw HueBoardError.invalidResponse("A mix ID was reused.")
-            }
-        }
-
+        try HueSceneDocumentCodec.validateLibrary(documents, contract: contract)
         let data = try JSONEncoder().encode(documents)
         // Do not delete or rewrite the original library if encoding or validation fails.
         defaults.set(data, forKey: Self.key)

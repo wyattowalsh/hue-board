@@ -263,6 +263,7 @@ public enum HueSceneDocumentCodec {
     public static let format = "hue-board.scene"
     public static let schema = 2
     public static let engineABI = 1
+    public static let maximumLibraryCount = 100
 
     private static let legacyApps = Set(["hue-board", "BOYZ.EXE"])
     private static let rootKeys = Set([
@@ -380,6 +381,42 @@ public enum HueSceneDocumentCodec {
         try validate(document.settings, contract: contract)
     }
 
+    public static func validateLibrary(
+        _ documents: [HueSceneDocument],
+        contract: HueBoardContract
+    ) throws {
+        guard documents.count <= maximumLibraryCount else {
+            throw HueSceneDocumentError.invalidDocument("The Studio library holds at most \(maximumLibraryCount) mixes.")
+        }
+        var ids = Set<String>()
+        for document in documents {
+            try validate(document, contract: contract)
+            guard ids.insert(document.documentId).inserted else {
+                throw HueSceneDocumentError.invalidDocument("The Studio library contains duplicate mix IDs.")
+            }
+        }
+    }
+
+    public static func mergingLibrary(
+        _ imported: [HueSceneDocument],
+        into current: [HueSceneDocument],
+        contract: HueBoardContract
+    ) throws -> [HueSceneDocument] {
+        try validateLibrary(current, contract: contract)
+        try validateLibrary(imported, contract: contract)
+        let known = Dictionary(uniqueKeysWithValues: current.map { ($0.documentId, $0) })
+        let additions = try imported.filter { document in
+            guard let existing = known[document.documentId] else { return true }
+            guard existing == document else {
+                throw HueSceneDocumentError.invalidDocument("A local mix already uses the same ID with different content. No mixes were imported.")
+            }
+            return false
+        }
+        let result = current + additions
+        try validateLibrary(result, contract: contract)
+        return result
+    }
+
     private static func decodeSchema2(
         _ data: Data,
         root: [String: Any],
@@ -465,7 +502,7 @@ public enum HueSceneDocumentCodec {
         )
     }
 
-    private static func validate(
+    static func validate(
         _ settings: HueSceneSettings,
         contract: HueBoardContract
     ) throws {
@@ -507,18 +544,22 @@ public enum HueSceneDocumentCodec {
         else {
             throw HueSceneDocumentError.invalidSettings("The scene contains an invalid mode setting.")
         }
-        guard settings.customColors.count == 4 else {
-            throw HueSceneDocumentError.invalidSettings("A scene requires exactly four custom colors.")
-        }
-        do {
-            for color in settings.customColors { _ = try RGB(hex: color) }
-        } catch {
-            throw HueSceneDocumentError.invalidSettings("The scene contains an invalid custom color.")
-        }
+        try validateCustomColors(settings.customColors)
         guard settings.sequenceIds.count <= 12,
               settings.sequenceIds.allSatisfy({ matches($0, pattern: "^[a-z0-9-]{1,50}$") })
         else {
             throw HueSceneDocumentError.invalidSettings("The scene sequence identifiers are invalid.")
+        }
+    }
+
+    static func validateCustomColors(_ colors: [String]) throws {
+        guard colors.count == 4 else {
+            throw HueSceneDocumentError.invalidSettings("A scene requires exactly four custom colors.")
+        }
+        do {
+            for color in colors { _ = try RGB(hex: color) }
+        } catch {
+            throw HueSceneDocumentError.invalidSettings("The scene contains an invalid custom color.")
         }
     }
 

@@ -37,6 +37,7 @@ private actor SyntheticFrameRecorder {
         frames.append(frame)
     }
     func first() -> LightingFrame? { frames.first }
+    func count() -> Int { frames.count }
 }
 
 final class HueSpatialFrameTests: XCTestCase {
@@ -138,6 +139,54 @@ final class HueSpatialFrameTests: XCTestCase {
             XCTAssertEqual(patterns.first, presets[0].pattern)
             let frame = await recorder.first()
             XCTAssertEqual(frame?.actions.count, 1)
+        }
+    }
+
+    func testInterruptedLiveRunStopsSubmittingAndAllowsExplicitRestart() async throws {
+        let area = HueArea(
+            id: .init(rawValue: "interruption-room"), kind: .room,
+            name: "Interruption room", lights: [light("a")]
+        )
+        let layout = HueRoomLayout.startingLayout(for: area)
+        let contract = try HueBoardContractLoader.load()
+        let safety = PhysicalLightSafetySettings.default
+        let recorder = SyntheticFrameRecorder()
+        let runner = NativeLiveRunner(engine: SyntheticHueSampler())
+
+        let session = Task {
+            try await runner.run(
+                area: area, layout: layout,
+                settings: HueEngineSettings(), cueSequence: nil,
+                contract: contract, duration: 1, safetySettings: safety,
+                submit: { frame in await recorder.record(frame) },
+                progress: { _ in
+                    withUnsafeCurrentTask { task in task?.cancel() }
+                }
+            )
+        }
+        do {
+            try await session.value
+            XCTFail("The interrupted session must report cancellation.")
+        } catch is CancellationError {
+            let count = await recorder.count()
+            XCTAssertEqual(count, 1)
+        }
+
+        do {
+            try await runner.run(
+                area: area, layout: layout,
+                settings: HueEngineSettings(), cueSequence: nil,
+                contract: contract, duration: 1, safetySettings: safety,
+                submit: { frame in
+                    await recorder.record(frame)
+                    throw EndFixtureFrame.captured
+                },
+                progress: { _ in }
+            )
+            XCTFail("The restarted session must reach the synthetic frame sink.")
+        } catch EndFixtureFrame.captured {
+            let count = await recorder.count()
+            XCTAssertEqual(count, 2)
         }
     }
 }

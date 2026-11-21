@@ -240,4 +240,41 @@ public struct HueLightSnapshot: Codable, Equatable, Sendable {
             dynamics: light.capabilities.dimming ? .init(duration: 1_500) : nil
         )
     }
+
+    public func canRestore(to light: HueLight) -> Bool {
+        guard light.id == lightID, !light.capabilities.streaming, light.capabilities.power,
+              action.on != nil,
+              action.dimming == nil || light.capabilities.dimming,
+              action.color == nil || light.capabilities.color
+        else { return false }
+        if let temperature = action.colorTemperature {
+            guard light.capabilities.colorTemperature, action.color == nil, temperature.mirek > 0
+            else { return false }
+            if let range = light.supportedTemperatureRange, !range.contains(temperature.mirek) {
+                return false
+            }
+        }
+        return true
+    }
+
+    public func matchesRestoreReadback(_ light: HueLight) -> Bool {
+        guard canRestore(to: light), light.dynamicStatus == nil || light.dynamicStatus == "none",
+              let expectedPower = action.on?.on, light.isOn == expectedPower
+        else { return false }
+        if let expected = action.dimming?.brightness {
+            guard let actual = light.brightness, abs(actual - expected) <= 0.6
+            else { return false }
+        }
+        if let expected = action.colorTemperature?.mirek {
+            return light.colorTemperatureMirek == expected
+        }
+        if let expected = action.color?.xy {
+            guard light.colorTemperatureMirek == nil, let actual = light.color else { return false }
+            // Allow one unit in the last decimal of four-decimal XY readback,
+            // with a small allowance for binary floating-point subtraction.
+            let tolerance = 0.0001 + 1e-12
+            return abs(actual.x - expected.x) <= tolerance && abs(actual.y - expected.y) <= tolerance
+        }
+        return true
+    }
 }

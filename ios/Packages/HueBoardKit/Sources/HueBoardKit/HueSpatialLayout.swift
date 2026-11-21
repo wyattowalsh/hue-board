@@ -18,8 +18,7 @@ public enum HueFixtureRole: String, Codable, CaseIterable, Sendable {
     public var isStatic: Bool { self == .task || self == .anchor }
 }
 
-/// A local-only spatial plan for one Hue area. It is deliberately separate
-/// from portable HueSceneDocument files and contains no credentials.
+/// A spatial plan for one Hue area. It stays separate from scope-free scene documents.
 public struct HueFixturePlacement: Codable, Equatable, Identifiable, Sendable {
     public let id: HueResourceID
     public var selected: Bool
@@ -77,8 +76,15 @@ public struct HueRoomLayout: Codable, Equatable, Sendable {
     }
 
     public func validate(for area: HueArea) throws {
-        guard area.id == areaID, placements.count <= 100 else {
-            throw HueBoardError.invalidResponse("The saved layout does not belong to this area or is too large.")
+        guard area.id == areaID else {
+            throw HueBoardError.invalidResponse("The saved layout does not belong to this area.")
+        }
+        try validatePlacements()
+    }
+
+    func validatePlacements() throws {
+        guard !areaID.rawValue.isEmpty, placements.count <= 100 else {
+            throw HueBoardError.invalidResponse("The saved layout has an invalid area or is too large.")
         }
         var seen = Set<HueResourceID>()
         for placement in placements {
@@ -87,6 +93,18 @@ public struct HueRoomLayout: Codable, Equatable, Sendable {
             }
             try placement.validate()
         }
+    }
+
+    /// Imported placements can only update fixtures already known to this area.
+    public func mergingPlacements(from imported: Self, in area: HueArea) throws -> Self {
+        try imported.validate(for: area)
+        let current = try includingNewLights(from: area)
+        let currentIDs = Set(current.placements.map(\.id))
+        guard imported.placements.allSatisfy({ currentIDs.contains($0.id) }) else {
+            throw HueBoardError.invalidResponse("The file contains fixtures unknown to this room or zone.")
+        }
+        let changes = Dictionary(uniqueKeysWithValues: imported.placements.map { ($0.id, $0) })
+        return Self(areaID: areaID, placements: current.placements.map { changes[$0.id] ?? $0 })
     }
 
     public static func startingLayout(for area: HueArea) -> Self {

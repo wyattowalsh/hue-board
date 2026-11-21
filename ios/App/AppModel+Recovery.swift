@@ -4,6 +4,10 @@ import HueBoardNativeCore
 
 @MainActor
 extension AppModel {
+  var canStopAndRestore: Bool {
+    isReady && !isBusy && !emergencyOffInFlight && !foreignRecoveryPending
+  }
+
   func loadRecoveryState() async throws {
     guard let profile else {
       hasRestorePoint = false
@@ -35,19 +39,13 @@ extension AppModel {
     note = playback.snapshot.message
   }
 
-  func reconcileAcceptedRestore() async {
-    guard let profile else { return }
+  func reconcileAcceptedRestore(in readback: [HueArea], bridgeID: String) async {
     guard var journal = try? await persistence.loadRestoreJournal(),
           journal.restoreAcceptedAt != nil,
-          journal.bridgeID == profile.bridgeID else { return }
-    var known: [HueResourceID: HueLight] = [:]
-    for light in areas.flatMap(\.lights) where known[light.id] == nil {
-      known[light.id] = light
-    }
-    let remaining = journal.snapshots.filter { snapshot in
-      guard let light = known[snapshot.lightID], !light.capabilities.streaming else { return true }
-      return !Self.restoreReadbackMatches(light, snapshot.action)
-    }
+          journal.bridgeID == bridgeID,
+          profile?.bridgeID == bridgeID,
+          playback.snapshot.mode != .stopping else { return }
+    let remaining = journal.snapshotsAwaitingRestoreReadback(in: readback)
     guard remaining.count != journal.snapshots.count else { return }
     if remaining.isEmpty {
       do { try await persistence.saveRestoreJournal(nil) } catch { return }
@@ -63,14 +61,6 @@ extension AppModel {
     hasRestorePoint = true
     foreignRecoveryPending = false
     restoreAreaID = journal.areaID
-  }
-
-  static func restoreReadbackMatches(_ light: HueLight, _ action: HueLightAction) -> Bool {
-    guard let expected = action.on?.on, light.isOn == expected else { return false }
-    if let expectedBrightness = action.dimming?.brightness {
-      guard let actual = light.brightness, abs(actual - expectedBrightness) <= 0.6 else { return false }
-    }
-    return true
   }
 
   func discardForeignBaseline() async {

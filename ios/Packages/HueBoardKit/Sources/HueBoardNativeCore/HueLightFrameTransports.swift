@@ -7,7 +7,7 @@ private actor HueLightFrameWriter {
     private let profile: BridgeProfile
     private let credential: HueBridgeCredential
     private let allowedLightIDs: Set<HueResourceID>
-    private var activeLease: PlaybackWriterLease?
+    private(set) var activeLease: PlaybackWriterLease?
     private var inFlightWrites = 0
     private var writeIdleWaiters: [CheckedContinuation<Void, Never>] = []
 
@@ -111,6 +111,10 @@ public actor DirectControlTransport: LightingTransport {
         supportsHighRateFrames: false
     )
     private let writer: HueLightFrameWriter
+
+    var activeLease: PlaybackWriterLease? {
+        get async { await writer.activeLease }
+    }
 
     public init(
         client: any HueLightUpdateSending,

@@ -1,5 +1,6 @@
 import XCTest
 import HueBoardKit
+import HueBoardNativeCore
 @testable import Hue_Board
 
 final class HueBoardAppTests: XCTestCase {
@@ -30,6 +31,46 @@ final class HueBoardAppTests: XCTestCase {
         XCTAssertNotNil(model.errorMessage)
         let lease = await model.playbackCoordinator.currentLease()
         XCTAssertNil(lease)
+    }
+
+    @MainActor
+    func testRestoreRequiresReconnectWhenSavedBridgeHasNoCredential() async throws {
+        let model = AppModel()
+        model.profile = try BridgeProfile(bridgeID: "001788fffe123456", host: "test-bridge.local")
+        model.hasRestorePoint = true
+        model.restoreAreaID = .init(rawValue: "test-room")
+        let originalPlayback = model.playbackSnapshot
+
+        XCTAssertFalse(model.canStopAndRestore)
+        await model.stopAndRestore()
+
+        XCTAssertEqual(model.errorMessage, "Reconnect the saved Bridge before trying to restore.")
+        XCTAssertEqual(model.playbackSnapshot, originalPlayback)
+        XCTAssertTrue(model.hasRestorePoint)
+        XCTAssertEqual(model.restoreAreaID?.rawValue, "test-room")
+        let lease = await model.playbackCoordinator.currentLease()
+        XCTAssertNil(lease)
+    }
+
+    @MainActor
+    func testRestoreAvailabilityRequiresReadyConnectionAndMatchingRecoveryScope() throws {
+        let model = AppModel()
+        let profile = try BridgeProfile(bridgeID: "001788fffe123456", host: "test-bridge.local")
+        model.profile = profile
+        model.credential = .init(bridgeID: profile.bridgeID, applicationKey: "synthetic")
+
+        model.connectionState = .connecting
+        XCTAssertFalse(model.canStopAndRestore)
+        model.connectionState = .ready
+        XCTAssertTrue(model.canStopAndRestore)
+        model.isBusy = true
+        XCTAssertFalse(model.canStopAndRestore)
+        model.isBusy = false
+        model.emergencyOffInFlight = true
+        XCTAssertFalse(model.canStopAndRestore)
+        model.emergencyOffInFlight = false
+        model.foreignRecoveryPending = true
+        XCTAssertFalse(model.canStopAndRestore)
     }
 
     func testStudioLibraryRoundTripsCanonicalScopeFreeDocument() throws {

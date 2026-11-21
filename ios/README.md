@@ -24,8 +24,13 @@ The native SwiftUI app is the primary product direction for Hue Board. Scriptabl
 - A timestamped static baseline is captured before any scene create, scene update, scene recall, or Native Live write that may affect lights.
 - Replaying in the same area preserves existing snapshots and appends only newly touched lights. Earlier pre-playback baselines are never replaced by later state.
 - **Turn off now** cancels Native Live and, during a recovery session, targets only lights covered by that baseline. Missing, streaming, and failed lights are reported explicitly; the restore journal is retained.
+- **Stop & restore** requires a ready connection to the original Bridge. It reads current inventory before issuing commands and checks fresh Bridge readback against saved power, brightness, and the captured active XY color or color temperature. Missing or incompatible fixtures and unconfirmed settings keep the baseline available for retry.
 - Partial restore failures retain all unresolved snapshots for another attempt.
 - Normal credential removal remains restore-first. If the original Bridge is permanently unreachable or replaced, a separately confirmed **Discard recovery & forget Bridge** action removes the application key, certificate pin, scene registry, and unrecoverable baseline.
+
+## Browse and compose
+
+Scenes and Studio work offline. Search looks or edit a draft locally. Play and Start require a ready Bridge and the usual playback checks. Use **Jump to section** in Studio to reach the palette, cues or library, and use **Position X** and **Position Y** in Room for precise placement or as an alternative to dragging.
 
 ## Architecture
 
@@ -74,6 +79,14 @@ The local client accepts only private-LAN IPv4 addresses or syntactically valid 
 
 This is explicit trust on first use, not public-web PKI. Verify first contact on a trusted home network. Legitimate certificate rotation or Bridge replacement requires deliberate re-verification and pairing. The Hue application key is stored separately in Keychain with `AfterFirstUnlockThisDeviceOnly` accessibility.
 
+## Transfer local data
+
+Open **Settings → Import and export** to save or open JSON files in Files. Export the Studio draft, custom colors, cue sequence, saved mixes, scene favorites, selected room layout, or physical-light safety preferences. To export one mix as a canonical Hue Board scene document, choose **Export mix** from its Studio library menu.
+
+Import previews the changes and asks for confirmation during idle playback. Mix imports add new items and skip identical copies. A different mix with the same document ID blocks the import and preserves the library. Canonical scene schema 2 and legacy Scriptable mix schema 3 files can be added to the Studio library. Importing a draft loads it into Studio. Save it as a mix to keep a local copy.
+
+A layout file contains the original room or zone and fixture resource IDs so only matching placements can be updated. Keep layout files private when they describe your home. Layout import previews any brightness-ceiling changes. Safety preferences preserve the warning consent already recorded on the receiving device. Transfer files contain local configuration and exclude Bridge credentials, connection profiles, and recovery and playback state. Files never issue lighting commands.
+
 ## Parity gate
 
 The generated contract covers **32 looks, 24 patterns and 19 palettes**. `scripts/export-ios-contract.cjs` also evaluates 512 deterministic frames across every preset, four times and four positions. It writes a compact canonical SHA-256 manifest rather than a large opaque fixture dump.
@@ -93,18 +106,20 @@ These checks were recorded during development of the local candidate. They do no
 
 - Current JavaScript native-parity tests: **8/8 passed**.
 - Current TypeScript check: **passed**.
-- The focused `AppleEngineTests|PlaybackTransportTests` Swift run hit a 180-second process budget during compilation and was stopped; it produced no test result. The current schema-2, eleven-decimal JavaScriptCore digest and the revised transport cancellation tests still require a completed Swift run.
+- On November 21, 2026, the published `a9a5d905` checkpoint passed eight focused Apple package tests on Xcode 27.2, including the schema-2, eleven-decimal 512-frame JavaScriptCore digest and six transport tests.
 - The existing-installation device runner's XcodeGen project generated successfully. Its physical-device assertions are qualified separately below.
 
 ## Installed candidate evidence
 
-A fresh physical-iPhone app query reports **0.2.1 (build 5)**. The existing pairing remains usable, and the app reaches **Bridge connected**. The reusable [existing-installation device runner](DeviceSmoke/README.md) is versioned separately from the app; its XcodeGen project generates successfully, while full device execution remains subject to the qualifications below.
+A November 21, 2026 physical-iPhone app query reports **0.2.1 (build 5)**. A fresh, checksum-valid copy reported a recovery journal, idle playback, and no live descriptor. The journal prevents the browse-only test and the in-place candidate installation under this qualification procedure. The reusable [existing-installation device runner](DeviceSmoke/README.md) is versioned separately from the app.
+
+The earlier device session reached **Bridge connected** and recorded the following results before the current journal appeared.
 
 - The explicit Stop & restore retry completed. The copied on-device state has a valid payload checksum, no recovery journal, no live descriptor, and idle playback. A later independent copy confirmed that the cleared state persisted.
 - The original pre-installation baseline backup remains preserved. Recovery was cleared through the app's restore path, not by deleting its preferences.
 - A partial paired-device UI check reached Lights, an individual-light sheet, and Scenes before its Scenes search-field lookup failed. The active debug write audit recorded zero Hue write attempts, and the post-check preferences remained checksum-valid, idle, and free of recovery/live-session records. This is not a passing full navigation or visual qualification.
 - The standalone UI runner was revised to reveal search before querying it, rebuilt, and its signature verified. The next run was blocked before UI execution because iOS reported that the phone was locked. Studio, Room, search behavior, and screenshot review remain unverified in this device pass.
-- The current restore comparator confirms power and brightness readback only. It does not verify saved XY color or color temperature, and Bridge readback does not establish emitted optical output.
+- The installed build 5 restore comparator confirmed power and brightness only. Verifying the active color settings on actual fixtures remains a hardware gate. Bridge readback does not establish emitted optical output.
 
 ## Remaining release gates
 
@@ -126,11 +141,12 @@ Do not call this parity-complete or App Store-ready before the applicable physic
 | Phone-free Bridge playback | Yes | Yes |
 | Exact 24-pattern engine | Yes | Shared JavaScriptCore runtime plus 512-frame digest gate |
 | Shared-engine Live samples | Foreground REST | Low-rate REST fallback, foreground or bounded continued processing on iOS 26+ |
-| Static restore baseline | Yes | Expands safely for newly touched lights; partial failures retained |
+| Static restore baseline | Yes | Expands for newly touched lights and checks active color during readback; incomplete restores retain the baseline |
 | Individual per-light power, brightness, color, white controls | Yes | New native editing sheet with capability and temperature-range gating |
 | Local spatial editor (fixture selection, positions, phase, roles, trim, ceilings) | Yes | New native room-scoped editor; direct Hue layout import not implemented |
-| Saved Studio mixes | Yes | New validated, scope-free local scene documents; not synced to other devices |
+| Saved Studio mixes | Yes | Validated, scope-free local scene documents with JSON import and export |
 | Custom four-color palettes and engine-sampled thumbnails | Yes | New editable Studio palette and sampled visual previews; no optical-output claims |
 | Cue sequencing | Yes | New ordered/seeded-shuffle cues within one bounded Native Live lease; still requires device verification |
+| Settings and design portability | Scene documents and local preferences | JSON files for Studio drafts, palettes, cues, saved mixes, favorites, room layouts, and lighting safety preferences |
 | Hue layout import, gradient-strip editing, saved Hue scene copying | Yes | Not yet implemented |
 | Hue Entertainment high-rate streaming | No | Required future transport for exact temporal choreography |
