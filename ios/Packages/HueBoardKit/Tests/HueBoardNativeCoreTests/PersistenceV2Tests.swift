@@ -186,6 +186,57 @@ final class PersistenceV2Tests: XCTestCase {
         XCTAssertNil(removedJournal)
     }
 
+    func testStaleLiveWorkerCannotOverwriteReplacementOrResetStatus() async throws {
+        let context = makeContext()
+        defer { context.cleanup() }
+        let persistence = AppPersistence(suiteName: context.suite)
+        let profile = try makeProfile(bridgeID: bridgeID, host: "192.168.1.2")
+        let area = makeArea(id: "room-one")
+        let startedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let journal = RestoreJournal(bridgeID: bridgeID, area: area, lights: area.lights, createdAt: startedAt)
+        let first = LiveSessionDescriptor(
+            profile: profile, area: area, presetID: "first", brightness: 30, duration: 60, startedAt: startedAt
+        )
+        let second = LiveSessionDescriptor(
+            profile: profile, area: area, presetID: "second", brightness: 30, duration: 60, startedAt: startedAt
+        )
+        let firstProgress = LiveSessionStatus(
+            sessionID: first.id, state: .running, progress: 0.25, message: "Running", updatedAt: startedAt
+        )
+
+        try await persistence.saveRestoreJournal(journal)
+        try await persistence.beginLiveSession(first)
+        let savedProgress = try await persistence.saveLiveStatusIfCurrent(firstProgress)
+        let recordedProgress = try await persistence.loadLiveStatus()
+        XCTAssertTrue(savedProgress)
+        XCTAssertEqual(recordedProgress, firstProgress)
+
+        try await persistence.beginLiveSession(second)
+        var lateStatus = firstProgress
+        lateStatus.state = .cancelled
+        let savedStaleStatus = try await persistence.saveLiveStatusIfCurrent(lateStatus)
+        let replacementReader = AppPersistence(suiteName: context.suite)
+        let replacementDescriptor = try await replacementReader.loadLiveDescriptor()
+        let replacementStatus = try await replacementReader.loadLiveStatus()
+        XCTAssertFalse(savedStaleStatus)
+        XCTAssertEqual(replacementDescriptor?.id, second.id)
+        XCTAssertEqual(replacementStatus.sessionID, second.id)
+        XCTAssertEqual(replacementStatus.state, .starting)
+
+        try await persistence.clearLiveSession()
+        lateStatus.sessionID = second.id
+        let savedAfterReset = try await persistence.saveLiveStatusIfCurrent(lateStatus)
+        let resetReader = AppPersistence(suiteName: context.suite)
+        let resetDescriptor = try await resetReader.loadLiveDescriptor()
+        let resetStatus = try await resetReader.loadLiveStatus()
+        let retainedJournal = try await resetReader.loadRestoreJournal()
+        XCTAssertFalse(savedAfterReset)
+        XCTAssertNil(resetDescriptor)
+        XCTAssertNil(resetStatus.sessionID)
+        XCTAssertEqual(resetStatus.state, .idle)
+        XCTAssertEqual(retainedJournal, journal)
+    }
+
     func testRollbackRestoresLegacyBackupAndRemovesV2State() async throws {
         let context = makeContext()
         defer { context.cleanup() }

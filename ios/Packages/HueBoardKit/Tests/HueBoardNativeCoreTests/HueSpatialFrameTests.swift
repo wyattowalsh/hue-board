@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 import HueBoardKit
 @testable import HueBoardNativeCore
@@ -5,8 +6,14 @@ import HueBoardKit
 private enum EndFixtureFrame: Error { case captured }
 
 private actor SyntheticHueSampler: HueEngineSampling {
+    private let brightness: Double
     private var positions: [Double] = []
     private var patterns: [String] = []
+    private var colors: [RGB] = []
+
+    init(brightness: Double = 80) {
+        self.brightness = brightness
+    }
 
     func sample(
         time: Double,
@@ -18,16 +25,18 @@ private actor SyntheticHueSampler: HueEngineSampling {
         patterns.append(settings.showA)
         return HueLightFrame(
             color: RGB(red: 0.1, green: 0.3, blue: 0.7),
-            brightness: 80
+            brightness: brightness
         )
     }
 
     func xy(_ color: RGB, gamut: HueGamut?) async throws -> HueXY {
-        .init(x: 0.3, y: 0.35)
+        colors.append(color)
+        return .init(x: 0.3, y: 0.35)
     }
 
     func recordedPositions() -> [Double] { positions }
     func recordedPatterns() -> [String] { patterns }
+    func recordedColors() -> [RGB] { colors }
 }
 
 private actor SyntheticFrameRecorder {
@@ -38,6 +47,20 @@ private actor SyntheticFrameRecorder {
     }
     func first() -> LightingFrame? { frames.first }
     func count() -> Int { frames.count }
+}
+
+private actor SyntheticSignalSource {
+    let signal: HueLiveSignal
+    private var times: [TimeInterval] = []
+
+    init(_ signal: HueLiveSignal) { self.signal = signal }
+
+    func sample(at elapsed: TimeInterval) -> HueLiveSignal {
+        times.append(elapsed)
+        return signal
+    }
+
+    func sampleTimes() -> [TimeInterval] { times }
 }
 
 final class HueSpatialFrameTests: XCTestCase {
@@ -142,6 +165,131 @@ final class HueSpatialFrameTests: XCTestCase {
         }
     }
 
+    func testLiveSignalUsesOneSampleAndPreservesStaticFixturesAndOutputCaps() async throws {
+        let wash = light("wash")
+        let task = light("task")
+        let accent = light("accent")
+        let area = HueArea(
+            id: .init(rawValue: "signal-room"), kind: .room,
+            name: "Signal room", lights: [wash, task, accent]
+        )
+        var layout = HueRoomLayout.startingLayout(for: area)
+        layout.placements[1].role = .task
+        layout.placements[2].role = .accent
+        layout.placements[2].ceiling = 52
+        let source = SyntheticSignalSource(
+            HueLiveSignal(level: 1, color: RGB(red: 0.9, green: 0.1, blue: 0.2))
+        )
+        let sampler = SyntheticHueSampler(brightness: 50)
+
+        let frame = try await captureSignalFrame(
+            area: area, layout: layout, sampler: sampler, source: source,
+            masterBrightness: 70, safety: .init(maximumDynamicBrightness: 55)
+        )
+        let times = await source.sampleTimes()
+        XCTAssertEqual(times.count, 1)
+        XCTAssertGreaterThanOrEqual(try XCTUnwrap(times.first), 0)
+        XCTAssertEqual(frame.actions[wash.id]?.dimming?.brightness, 55)
+        XCTAssertEqual(frame.actions[task.id]?.dimming?.brightness, 50)
+        XCTAssertEqual(frame.actions[accent.id]?.dimming?.brightness, 52)
+        XCTAssertTrue(frame.actions.values.allSatisfy { $0.dynamics?.duration == 4_500 })
+        let colors = await sampler.recordedColors()
+        XCTAssertEqual(colors.count, 3)
+        let tinted = try XCTUnwrap(colors.first)
+        XCTAssertEqual(tinted.red, 0.244, accuracy: 0.0001)
+        XCTAssertEqual(tinted.green, 0.264, accuracy: 0.0001)
+        XCTAssertEqual(tinted.blue, 0.61, accuracy: 0.0001)
+        XCTAssertEqual(colors.dropFirst().first, RGB(red: 0.1, green: 0.3, blue: 0.7))
+        XCTAssertEqual(colors.last, tinted)
+    }
+
+    func testReduceLightMotionSkipsSignalAndKeepsLongTransition() async throws {
+        let fixture = light("a")
+        let area = HueArea(
+            id: .init(rawValue: "steady-room"), kind: .room,
+            name: "Steady room", lights: [fixture]
+        )
+        let layout = HueRoomLayout.startingLayout(for: area)
+        let source = SyntheticSignalSource(
+            HueLiveSignal(level: 1, color: RGB(red: 1, green: 0, blue: 0))
+        )
+        let sampler = SyntheticHueSampler(brightness: 50)
+
+        let frame = try await captureSignalFrame(
+            area: area, layout: layout, sampler: sampler, source: source,
+            masterBrightness: 65,
+            safety: .init(reduceLightMotion: true, maximumDynamicBrightness: 85)
+        )
+        let times = await source.sampleTimes()
+        XCTAssertTrue(times.isEmpty)
+        XCTAssertEqual(frame.actions[fixture.id]?.dimming?.brightness, 50)
+        XCTAssertEqual(frame.actions[fixture.id]?.dynamics?.duration, 8_000)
+        let colors = await sampler.recordedColors()
+        XCTAssertEqual(colors, [RGB(red: 0.1, green: 0.3, blue: 0.7)])
+    }
+
+    func testLiveSignalCannotExceedMasterBrightness() async throws {
+        let fixture = light("a")
+        let area = HueArea(
+            id: .init(rawValue: "master-room"), kind: .room,
+            name: "Master room", lights: [fixture]
+        )
+        let frame = try await captureSignalFrame(
+            area: area, layout: .startingLayout(for: area),
+            sampler: SyntheticHueSampler(brightness: 50),
+            source: SyntheticSignalSource(HueLiveSignal(level: 1)),
+            masterBrightness: 53, safety: .init(maximumDynamicBrightness: 85)
+        )
+        XCTAssertEqual(frame.actions[fixture.id]?.dimming?.brightness, 53)
+    }
+
+    func testLiveSignalNormalizesNonfiniteAndOutOfRangeInput() {
+        XCTAssertEqual(HueLiveSignal(level: .infinity).level, 0)
+        XCTAssertEqual(HueLiveSignal(level: -.infinity).level, 0)
+        XCTAssertEqual(HueLiveSignal(level: -1).level, 0)
+        XCTAssertEqual(HueLiveSignal(level: 2).level, 1)
+        XCTAssertEqual(
+            HueLiveSignal(level: .nan, color: RGB(red: .nan, green: 0, blue: 0)),
+            HueLiveSignal(level: 0)
+        )
+        XCTAssertEqual(
+            HueLiveSignal(level: 0, color: RGB(red: 2, green: -1, blue: 0.5)).color,
+            RGB(red: 1, green: 0, blue: 0.5)
+        )
+    }
+
+    func testCancellationWhileSamplingInputPreventsFirstWrite() async throws {
+        let area = HueArea(
+            id: .init(rawValue: "cancel-input-room"), kind: .room,
+            name: "Cancel input room", lights: [light("a")]
+        )
+        let layout = HueRoomLayout.startingLayout(for: area)
+        let contract = try HueBoardContractLoader.load()
+        let recorder = SyntheticFrameRecorder()
+        let runner = NativeLiveRunner(engine: SyntheticHueSampler())
+        let session = Task {
+            try await runner.run(
+                area: area, layout: layout,
+                settings: HueEngineSettings(), cueSequence: nil,
+                contract: contract, duration: 1, safetySettings: .default,
+                signal: { _ in
+                    withUnsafeCurrentTask { task in task?.cancel() }
+                    return HueLiveSignal(level: 1)
+                },
+                submit: { frame in await recorder.record(frame) },
+                progress: { _ in }
+            )
+        }
+
+        do {
+            try await session.value
+            XCTFail("Cancellation while sampling input must end the session.")
+        } catch is CancellationError {
+            let writes = await recorder.count()
+            XCTAssertEqual(writes, 0)
+        }
+    }
+
     func testInterruptedLiveRunStopsSubmittingAndAllowsExplicitRestart() async throws {
         let area = HueArea(
             id: .init(rawValue: "interruption-room"), kind: .room,
@@ -188,5 +336,33 @@ final class HueSpatialFrameTests: XCTestCase {
             let count = await recorder.count()
             XCTAssertEqual(count, 2)
         }
+    }
+
+    private func captureSignalFrame(
+        area: HueArea,
+        layout: HueRoomLayout,
+        sampler: SyntheticHueSampler,
+        source: SyntheticSignalSource,
+        masterBrightness: Double,
+        safety: PhysicalLightSafetySettings
+    ) async throws -> LightingFrame {
+        let recorder = SyntheticFrameRecorder()
+        let runner = NativeLiveRunner(engine: sampler)
+        let contract = try HueBoardContractLoader.load()
+        do {
+            try await runner.run(
+                area: area, layout: layout,
+                settings: HueEngineSettings(brightness: masterBrightness),
+                cueSequence: nil, contract: contract, duration: 1, safetySettings: safety,
+                signal: { await source.sample(at: $0) },
+                submit: { frame in
+                    await recorder.record(frame)
+                    throw EndFixtureFrame.captured
+                },
+                progress: { _ in }
+            )
+        } catch EndFixtureFrame.captured {}
+        let frame = await recorder.first()
+        return try XCTUnwrap(frame)
     }
 }

@@ -143,24 +143,29 @@ final class PlaybackTransportTests: XCTestCase {
     }
 
 
-    func testStoppingDuringFirstDirectWritePreventsLaterWrites() async throws {
+    func testStoppingDuringFirstDirectWritePreventsLaterWritesAndBlocksHandoff() async throws {
         let client = SuspendingLightClient()
         let profile = try makeProfile()
+        let credential = HueBridgeCredential(bridgeID: bridgeID, applicationKey: "test-key")
         let transport = DirectControlTransport(
             client: client,
             profile: profile,
-            credential: .init(bridgeID: bridgeID, applicationKey: "test-key"),
+            credential: credential,
             allowedLightIDs: [id("a"), id("b")]
         )
-        let coordinator = PlaybackCoordinator()
-        let lease = try await coordinator.begin(
-            .init(
-                scope: .init(bridgeID: bridgeID, areaID: id("room")),
-                transport: .directControl,
-                presetID: "test"
-            ),
-            using: transport
+        let replacement = DirectControlTransport(
+            client: client,
+            profile: profile,
+            credential: credential,
+            allowedLightIDs: [id("b")]
         )
+        let coordinator = PlaybackCoordinator()
+        let request = LightingPlaybackRequest(
+            scope: .init(bridgeID: bridgeID, areaID: id("room")),
+            transport: .directControl,
+            presetID: "test"
+        )
+        let lease = try await coordinator.begin(request, using: transport)
         let firstID = id("a")
         let secondID = id("b")
         let frame = LightingFrame(
@@ -187,7 +192,7 @@ final class PlaybackTransportTests: XCTestCase {
             await coordinator.stopCurrent(reason: .cancelled)
         }
         do {
-            // The coordinator drops its lease before awaiting the transport's drain.
+            // Ownership is revoked even though the first request remains in flight.
             try await waitUntil("direct-control transport ownership release") {
                 await transport.activeLease == nil
             }
@@ -198,7 +203,27 @@ final class PlaybackTransportTests: XCTestCase {
             _ = try? await submission.value
             throw error
         }
-        await client.resumeFirstWrite()
+        let release = Task { [client] in
+            try? await Task.sleep(for: .milliseconds(250))
+            await client.resumeFirstWrite()
+        }
+        let currentDuringDrain = await coordinator.currentLease()
+        XCTAssertNil(currentDuringDrain)
+        do {
+            let premature = try await coordinator.begin(request, using: replacement)
+            XCTFail("A replacement writer must wait for the cancelled request to drain")
+            try? await coordinator.finish(premature)
+        } catch PlaybackCoordinationError.busy(let blockingLease) {
+            XCTAssertEqual(blockingLease, lease)
+        } catch {
+            XCTFail("Unexpected replacement error: \(error)")
+        }
+
+        let joinedStop = await coordinator.stopCurrent(reason: .user)
+        let firstWriteStillSuspended = await client.isFirstWriteSuspended()
+        XCTAssertNil(joinedStop)
+        XCTAssertFalse(firstWriteStillSuspended, "A second stop must await the first drain")
+        await release.value
         let stopped = await stopping.value
         XCTAssertEqual(stopped, lease)
         do {
@@ -209,6 +234,8 @@ final class PlaybackTransportTests: XCTestCase {
         }
         let writes = await client.writeIDs()
         XCTAssertEqual(writes, [id("a")])
+        let replacementLease = try await coordinator.begin(request, using: replacement)
+        try await coordinator.finish(replacementLease)
     }
 
     func testStoppingDuringSceneUpdatePreventsRecall() async throws {

@@ -79,6 +79,37 @@ final class NativeCoreTests: XCTestCase {
         )
     }
 
+    func testRoomArrangementLookupRequiresPinnedBridgeAndMatchingCredential() async throws {
+        let client = HueBridgeClient()
+        let area = HueArea(id: .init(rawValue: "room"), kind: .room, name: "Room", lights: [])
+        let unpinned = try BridgeProfile(bridgeID: bridgeID, host: "example-bridge.local")
+        let pinned = try BridgeProfile(
+            bridgeID: bridgeID, host: "example-bridge.local", certificateSHA256: fingerprint
+        )
+        let matching = HueBridgeCredential(bridgeID: bridgeID, applicationKey: "example-key")
+        let mismatched = HueBridgeCredential(
+            bridgeID: "001788fffe654321", applicationKey: "example-key"
+        )
+
+        do {
+            _ = try await client.roomArrangements(profile: unpinned, credential: matching, in: area)
+            XCTFail("Arrangement lookup must require a saved Bridge certificate.")
+        } catch let error as HueBoardError {
+            guard case .authorization = error else {
+                return XCTFail("Expected a local authorization error, got \(error).")
+            }
+        }
+
+        do {
+            _ = try await client.roomArrangements(profile: pinned, credential: mismatched, in: area)
+            XCTFail("Arrangement lookup must reject the key for a different Bridge.")
+        } catch let error as HueBoardError {
+            XCTAssertEqual(
+                error, .authorization("The saved credential belongs to another Hue Bridge.")
+            )
+        }
+    }
+
     func testPersistence() async throws {
         let suite = "HueBoardTests.\(UUID())"
         defer { UserDefaults.standard.removePersistentDomain(forName: suite) }

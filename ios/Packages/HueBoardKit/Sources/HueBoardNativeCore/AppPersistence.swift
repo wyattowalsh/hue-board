@@ -127,6 +127,36 @@ public actor AppPersistence {
         try updateState { $0.liveStatus = status }
     }
 
+    public func beginLiveSession(_ descriptor: LiveSessionDescriptor) throws {
+        try updateState { state in
+            state.liveDescriptor = descriptor
+            state.liveStatus = .init(
+                sessionID: descriptor.id,
+                state: .starting,
+                progress: 0,
+                message: "Ambient Live is starting.",
+                updatedAt: descriptor.startedAt
+            )
+        }
+    }
+
+    public func saveLiveStatusIfCurrent(_ status: LiveSessionStatus) throws -> Bool {
+        var state = try loadState()
+        guard let sessionID = status.sessionID, state.liveDescriptor?.id == sessionID else {
+            return false
+        }
+        state.liveStatus = status
+        try writeState(state)
+        return true
+    }
+
+    public func clearLiveSession() throws {
+        try updateState { state in
+            state.liveDescriptor = nil
+            state.liveStatus = .idle
+        }
+    }
+
     public func clearBridgeState(
         bridgeID: String,
         discardRecovery: Bool = false

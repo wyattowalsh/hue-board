@@ -9,6 +9,8 @@ public actor PlaybackCoordinator {
 
     private var epoch: UInt64 = 0
     private var active: ActiveWriter?
+    private var draining: ActiveWriter?
+    private var drainWaiters: [CheckedContinuation<Void, Never>] = []
 
     public init() {}
 
@@ -23,8 +25,8 @@ public actor PlaybackCoordinator {
                 actual: transport.kind
             )
         }
-        if let active {
-            throw PlaybackCoordinationError.busy(active.lease)
+        if let writer = active ?? draining {
+            throw PlaybackCoordinationError.busy(writer.lease)
         }
 
         epoch &+= 1
@@ -44,12 +46,10 @@ public actor PlaybackCoordinator {
             _ = try requireCurrent(lease)
             return lease
         } catch {
-            guard active?.lease == lease else {
+            guard let current = active, current.lease == lease else {
                 throw PlaybackCoordinationError.staleLease(lease)
             }
-            active = nil
-            epoch &+= 1
-            await transport.stop(lease: lease, reason: .failed)
+            await retire(current, reason: .failed)
             throw error
         }
     }
@@ -65,16 +65,17 @@ public actor PlaybackCoordinator {
 
     public func finish(_ lease: PlaybackWriterLease) async throws {
         let current = try requireCurrent(lease)
-        active = nil
-        epoch &+= 1
-        await current.transport.stop(lease: lease, reason: .completed)
+        await retire(current, reason: .completed)
     }
 
     public func stopCurrent(reason: PlaybackStopReason) async -> PlaybackWriterLease? {
-        guard let current = active else { return nil }
-        active = nil
-        epoch &+= 1
-        await current.transport.stop(lease: current.lease, reason: reason)
+        guard let current = active else {
+            if draining != nil {
+                await withCheckedContinuation { drainWaiters.append($0) }
+            }
+            return nil
+        }
+        await retire(current, reason: reason)
         return current.lease
     }
 
@@ -88,6 +89,19 @@ public actor PlaybackCoordinator {
 
     public func assertCurrent(_ lease: PlaybackWriterLease) throws {
         _ = try requireCurrent(lease)
+    }
+
+    private func retire(_ writer: ActiveWriter, reason: PlaybackStopReason) async {
+        // Reject stale frames immediately and hold the writer slot until its
+        // in-flight requests return, including during a concurrent stop.
+        active = nil
+        draining = writer
+        epoch &+= 1
+        await writer.transport.stop(lease: writer.lease, reason: reason)
+        draining = nil
+        let waiters = drainWaiters
+        drainWaiters.removeAll()
+        waiters.forEach { $0.resume() }
     }
 
     private func requireCurrent(_ lease: PlaybackWriterLease) throws -> ActiveWriter {
