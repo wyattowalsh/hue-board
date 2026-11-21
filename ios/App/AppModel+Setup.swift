@@ -147,7 +147,7 @@ extension AppModel {
             currentDraft = current
             nextDraft = next
             let fields = [HueSetupSection.draft, .palette, .cues].filter(sections.contains).map(\.title)
-            lines.append("\(fields.joined(separator: ", ")) will load into Studio. Save as a mix to keep this session’s draft.")
+            lines.append("\(fields.joined(separator: ", ")) will load into this Studio session. Save as a mix to keep the composition, palette and cue list.")
             if current.settings.seed != next.settings.seed {
                 lines.append("The random seed shared by the engine and cues changes from \(current.settings.seed) to \(next.settings.seed).")
             }

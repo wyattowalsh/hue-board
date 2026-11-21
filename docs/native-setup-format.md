@@ -8,7 +8,7 @@ On the receiving iPhone, open the JSON file from the same Settings section. Revi
 
 | Section | Import behavior |
 | --- | --- |
-| Studio draft | Loads the source look, composition and session duration for this Studio session. Use **Save as mix** to keep it after relaunch. |
+| Studio draft | Loads the source look, composition and duration for this Studio session. **Save as mix** keeps the composition, palette and cue list. To recover the source look, session duration and cue-enabled state after relaunch, reimport the draft and cues from the setup file. |
 | Custom palette | Replaces the four custom colors when selected. A draft-only import preserves the receiving palette. |
 | Cues | Replaces the cue list, hold time, order and enabled state. The random seed drives both cue order and the engine. The review discloses a change to that shared value. |
 | Saved mixes | Adds new document IDs and skips identical copies. Different content with an existing ID blocks that selection. Two distinct IDs can share a display name. |
@@ -18,6 +18,6 @@ On the receiving iPhone, open the JSON file from the same Settings section. Revi
 
 ## Compatibility and interruption
 
-The reader accepts the original seven section exports, canonical Hue Board scene schema 2 and supported Scriptable schema 3 mixes. Individual exports remain available. The portable file is limited to 512 KiB, and a saved library can hold 100 mixes. Split a large selection into smaller files. Unknown schemas, invalid colors, out-of-range values and mismatched room scope must be resolved before applying affected data.
+The reader accepts the original seven section exports, canonical Hue Board scene schema 2 and supported Scriptable schema 3 mixes. Individual exports remain available. The portable file is limited to 512 KiB, and a saved library can hold 100 mixes. Split a large selection into smaller files. An unsupported schema or invalid section in a setup file stops the whole import before section selection. A valid setup with a layout from a different Bridge skips that layout and can still import its portable sections. For supported legacy Scriptable mixes, review the listed substitutions and clamped values before confirming.
 
-The setup importer validates selected sections, confirms their current durable values, and records a local transaction before writing. Recovery rolls an unfinished transaction back or finishes one already marked committed. Only after durable success does the open Studio draft update. Original section formats stay readable. Build 6 compatibility inputs use synthetic data and are pinned to the old codec. [Frozen fixtures and reproduction instructions](../fixtures/native-transfer/build6/README.md)
+The setup importer validates the file, checks the selected sections against their current durable values, and records a local transaction before writing persistent changes. Recovery rolls an unfinished transaction back or finishes one already marked committed. Only after durable success does the open Studio draft update. Original section formats stay readable. Build 6 compatibility inputs use synthetic data and are pinned to the old codec. [Frozen fixtures and reproduction instructions](../fixtures/native-transfer/build6/README.md)

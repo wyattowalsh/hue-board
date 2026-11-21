@@ -96,7 +96,12 @@ final class RoomRehearsalTransferTests: XCTestCase {
             try await Task.sleep(for: .milliseconds(10))
         }
         XCTAssertGreaterThan(model.studioMedia.player?.currentTime().seconds ?? 0, 0)
-        XCTAssertEqual(model.studioRehearsalRequest(in: room, at: 30).signal?.level, 0)
+        let reading = model.studioInputPreview.signal
+        XCTAssertEqual(reading?.level, 0, "The silent clip must produce a meter reading.")
+        let suppressInput = model.safetySettings.reduceLightMotion || model.systemLightMotion.isEnabled
+        let rehearsal = model.studioRehearsalRequest(in: room, at: 30)
+        XCTAssertEqual(rehearsal.safety.reduceLightMotion, suppressInput)
+        XCTAssertEqual(rehearsal.signal, suppressInput ? nil : reading)
         XCTAssertFalse(model.studioMicrophone.isCapturing)
         await model.studioInputPreview.stop()?.value
         XCTAssertNil(model.studioMedia.player)
