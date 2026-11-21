@@ -2,6 +2,8 @@
 
 The native SwiftUI app is the primary product direction for Hue Board. Scriptable remains a compatibility implementation and source-of-truth parity oracle while the native feature set converges.
 
+For the 0.3.0 (7) internal candidate, see the source, build, device and screen-probe receipts. [Qualification results](../docs/native-0.3.0/qualification.md)
+
 ## Playback contract
 
 - **Play** validates a saved scene identity, captures every light the next operation may touch, creates or updates a compatible Hue Bridge dynamic scene, recalls it, and then lets the Bridge continue independently of the phone.

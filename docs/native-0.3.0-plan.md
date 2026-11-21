@@ -1,5 +1,7 @@
 # Hue Board native 0.3.0
 
+Execution results are recorded by source revision and binary. [Qualification receipts](native-0.3.0/qualification.md) · [Task ledger](native-0.3.0/execution.tsv)
+
 **Target an internal iPhone candidate.** Someone should be able to recognize their existing room, rehearse a cue or local video on that map, see what is driving the preview, and take the setup to another installation. Changing the lamps remains an explicit, bounded action with a verified way back.
 
 **First demonstration.** Open a room whose Hue arrangement covers four of six lights. Preview and save the four positions. Scrub a two-cue mix. Preview a local video with the microphone off. Export the setup. Require a positive Debug audit activation and zero Hue write attempts throughout. A separate authorized session proves that starting and restoring the lights works. Use synthetic content and a scratch layout for edits. [Physical test matrix](../ios/DEVICE_TESTING.md) · [Existing-installation runner](../ios/DeviceSmoke/README.md)

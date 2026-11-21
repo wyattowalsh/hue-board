@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
+import board
 import graph
 
 
@@ -63,6 +64,31 @@ class GraphToolTests(unittest.TestCase):
                                        ({"A01", "A03"}, 1, "exceed 1 slots")]:
             with self.subTest(active=active), self.assertRaisesRegex(ValueError, message):
                 graph.fleet_status(tasks, {"B01"}, active, set(), slots)
+
+    def test_board_joins_execution_by_id_without_changing_plan(self):
+        path = self.fixture()
+        original = board.graph_data(path)
+        self.assertTrue(all(row["execution"] is None for row in original))
+        # Partial ledger, arbitrary status and HTML-like receipt from a source file.
+        record = ["A02", "externally-reviewed", "abc1234", "test fixture", "</script>", "device receipt"]
+        path.with_name("execution.tsv").write_text("\t".join(board.LEDGER_FIELDS) + "\n" +
+                                                  "\t".join(record) + "\n", encoding="utf-8")
+        joined = board.graph_data(path)
+        for before, after in zip(original, joined, strict=True):
+            expected = dict(zip(board.LEDGER_FIELDS[1:], record[1:])) if before["id"] == "A02" else None
+            self.assertEqual(after, {**before, "execution": expected})
+        self.assertIn(r"\u003c/script\u003e", board.render(path))
+
+    def test_board_rejects_ambiguous_execution_records(self):
+        path = self.fixture()
+        header = "\t".join(board.LEDGER_FIELDS) + "\n"
+        record = "A02\tblocked\tabc1234\ttest fixture\tobservation\tdevice receipt\n"
+        for rows, reason in [(record * 2, "duplicate task A02"),
+                             (record.replace("A02", "U00"), "unknown or duplicate task U00"),
+                             ("A02\tblocked\n", "incomplete execution record")]:
+            with self.subTest(reason=reason), self.assertRaisesRegex(ValueError, reason):
+                path.with_name("execution.tsv").write_text(header + rows, encoding="utf-8")
+                board.graph_data(path)
 
 
 class ReleaseGraphTests(unittest.TestCase):

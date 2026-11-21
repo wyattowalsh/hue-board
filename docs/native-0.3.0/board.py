@@ -1,20 +1,44 @@
 #!/usr/bin/env python3
-"""Print an offline HTML viewer for the adjacent, validated task graph."""
+"""Print an offline HTML viewer for the task graph and optional execution ledger."""
 
+import csv
 import json
 from pathlib import Path
 
 from graph import closure, read_graph
 
 
+LEDGER_FIELDS = ["id", "status", "reference_revision", "source", "observed", "remaining_evidence"]
+
+
+def read_execution(path, tasks):
+    if not path.exists():
+        return {}
+    with path.open(encoding="utf-8", newline="") as source:
+        reader = csv.DictReader(source, delimiter="\t", quoting=csv.QUOTE_NONE)
+        if reader.fieldnames != LEDGER_FIELDS:
+            raise ValueError(f"{path}: expected execution ledger columns {', '.join(LEDGER_FIELDS)}")
+        records = {}
+        for row in reader:
+            if None in row or any(not item or not item.strip() for item in row.values()):
+                raise ValueError(f"{path}:{reader.line_num}: incomplete execution record")
+            key = row.pop("id")
+            if key not in tasks or key in records:
+                raise ValueError(f"{path}:{reader.line_num}: unknown or duplicate task {key}")
+            records[key] = row
+    return records
+
+
 def graph_data(path):
     tasks = read_graph(path)
     core = closure(tasks, "Q99")
+    execution = read_execution(path.with_name("execution.tsv"), tasks)
     return [
         {
             "id": row.id, "lane": row.lane, "scope": "Core" if row.id in core else "Optional",
             "requires": sorted(row.requires), "locks": sorted(row.locks), "title": row.task,
             "acceptance": row.acceptance, "area": row.area, "evidence": row.evidence,
+            "execution": execution.get(row.id),
         }
         for row in tasks.values()
     ]
@@ -37,7 +61,7 @@ nav,article { min-width:0; background:var(--surface); border:1px solid var(--lin
 nav { padding:1rem }
 article { padding:clamp(1rem,3vw,2rem); scroll-margin-top:.5rem; overflow-wrap:anywhere }
 .filters { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:.5rem .75rem }
-.filters label:first-child { grid-column:1/-1 }
+.filters label:first-child,.filters label[for="status"] { grid-column:1/-1 }
 label,dt { font-size:.9rem; font-weight:650 }
 input,select,button { font:inherit; color:var(--ink); background:var(--surface); border:1px solid #8796a0; border-radius:.35rem }
 input,select { display:block; width:100%; min-height:2.75rem; padding:.4rem .55rem }
@@ -51,6 +75,10 @@ button:hover,a:hover { background:var(--active) }
 .results a[aria-current] { background:var(--active); box-shadow:inset .19rem 0 var(--blue); padding-left:.5rem }
 .key { color:var(--blue); font:600 .86rem/1.5 "IBM Plex Mono",monospace }
 .meta { margin-bottom:.4rem }
+.task-status { display:block; font-size:.82rem; color:var(--muted) }
+.record { margin:1rem 0; padding:0 0 1.1rem; border-bottom:1px solid var(--line) }
+.record dl { margin-top:0 }
+#reference_revision { font-family:"IBM Plex Mono",monospace; font-size:.91rem }
 h2 { font-size:clamp(1.25rem,2.5vw,1.7rem); line-height:1.25; max-width:60ch }
 dl { margin-top:1rem }
 dt { margin-top:.8rem }
@@ -59,6 +87,7 @@ h3 { font-size:1rem; margin-top:1.25rem }
 .edges { display:flex; flex-wrap:wrap; align-items:center; gap:.35rem; margin-top:.35rem }
 .edges a { color:var(--blue); border:1px solid var(--line); border-radius:.35rem; padding:.35rem .65rem; text-decoration:underline }
 @media(max-width:46rem) { main { grid-template-columns:1fr } .results { max-height:12rem } header { margin-bottom:.75rem } }
+@media(max-width:27rem) { .filters { grid-template-columns:1fr } }
 </style></head>
 <body><header><h1>Hue Board 0.3.0</h1><p id="summary">Task graph</p></header>
 <main><nav aria-label="Find a task">
@@ -66,15 +95,21 @@ h3 { font-size:1rem; margin-top:1.25rem }
 <label>Search tasks<input type="search" id="query" placeholder="ID, task, file or receipt"></label>
 <label>Workstream<select id="lane"><option value="">All workstreams</option></select></label>
 <label>Scope<select id="scope"><option value="">Core and optional</option><option>Core</option><option>Optional</option></select></label>
+<label for="status" id="status-label" hidden>Recorded status<select id="status"><option value="">All statuses</option></select></label>
 </div>
 <div class="counts"><output id="count" aria-live="polite"></output><button type="button" id="clear">Clear filters</button></div>
 <div id="results" class="results"></div></nav>
-<article aria-labelledby="title"><p id="meta" class="meta"></p><h2 id="title" tabindex="-1"></h2>
+<article id="task-detail" aria-labelledby="title"><p id="meta" class="meta"></p><h2 id="title" tabindex="-1"></h2>
+<p class="meta" id="outside-filters" hidden>This linked task is outside the current filters.</p>
+<section class="record" id="record" aria-label="Execution record" hidden><dl>
+<dt>Recorded status</dt><dd id="recorded-status"></dd><dt>Observed</dt><dd id="observed"></dd>
+<dt>Remaining evidence</dt><dd id="remaining_evidence"></dd><dt>Reference revision</dt><dd id="reference_revision"></dd>
+<dt>Evidence sources</dt><dd id="source"></dd></dl></section>
 <dl><dt>Acceptance</dt><dd id="acceptance"></dd><dt>Evidence to retain</dt><dd id="evidence"></dd>
 <dt>Work area</dt><dd id="area"></dd><dt>Exclusive resources</dt><dd id="locks"></dd></dl>
 <h3>Direct prerequisites</h3><div id="requires" class="edges"></div>
 <h3>Direct dependents</h3><div id="dependents" class="edges"></div></article></main>
-<noscript>Enable JavaScript to browse the task graph, or read the adjacent tasks.tsv file.</noscript>
+<noscript>Enable JavaScript to browse the task graph, or read tasks.tsv and the available execution.tsv ledger.</noscript>
 <script type="application/json" id="graph">__GRAPH_JSON__</script>
 <script>
 "use strict";
@@ -85,12 +120,20 @@ const dependents = new Map(tasks.map(task => [task.id, []]));
 for (const task of tasks) for (const dependency of task.requires) dependents.get(dependency).push(task.id);
 const coreCount = tasks.filter(task => task.scope === "Core").length;
 get("summary").textContent = `Task graph · ${coreCount} core · ${tasks.length - coreCount} optional`;
-const laneTitle = lane => lane.split("-").join(" ");
+const displayLabel = value => value.replaceAll("-", " ");
 for (const lane of [...new Set(tasks.map(task => task.lane))].sort()) {
-  get("lane").add(new Option(laneTitle(lane), lane));
+  get("lane").add(new Option(displayLabel(lane), lane));
 }
-const searchIndex = new Map(tasks.map(task => [
-  task.id, Object.values(task).flat().join(" ").toLowerCase()
+const hasLedger = tasks.some(task => task.execution);
+const recordedStatus = task => task.execution?.status ?? "No ledger entry";
+if (hasLedger) {
+  get("status-label").hidden = false;
+  for (const status of [...new Set(tasks.map(recordedStatus))].sort()) {
+    get("status").add(new Option(displayLabel(status), status));
+  }
+}
+const searchIndex = new Map(tasks.map(({execution, ...plan}) => [
+  plan.id, [...Object.values(plan).flat(), ...Object.values(execution || {})].join(" ").toLowerCase()
 ]));
 let selected;
 
@@ -105,6 +148,12 @@ function taskLink(id, full) {
   if (full) {
     const name = document.createElement("span");
     name.textContent = task.title;
+    if (hasLedger) {
+      const status = document.createElement("small");
+      status.className = "task-status";
+      status.textContent = displayLabel(recordedStatus(task));
+      name.append(status);
+    }
     link.append(name);
     if (id === selected) link.setAttribute("aria-current", "true");
   } else {
@@ -114,16 +163,24 @@ function taskLink(id, full) {
   return link;
 }
 
-function filterTasks() {
+function filterTasks(selectMatch = false) {
   const words = get("query").value.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const lane = get("lane").value;
   const scope = get("scope").value;
+  const status = get("status").value;
   const matches = tasks.filter(task => (!lane || lane === task.lane)
-    && (!scope || scope === task.scope) && words.every(word => searchIndex.get(task.id).includes(word)));
+    && (!scope || scope === task.scope) && (!status || status === recordedStatus(task))
+    && words.every(word => searchIndex.get(task.id).includes(word)));
   get("count").textContent = matches.length + (matches.length === 1 ? " task" : " tasks");
   const results = get("results");
   results.replaceChildren(...matches.map(task => taskLink(task.id, true)));
   if (!matches.length) results.textContent = "No matching tasks. Try clearing a filter.";
+  get("task-detail").hidden = matches.length === 0;
+  get("outside-filters").hidden = matches.some(task => task.id === selected);
+  if (selectMatch && matches.length && !matches.some(task => task.id === selected)) {
+    history.replaceState(null, "", "#task=" + encodeURIComponent(matches[0].id));
+    showTask(false);
+  }
 }
 
 function showEdges(element, ids) {
@@ -135,7 +192,15 @@ function showTask(focus) {
   const id = new URLSearchParams(location.hash.slice(1)).get("task");
   const task = byId.get(id) || tasks[0];
   selected = task.id;
-  get("meta").textContent = [selected, laneTitle(task.lane), task.scope].join(" · ");
+  get("task-detail").hidden = false;
+  get("record").hidden = !task.execution;
+  if (task.execution) {
+    get("recorded-status").textContent = displayLabel(task.execution.status);
+    for (const field of ["observed", "remaining_evidence", "source", "reference_revision"]) {
+      get(field).textContent = task.execution[field];
+    }
+  }
+  get("meta").textContent = [selected, displayLabel(task.lane), task.scope].join(" · ");
   get("title").textContent = task.title;
   for (const field of ["acceptance", "area", "evidence"]) get(field).textContent = task[field];
   get("locks").textContent = task.locks.join(", ");
@@ -145,13 +210,15 @@ function showTask(focus) {
     if (link.hash === "#task=" + encodeURIComponent(selected)) link.setAttribute("aria-current", "true");
     else link.removeAttribute("aria-current");
   }
+  get("outside-filters").hidden = !!get("results").querySelector("a[aria-current]");
   if (focus) get("title").focus();
 }
 
-for (const id of ["query", "lane", "scope"]) get(id).addEventListener("input", filterTasks);
+const filters = ["query", "lane", "scope", "status"];
+for (const id of filters) get(id).addEventListener("input", () => filterTasks(true));
 get("clear").addEventListener("click", () => {
-  for (const id of ["query", "lane", "scope"]) get(id).value = "";
-  filterTasks();
+  for (const id of filters) get(id).value = "";
+  filterTasks(true);
   get("query").focus();
 });
 window.addEventListener("hashchange", () => showTask(true));
